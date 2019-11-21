@@ -1,3 +1,3 @@
-import http from './http';
+const http = require('./http');
 
-export default http;
+module.exports = http;

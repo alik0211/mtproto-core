@@ -1,7 +1,7 @@
-import axios from 'axios';
+const axios = require('axios');
 
-export const http = axios.create();
+const http = axios.create();
 delete http.defaults.headers.post['Content-Type'];
 delete http.defaults.headers.common['Accept'];
 
-export default http;
+module.exports = http;
