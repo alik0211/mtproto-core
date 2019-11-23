@@ -4,7 +4,6 @@ const utils = require('./utils');
 const config = require('./config');
 const CryptoJS = require('./vendors/crypto-js');
 const { authorize, apiCall } = require('./api');
-const { BigInteger } = require('./vendors/jsbn');
 const { TLSerialization, TLDeserialization } = require('./tl');
 
 Object.keys(leemon).forEach(methodName => {
@@ -15,7 +14,6 @@ Object.keys(utils).forEach(methodName => {
   window[methodName] = utils[methodName];
 });
 
-window.BigInteger = BigInteger;
 window.CryptoJS = CryptoJS;
 window.MTProto = {
   config: {

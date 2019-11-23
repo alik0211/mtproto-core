@@ -1,3 +1,4 @@
+const { BigInteger } = require('../vendors/jsbn');
 const { SecureRandom } = require('../vendors/jsbn');
 
 let authObject = {};
