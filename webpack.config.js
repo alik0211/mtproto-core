@@ -6,7 +6,6 @@ module.exports = {
   devtool: 'inline-source-map',
 
   entry: {
-    preindex: './src/preindex.js',
     index: './src/index.js',
   },
   output: {
