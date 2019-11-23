@@ -1,3 +1,4 @@
+const http = require('../transport');
 const { BigInteger } = require('../vendors/jsbn');
 const { SecureRandom } = require('../vendors/jsbn');
 
@@ -485,7 +486,7 @@ function mtpSendPlainRequest(requestBuffer) {
 
   const requestData = xhrSendBuffer ? resultBuffer : resultArray;
   let requestPromise;
-  return MTProto.helpers.http
+  return http
     .post(url, requestData, {
       responseType: 'arraybuffer',
       transformRequest: null,
@@ -583,7 +584,7 @@ function _sendEncryptedRequest(message) {
   var requestData = xhrSendBuffer ? request.getBuffer() : request.getArray();
 
   return new Promise(function(resolve, reject) {
-    const request = MTProto.helpers.http
+    const request = http
       .post(url, requestData, {
         responseType: 'arraybuffer',
         transformRequest: null,

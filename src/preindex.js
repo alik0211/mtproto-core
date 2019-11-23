@@ -1,5 +1,4 @@
 const leemon = require('leemon');
-const http = require('./transport');
 const utils = require('./utils');
 const config = require('./config');
 const { authorize, apiCall } = require('./api');
@@ -22,9 +21,6 @@ window.MTProto = {
       API: config.schema.api,
     },
     layer: 74,
-  },
-  helpers: {
-    http,
   },
 };
 
