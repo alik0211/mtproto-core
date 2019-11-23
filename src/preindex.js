@@ -12,30 +12,20 @@ Object.keys(utils).forEach(methodName => {
   window[methodName] = utils[methodName];
 });
 
-window.MTProto = {
-  config: {
-    api_id: config.app.api_id,
-    api_hash: config.app.api_hash,
-    Schema: {
-      MTProto: config.schema.mtproto,
-      API: config.schema.api,
-    },
-    layer: 74,
-  },
-};
-
 window.TLSerialization = TLSerialization;
 window.TLDeserialization = TLDeserialization;
 
-window.MTProto.mtp = {
-  authorize: authorize,
-  apiCall: apiCall,
+window.MTProto = {
+  mtp: {
+    authorize: authorize,
+    apiCall: apiCall,
+  },
 };
 
 window.MTProto.api = function(method, data) {
   if (Object.keys(data || {}).length > 0) {
-    data.api_hash = MTProto.config.api_hash;
-    data.api_id = MTProto.config.api_id;
+    data.api_hash = config.app.api_hash;
+    data.api_id = config.app.api_id;
   }
 
   return MTProto.mtp.authorize().then(() => {

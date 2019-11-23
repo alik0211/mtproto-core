@@ -1,3 +1,5 @@
+const config = require('../config');
+
 function TLSerialization(options) {
   options = options || {};
   this.maxLength = options.startMaxLength || 2048; // 2Kb
@@ -205,9 +207,7 @@ TLSerialization.prototype.storeRawBytes = function(bytes, field) {
 };
 
 TLSerialization.prototype.storeMethod = function(methodName, params) {
-  var schema = this.mtproto
-    ? window.MTProto.config.Schema.MTProto
-    : window.MTProto.config.Schema.API;
+  var schema = this.mtproto ? config.schema.mtproto : config.schema.api;
   var methodData = false,
     i;
 
@@ -294,9 +294,7 @@ TLSerialization.prototype.storeObject = function(obj, type, field) {
     throw new Error('Invalid object for type ' + type);
   }
 
-  var schema = this.mtproto
-    ? window.MTProto.config.Schema.MTProto
-    : window.MTProto.config.Schema.API;
+  var schema = this.mtproto ? config.schema.mtproto : config.schema.api;
   var predicate = obj['_'];
   var isBare = false;
   var constructorData = false,
@@ -585,9 +583,7 @@ TLDeserialization.prototype.fetchObject = function(type, field) {
     return result;
   }
 
-  var schema = this.mtproto
-    ? window.MTProto.config.Schema.MTProto
-    : window.MTProto.config.Schema.API;
+  var schema = this.mtproto ? config.schema.mtproto : config.schema.api;
   var predicate = false;
   var constructorData = false;
 
@@ -640,7 +636,7 @@ TLDeserialization.prototype.fetchObject = function(type, field) {
 
     var fallback = false;
     if (!constructorData && this.mtproto) {
-      var schemaFallback = window.MTProto.config.Schema.API;
+      var schemaFallback = config.schema.api;
       for (i = 0; i < schemaFallback.constructors.length; i++) {
         if (schemaFallback.constructors[i].id == constructorCmp) {
           constructorData = schemaFallback.constructors[i];
