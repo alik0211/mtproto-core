@@ -1,3 +1,4 @@
+const Zlib = require('zlibjs');
 const { SecureRandom } = require('../vendors/jsbn');
 
 function bigint(num) {

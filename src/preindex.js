@@ -1,5 +1,4 @@
 const Rusha = require('rusha');
-const Zlib = require('zlibjs');
 const leemon = require('leemon');
 const http = require('./transport');
 const utils = require('./utils');
@@ -20,7 +19,6 @@ Object.keys(utils).forEach(methodName => {
 window.Rusha = Rusha;
 window.BigInteger = BigInteger;
 window.CryptoJS = CryptoJS;
-window.Zlib = Zlib;
 window.MTProto = {
   config: {
     api_id: config.app.api_id,
