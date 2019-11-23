@@ -2,7 +2,6 @@ const leemon = require('leemon');
 const utils = require('./utils');
 const config = require('./config');
 const { authorize, apiCall } = require('./api');
-const { TLSerialization, TLDeserialization } = require('./tl');
 
 Object.keys(leemon).forEach(methodName => {
   window[methodName] = leemon[methodName];
@@ -11,9 +10,6 @@ Object.keys(leemon).forEach(methodName => {
 Object.keys(utils).forEach(methodName => {
   window[methodName] = utils[methodName];
 });
-
-window.TLSerialization = TLSerialization;
-window.TLDeserialization = TLDeserialization;
 
 window.MTProto = {
   mtp: {
