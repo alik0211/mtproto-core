@@ -5,7 +5,8 @@ const http = require('./transport');
 const utils = require('./utils');
 const config = require('./config');
 const CryptoJS = require('./vendors/crypto-js');
-const { BigInteger, SecureRandom } = require('./vendors/jsbn');
+const { authorize, apiCall } = require('./api');
+const { BigInteger } = require('./vendors/jsbn');
 const { TLSerialization, TLDeserialization } = require('./tl');
 
 Object.keys(leemon).forEach(methodName => {
@@ -18,7 +19,6 @@ Object.keys(utils).forEach(methodName => {
 
 window.Rusha = Rusha;
 window.BigInteger = BigInteger;
-window.SecureRandom = SecureRandom;
 window.CryptoJS = CryptoJS;
 window.Zlib = Zlib;
 window.MTProto = {
@@ -38,9 +38,6 @@ window.MTProto = {
 
 window.TLSerialization = TLSerialization;
 window.TLDeserialization = TLDeserialization;
-
-// Need window.SecureRandom
-const { authorize, apiCall } = require('./api');
 
 window.MTProto.mtp = {
   authorize: authorize,

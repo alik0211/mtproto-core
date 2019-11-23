@@ -1,3 +1,5 @@
+const { SecureRandom } = require('../vendors/jsbn');
+
 let authObject = {};
 
 let server_time_offset = 0;
@@ -62,7 +64,7 @@ function tsNow(seconds) {
   return seconds ? Math.floor(t / 1000) : t;
 }
 
-const secureRandom = new window.SecureRandom();
+const secureRandom = new SecureRandom();
 
 const chromeMatches = navigator.userAgent.match(/Chrome\/(\d+(\.\d+)?)/);
 const chromeVersion = (chromeMatches && parseFloat(chromeMatches[1])) || false;
