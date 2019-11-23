@@ -1,4 +1,3 @@
-const Rusha = require('rusha');
 const leemon = require('leemon');
 const http = require('./transport');
 const utils = require('./utils');
@@ -16,7 +15,6 @@ Object.keys(utils).forEach(methodName => {
   window[methodName] = utils[methodName];
 });
 
-window.Rusha = Rusha;
 window.BigInteger = BigInteger;
 window.CryptoJS = CryptoJS;
 window.MTProto = {

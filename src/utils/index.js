@@ -1,4 +1,5 @@
 const Zlib = require('zlibjs');
+const Rusha = require('rusha');
 const { SecureRandom } = require('../vendors/jsbn');
 
 function bigint(num) {
