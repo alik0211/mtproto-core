@@ -1289,9 +1289,9 @@ window.getApiCallMessage = getApiCallMessage;
 function getApiCallMessage(method, params = {}, options = {}) {
   const serializer = new TLSerialization(options);
 
-  serializer.storeInt(0xda9b0d0d, 'invokeWithLayer');
+  serializer.storeInt(config.invokeWithLayer, 'invokeWithLayer');
   serializer.storeInt(config.layer, 'layer');
-  serializer.storeInt(0xc7481da6, 'initConnection');
+  serializer.storeInt(config.initConnection, 'initConnection');
   serializer.storeInt(config.app.api_id, 'api_id');
   serializer.storeString(
     navigator.userAgent || 'Unknown UserAgent',
