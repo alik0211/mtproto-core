@@ -1,10 +1,5 @@
-const leemon = require('leemon');
 const config = require('./config');
 const { authorize, apiCall } = require('./api');
-
-Object.keys(leemon).forEach(methodName => {
-  window[methodName] = leemon[methodName];
-});
 
 module.exports = {
   call(method, data) {

@@ -1,5 +1,22 @@
 const Zlib = require('zlibjs');
 const Rusha = require('rusha');
+const {
+  powMod,
+  eGCD_,
+  greater,
+  divide_,
+  str2bigInt,
+  equalsInt,
+  isZero,
+  bigInt2str,
+  copy_,
+  copyInt_,
+  rightShift_,
+  sub_,
+  add_,
+  one,
+  bpe,
+} = require('leemon');
 const CryptoJS = require('../vendors/crypto-js');
 const { BigInteger, SecureRandom } = require('../vendors/jsbn');
 
