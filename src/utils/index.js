@@ -1,8 +1,7 @@
 const Zlib = require('zlibjs');
 const Rusha = require('rusha');
 const CryptoJS = require('../vendors/crypto-js');
-const { BigInteger } = require('../vendors/jsbn');
-const { SecureRandom } = require('../vendors/jsbn');
+const { BigInteger, SecureRandom } = require('../vendors/jsbn');
 
 function bigint(num) {
   return new BigInteger(num.toString(16), 16);
