@@ -1,4 +1,4 @@
-const Zlib = require('zlibjs');
+const { Zlib } = require('zlibjs/bin/gunzip.min.js');
 const Rusha = require('rusha');
 const {
   powMod,
