@@ -1,4 +1,13 @@
 const config = require('../config');
+const {
+  bigint,
+  bigStringInt,
+  bytesToHex,
+  bytesToArrayBuffer,
+  intToUint,
+  uintToInt,
+  gzipUncompress,
+} = require('../utils');
 
 function TLSerialization(options) {
   options = options || {};

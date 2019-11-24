@@ -2,6 +2,28 @@ const http = require('../transport');
 const config = require('../config');
 const { BigInteger, SecureRandom } = require('../vendors/jsbn');
 const { TLSerialization, TLDeserialization } = require('../tl');
+const {
+  bigStringInt,
+  bytesToHex,
+  bytesFromHex,
+  bytesCmp,
+  bytesXor,
+  bytesToArrayBuffer,
+  convertToArrayBuffer,
+  convertToUint8Array,
+  bytesFromArrayBuffer,
+  bufferConcat,
+  longToBytes,
+  longFromInts,
+  sha1BytesSync,
+  sha256HashSync,
+  rsaEncrypt,
+  aesEncryptSync,
+  aesDecryptSync,
+  nextRandomInt,
+  pqPrimeFactorization,
+  bytesModPow,
+} = require('../utils');
 
 let authObject = {};
 
