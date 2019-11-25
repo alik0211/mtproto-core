@@ -1,7 +1,22 @@
 {
   "name": "@mtproto/core",
   "version": "0.0.0",
+  "description": "Telegram API for browser",
+  "keywords": [
+    "telegram",
+    "telegram-api",
+    "mtproto",
+    "mtproto2",
+    "browser",
+    "api"
+  ],
+  "homepage": "https://github.com/alik0211/mtproto-core#readme",
+  "bugs": {
+    "url": "https://github.com/alik0211/mtproto-core/issues"
+  },
+  "author": "Ali Gasymov <alik0211alik@gmail.com> (https://gasymov.com/)",
   "main": "src/main.js",
+  "repository": "github:alik0211/mtproto-core",
   "files": [
     "/scheme",
     "/src"
