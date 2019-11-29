@@ -563,7 +563,6 @@ function applyServerSalt(salt) {
 }
 
 const sentMessages = {};
-window.sentMessages = sentMessages;
 
 function _sendEncryptedRequest(message) {
   const authKey = authObject.authKey;
@@ -1284,10 +1283,6 @@ function apiCall(method, params = {}, options = {}) {
   });
 }
 
-window.apicalls = [];
-window.invokeApiCall = invokeApiCall;
-window.getApiCallMessage = getApiCallMessage;
-
 function getApiCallMessage(method, params = {}, options = {}) {
   const serializer = new TLSerialization(options);
 
@@ -1331,7 +1326,6 @@ function invokeApiCall(method, params = {}, options = {}) {
   return sendEncryptedRequest(message);
 }
 
-window.sendEncryptedRequest = sendEncryptedRequest;
 function sendEncryptedRequest(messages) {
   //const sendEncryptedRequest = apiDebounce(function (messages) {
   //console.log('send req', messages.length)
