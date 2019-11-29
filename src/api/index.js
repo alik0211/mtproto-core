@@ -483,7 +483,7 @@ function generateMessageID() {
   return longFromInts(messageID[0], messageID[1]);
 }
 
-const urlPath = config.test ? '/apiw_test1' : 'apiw1';
+const urlPath = config.test ? '/apiw_test1' : '/apiw1';
 
 const url =
   location.protocol == 'https:'
