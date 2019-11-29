@@ -13,4 +13,6 @@ module.exports = {
   invokeAfterMsg: 0xcb9f372d,
 
   app: {},
+
+  test: false,
 };

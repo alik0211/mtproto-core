@@ -2,9 +2,10 @@ const config = require('./config');
 const { authorize, apiCall } = require('./api');
 
 class MTProto {
-  constructor({ api_id, api_hash }) {
+  constructor({ api_id, api_hash, test = false }) {
     config.app.api_id = api_id;
     config.app.api_hash = api_hash;
+    config.test = test;
   }
 
   call(method, data) {
