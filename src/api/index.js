@@ -45,45 +45,6 @@ function debounce(func, wait, immediate) {
   };
 }
 
-function apiDebounce(func, wait) {
-  let timeout;
-  let messages = [];
-  return function(newMessages) {
-    return new Promise(function(resolve, reject) {
-      if (!(newMessages instanceof Array)) {
-        newMessages = [newMessages];
-      }
-      messages = messages.concat(newMessages);
-      //messages = [...newMessages];
-      //messages = newMessages;
-
-      clearTimeout(timeout);
-      timeout = setTimeout(function() {
-        resolve(func(messages));
-        messages = [];
-      }, wait);
-    });
-
-    return func(newMessages);
-    return new Promise(function(resolve, reject) {
-      if (!(newMessages instanceof Array)) {
-        newMessages = [newMessages];
-      }
-      const context = this;
-
-      messages = messages.concat(newMessages);
-      const later = function() {
-        timeout = null;
-        const useMessages = [...messages];
-        messages = [];
-        resolve(func.call(context, useMessages));
-      };
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
-    });
-  };
-}
-
 function tsNow(seconds) {
   var t = +new Date() + (window.tsOffset || 0);
   return seconds ? Math.floor(t / 1000) : t;
@@ -1315,7 +1276,6 @@ function invokeApiCall(method, params = {}, options = {}) {
 }
 
 function sendEncryptedRequest(messages) {
-  //const sendEncryptedRequest = apiDebounce(function (messages) {
   //console.log('send req', messages.length)
 
   if (!(messages instanceof Array)) {
@@ -1382,7 +1342,6 @@ function sendEncryptedRequest(messages) {
 
     return send(message);
   }
-  //}, 200);
 }
 
 class API {
