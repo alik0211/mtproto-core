@@ -483,7 +483,7 @@ function generateMessageID() {
   return longFromInts(messageID[0], messageID[1]);
 }
 
-const urlPath = config.test ? '/apiw_test1' : '/apiw1';
+const urlPath = true ? '/apiw_test1' : '/apiw1';
 
 const url =
   location.protocol == 'https:'
@@ -1271,25 +1271,13 @@ function longPoll() {
   })();
 }
 
-function apiCall(method, params = {}, options = {}) {
-  return new Promise(function(resolve, reject) {
-    invokeApiCall(method, params, options)
-      .then(response => {
-        const { messageDeferred } = response;
-        messageDeferred.then(resolve);
-        messageDeferred.catch(reject);
-      })
-      .catch(reject);
-  });
-}
-
 function getApiCallMessage(method, params = {}, options = {}) {
   const serializer = new TLSerialization(options);
 
   serializer.storeInt(config.invokeWithLayer, 'invokeWithLayer');
   serializer.storeInt(config.layer, 'layer');
   serializer.storeInt(config.initConnection, 'initConnection');
-  serializer.storeInt(config.app.api_id, 'api_id');
+  serializer.storeInt(216304, 'api_id');
   serializer.storeString(
     navigator.userAgent || 'Unknown UserAgent',
     'device_model'
@@ -1397,7 +1385,33 @@ function sendEncryptedRequest(messages) {
   //}, 200);
 }
 
-module.exports = {
-  authorize,
-  apiCall,
-};
+class API {
+  constructor({ api_id, api_hash }) {
+    this.api_id = api_id;
+    this.api_hash = api_hash;
+  }
+
+  apiCall(method, params = {}, options = {}) {
+    return new Promise(function(resolve, reject) {
+      invokeApiCall(method, params, options)
+        .then(response => {
+          const { messageDeferred } = response;
+          messageDeferred.then(resolve);
+          messageDeferred.catch(reject);
+        })
+        .catch(reject);
+    });
+  }
+
+  call(method, data) {
+    return authorize().then(() => {
+      return this.apiCall(method, {
+        api_hash: this.api_hash,
+        api_id: this.api_id,
+        ...data,
+      });
+    });
+  }
+}
+
+module.exports = API;
