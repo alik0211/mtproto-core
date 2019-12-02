@@ -1232,49 +1232,6 @@ function longPoll() {
   })();
 }
 
-function getApiCallMessage(method, params = {}, options = {}) {
-  const serializer = new TLSerialization(options);
-
-  serializer.storeInt(config.invokeWithLayer, 'invokeWithLayer');
-  serializer.storeInt(config.layer, 'layer');
-  serializer.storeInt(config.initConnection, 'initConnection');
-  serializer.storeInt(216304, 'api_id');
-  serializer.storeString(
-    navigator.userAgent || 'Unknown UserAgent',
-    'device_model'
-  );
-  serializer.storeString(
-    navigator.platform || 'Unknown Platform',
-    'system_version'
-  );
-  serializer.storeString('1.0.0', 'app_version');
-  serializer.storeString(navigator.language || 'en', 'system_lang_code');
-  serializer.storeString('', 'lang_pack');
-  serializer.storeString(navigator.language || 'en', 'lang_code');
-
-  options.resultType = serializer.storeMethod(method, params);
-
-  let toAck = []; //msgs_ack
-  const msg_id = generateMessageID();
-  const message = {
-    msg_id,
-    seq_no: generateSeqNo(),
-    body: serializer.getBytes(true),
-    isAPI: true,
-    method,
-  };
-  const messageByteLength =
-    (message.body.byteLength || message.body.length) + 32;
-
-  return message;
-}
-
-function invokeApiCall(method, params = {}, options = {}) {
-  const message = getApiCallMessage(method, params, options);
-  sendAcks();
-  return sendEncryptedRequest(message);
-}
-
 function sendEncryptedRequest(messages) {
   //console.log('send req', messages.length)
 
@@ -1350,9 +1307,52 @@ class API {
     this.api_hash = api_hash;
   }
 
+  getApiCallMessage(method, params = {}, options = {}) {
+    const serializer = new TLSerialization(options);
+
+    serializer.storeInt(config.invokeWithLayer, 'invokeWithLayer');
+    serializer.storeInt(config.layer, 'layer');
+    serializer.storeInt(config.initConnection, 'initConnection');
+    serializer.storeInt(this.api_id, 'api_id');
+    serializer.storeString(
+      navigator.userAgent || 'Unknown UserAgent',
+      'device_model'
+    );
+    serializer.storeString(
+      navigator.platform || 'Unknown Platform',
+      'system_version'
+    );
+    serializer.storeString('1.0.0', 'app_version');
+    serializer.storeString(navigator.language || 'en', 'system_lang_code');
+    serializer.storeString('', 'lang_pack');
+    serializer.storeString(navigator.language || 'en', 'lang_code');
+
+    options.resultType = serializer.storeMethod(method, params);
+
+    let toAck = []; //msgs_ack
+    const msg_id = generateMessageID();
+    const message = {
+      msg_id,
+      seq_no: generateSeqNo(),
+      body: serializer.getBytes(true),
+      isAPI: true,
+      method,
+    };
+    const messageByteLength =
+      (message.body.byteLength || message.body.length) + 32;
+
+    return message;
+  }
+
+  invokeApiCall(method, params = {}, options = {}) {
+    const message = this.getApiCallMessage(method, params, options);
+    sendAcks();
+    return sendEncryptedRequest(message);
+  }
+
   apiCall(method, params = {}, options = {}) {
-    return new Promise(function(resolve, reject) {
-      invokeApiCall(method, params, options)
+    return new Promise((resolve, reject) => {
+      this.invokeApiCall(method, params, options)
         .then(response => {
           const { messageDeferred } = response;
           messageDeferred.then(resolve);
