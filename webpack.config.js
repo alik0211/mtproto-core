@@ -1,4 +1,5 @@
 const path = require('path');
+const Dotenv = require('dotenv-webpack');
 
 module.exports = {
   mode: 'development',
@@ -6,12 +7,14 @@ module.exports = {
   devtool: 'inline-source-map',
 
   entry: {
-    index: './src/index.js',
+    index: './src/__tests__/index.js',
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: '[name].js',
   },
+
+  plugins: [new Dotenv()],
 
   devServer: {
     contentBase: path.join(__dirname, 'dist'),
