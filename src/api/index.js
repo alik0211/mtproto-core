@@ -444,12 +444,7 @@ function generateMessageID() {
   return longFromInts(messageID[0], messageID[1]);
 }
 
-const urlPath = true ? '/apiw_test1' : '/apiw1';
-
-const url =
-  location.protocol == 'https:'
-    ? `https://venus.web.telegram.org${urlPath}`
-    : `http://149.154.167.40${urlPath}`;
+let url = null;
 
 function mtpSendPlainRequest(requestBuffer) {
   const requestLength = requestBuffer.byteLength,
@@ -1302,9 +1297,16 @@ function sendEncryptedRequest(messages) {
 }
 
 class API {
-  constructor({ api_id, api_hash }) {
+  constructor({ api_id, api_hash, test }) {
     this.api_id = api_id;
     this.api_hash = api_hash;
+
+    const urlPath = test ? '/apiw_test1' : '/apiw1';
+
+    url =
+      location.protocol == 'https:'
+        ? `https://venus.web.telegram.org${urlPath}`
+        : `http://149.154.167.40${urlPath}`;
   }
 
   getApiCallMessage(method, params = {}, options = {}) {
