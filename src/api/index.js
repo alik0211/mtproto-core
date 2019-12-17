@@ -683,8 +683,8 @@ function authorize() {
     const nonce = getNonce();
     authObject = { nonce };
     const request = new TLSerialization({ mtproto: true });
-    // request.storeMethod('req_pq_multi', { nonce });
-    request.storeMethod('req_pq', { nonce });
+    request.storeMethod('req_pq_multi', { nonce });
+    // request.storeMethod('req_pq', { nonce });
     mtpSendPlainRequest(request.getBuffer()).then(function(deserializer) {
       const responsePQ = deserializer.fetchObject('ResPQ');
       console.log('response', responsePQ);
