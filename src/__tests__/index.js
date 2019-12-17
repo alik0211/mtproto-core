@@ -30,4 +30,14 @@ mtproto.api
     // console.log('auth.signIn[result]:', result);
     const { user } = result;
     console.log('user:', user);
+    let offsetDate = Math.round(new Date().getTime() / 1000);
+    return mtproto.api.call('messages.getDialogs', {
+      flags: 0,
+      offset_date: offsetDate,
+      offset_peer: { _: 'inputPeerEmpty' },
+      limit: 20,
+    });
+  })
+  .then(dialogs => {
+    console.log('messages.getDialogs[dialogs]:', dialogs);
   });

@@ -1,5 +1,5 @@
-const apiSchema = require('../scheme/api-74.json');
-const mtprotoSchema = require('../scheme/mtproto.json');
+const apiSchema = require('../scheme/api');
+const mtprotoSchema = require('../scheme/mtproto');
 
 module.exports = {
   schema: {
