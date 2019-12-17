@@ -1297,16 +1297,15 @@ function sendEncryptedRequest(messages) {
 }
 
 class API {
-  constructor({ api_id, api_hash, test }) {
+  constructor({ api_id, api_hash, test, https }) {
     this.api_id = api_id;
     this.api_hash = api_hash;
 
     const urlPath = test ? '/apiw_test1' : '/apiw1';
 
-    url =
-      location.protocol == 'https:'
-        ? `https://venus.web.telegram.org${urlPath}`
-        : `http://149.154.167.40${urlPath}`;
+    url = https
+      ? `https://venus.web.telegram.org${urlPath}`
+      : `http://149.154.167.40${urlPath}`;
   }
 
   getApiCallMessage(method, params = {}, options = {}) {
