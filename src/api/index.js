@@ -1,3 +1,4 @@
+const debounce = require('lodash.debounce');
 const http = require('../transport');
 const config = require('../config');
 const { BigInteger, SecureRandom } = require('../vendors/jsbn');
@@ -31,22 +32,6 @@ const authStorageKey = 'auth';
 let authObject = {};
 
 let server_time_offset = 0;
-
-function debounce(func, wait, immediate) {
-  var timeout;
-  return function() {
-    var context = this,
-      args = arguments;
-    var later = function() {
-      timeout = null;
-      if (!immediate) func.apply(context, args);
-    };
-    var callNow = immediate && !timeout;
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-    if (callNow) func.apply(context, args);
-  };
-}
 
 function tsNow(seconds) {
   var t = +new Date() + (window.tsOffset || 0);
