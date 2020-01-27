@@ -12,6 +12,7 @@
 /build
 /dist
 /package
+/scheme/*.json
 
 # misc
 .DS_Store
