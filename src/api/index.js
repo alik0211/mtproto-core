@@ -27,7 +27,7 @@ const {
 } = require('../utils');
 const RsaKeysManager = require('../utils/rsa');
 
-const authStorageKey = 'auth';
+const authStorageKey = '__mtproto-auth';
 
 let authObject = {};
 
