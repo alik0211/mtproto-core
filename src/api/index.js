@@ -4,6 +4,7 @@ const config = require('../config');
 const { BigInteger, SecureRandom } = require('../vendors/jsbn');
 const { TLSerialization, TLDeserialization } = require('../tl');
 const {
+  arrayBufferToBase64,
   bigStringInt,
   bytesToHex,
   bytesFromHex,
@@ -1235,6 +1236,17 @@ class API {
         api_id: this.api_id,
         ...data,
       });
+    });
+  }
+
+  getFileInBase64({ location, offset = 0, limit = 1024 * 1024 }) {
+    return this.call('upload.getFile', {
+      flags: 0,
+      offset,
+      limit,
+      location,
+    }).then(response => {
+      return arrayBufferToBase64(response.bytes);
     });
   }
 }

@@ -94,6 +94,16 @@ function bytesToBase64(bytes) {
   return result.replace(/A(?=A$|$)/g, '=');
 }
 
+function arrayBufferToBase64(buffer) {
+  var binary = '';
+  var bytes = new Uint8Array(buffer);
+  var len = bytes.byteLength;
+  for (var i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+}
+
 function uint6ToBase64(nUint6) {
   return nUint6 < 26
     ? nUint6 + 65
@@ -740,6 +750,7 @@ module.exports = {
   bytesToBase64,
   uint6ToBase64,
   base64ToBlob,
+  arrayBufferToBase64,
   dataUrlToBlob,
   blobConstruct,
   blobSafeMimeType,
