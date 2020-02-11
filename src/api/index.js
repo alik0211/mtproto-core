@@ -889,205 +889,198 @@ class Auth {
       console.error(e);
     }
 
-    return new Promise((resolve, reject) => {
-      const nonce = getNonce();
-      const request = new TLSerialization({ mtproto: true });
-      request.storeMethod('req_pq_multi', { nonce });
-      // request.storeMethod('req_pq', { nonce });
-      sendPlainRequest(request.getBuffer()).then(deserializer => {
-        const responsePQ = deserializer.fetchObject('ResPQ');
-        console.log('2. response', responsePQ);
+    const nonce = getNonce();
+    const request = new TLSerialization({ mtproto: true });
+    request.storeMethod('req_pq_multi', { nonce });
+    // request.storeMethod('req_pq', { nonce });
+    return sendPlainRequest(request.getBuffer()).then(deserializer => {
+      const responsePQ = deserializer.fetchObject('ResPQ');
+      console.log('2. response', responsePQ);
 
-        if (responsePQ._ != 'resPQ') {
-          reject(new Error('[MT] resPQ response invalid: ' + responsePQ._));
-        }
+      if (responsePQ._ != 'resPQ') {
+        reject(new Error('[MT] resPQ response invalid: ' + responsePQ._));
+      }
 
-        if (!bytesCmp(nonce, responsePQ.nonce)) {
-          reject(new Error('[MT] resPQ nonce mismatch'));
-        }
+      if (!bytesCmp(nonce, responsePQ.nonce)) {
+        reject(new Error('[MT] resPQ nonce mismatch'));
+      }
 
-        authObject.nonce = nonce;
-        authObject.serverNonce = responsePQ.server_nonce;
-        authObject.pq = responsePQ.pq;
-        authObject.fingerprints = responsePQ.server_public_key_fingerprints;
+      authObject.nonce = nonce;
+      authObject.serverNonce = responsePQ.server_nonce;
+      authObject.pq = responsePQ.pq;
+      authObject.fingerprints = responsePQ.server_public_key_fingerprints;
 
-        // console.log(
-        //   'Got ResPQ',
-        //   bytesToHex(authObject.serverNonce),
-        //   bytesToHex(authObject.pq),
-        //   authObject.fingerprints
-        // );
+      // console.log(
+      //   'Got ResPQ',
+      //   bytesToHex(authObject.serverNonce),
+      //   bytesToHex(authObject.pq),
+      //   authObject.fingerprints
+      // );
 
-        authObject.publicKey = RsaKeysManager.select(authObject.fingerprints);
+      authObject.publicKey = RsaKeysManager.select(authObject.fingerprints);
 
-        if (!authObject.publicKey) {
-          reject(new Error('[MT] No public key found'));
-        }
+      if (!authObject.publicKey) {
+        reject(new Error('[MT] No public key found'));
+      }
 
-        // console.log('PQ factorization start', authObject.pq);
+      // console.log('PQ factorization start', authObject.pq);
 
-        const pAndQ = pqPrimeFactorization(authObject.pq);
+      const pAndQ = pqPrimeFactorization(authObject.pq);
 
-        authObject.p = pAndQ[0];
-        authObject.q = pAndQ[1];
+      authObject.p = pAndQ[0];
+      authObject.q = pAndQ[1];
 
-        //mtpSendReqDhParams(authObject);
-        authObject.newNonce = new Array(32);
-        secureRandom.nextBytes(authObject.newNonce);
+      //mtpSendReqDhParams(authObject);
+      authObject.newNonce = new Array(32);
+      secureRandom.nextBytes(authObject.newNonce);
 
-        // console.log('auth now', authObject);
+      // console.log('auth now', authObject);
 
-        const data = new TLSerialization({ mtproto: true });
-        data.storeObject(
-          {
-            _: 'p_q_inner_data',
-            pq: authObject.pq,
-            p: authObject.p,
-            q: authObject.q,
-            nonce: authObject.nonce,
-            server_nonce: authObject.serverNonce,
-            new_nonce: authObject.newNonce,
-          },
-          'P_Q_inner_data',
-          'DECRYPTED_DATA'
-        );
-
-        const dataWithHash = sha1BytesSync(data.getBuffer()).concat(
-          data.getBytes()
-        );
-
-        const request = new TLSerialization({ mtproto: true });
-        request.storeMethod('req_DH_params', {
-          nonce: authObject.nonce,
-          server_nonce: authObject.serverNonce,
+      const data = new TLSerialization({ mtproto: true });
+      data.storeObject(
+        {
+          _: 'p_q_inner_data',
+          pq: authObject.pq,
           p: authObject.p,
           q: authObject.q,
-          public_key_fingerprint: authObject.publicKey.fingerprint,
-          encrypted_data: rsaEncrypt(authObject.publicKey, dataWithHash),
-        });
+          nonce: authObject.nonce,
+          server_nonce: authObject.serverNonce,
+          new_nonce: authObject.newNonce,
+        },
+        'P_Q_inner_data',
+        'DECRYPTED_DATA'
+      );
 
-        sendPlainRequest(request.getBuffer()).then(deserializer => {
-          const responseDH = deserializer.fetchObject(
-            'Server_DH_Params',
-            'RESPONSE'
+      const dataWithHash = sha1BytesSync(data.getBuffer()).concat(
+        data.getBytes()
+      );
+
+      const request = new TLSerialization({ mtproto: true });
+      request.storeMethod('req_DH_params', {
+        nonce: authObject.nonce,
+        server_nonce: authObject.serverNonce,
+        p: authObject.p,
+        q: authObject.q,
+        public_key_fingerprint: authObject.publicKey.fingerprint,
+        encrypted_data: rsaEncrypt(authObject.publicKey, dataWithHash),
+      });
+
+      return sendPlainRequest(request.getBuffer()).then(deserializer => {
+        const responseDH = deserializer.fetchObject(
+          'Server_DH_Params',
+          'RESPONSE'
+        );
+        console.log('3. responseDH', responseDH);
+
+        if (
+          responseDH._ != 'server_DH_params_fail' &&
+          responseDH._ != 'server_DH_params_ok'
+        ) {
+          reject(
+            new Error('[MT] Server_DH_Params response invalid: ' + responseDH._)
           );
-          console.log('3. responseDH', responseDH);
+        }
 
-          if (
-            responseDH._ != 'server_DH_params_fail' &&
-            responseDH._ != 'server_DH_params_ok'
-          ) {
+        if (!bytesCmp(authObject.nonce, responseDH.nonce)) {
+          reject(new Error('[MT] Server_DH_Params nonce mismatch'));
+        }
+
+        if (!bytesCmp(authObject.serverNonce, responseDH.server_nonce)) {
+          reject(new Error('[MT] Server_DH_Params server_nonce mismatch'));
+        }
+
+        if (responseDH._ == 'server_DH_params_fail') {
+          var newNonceHash = sha1BytesSync(authObject.newNonce).slice(-16);
+          if (!bytesCmp(newNonceHash, responseDH.new_nonce_hash)) {
             reject(
-              new Error(
-                '[MT] Server_DH_Params response invalid: ' + responseDH._
-              )
+              new Error('[MT] server_DH_params_fail new_nonce_hash mismatch')
             );
           }
+          reject(new Error('[MT] server_DH_params_fail'));
+        }
 
-          if (!bytesCmp(authObject.nonce, responseDH.nonce)) {
-            reject(new Error('[MT] Server_DH_Params nonce mismatch'));
-          }
+        //mtpDecryptServerDhDataAnswer(authObject, responseDH.encrypted_answer);
 
-          if (!bytesCmp(authObject.serverNonce, responseDH.server_nonce)) {
-            reject(new Error('[MT] Server_DH_Params server_nonce mismatch'));
-          }
+        authObject.localTime = tsNow();
 
-          if (responseDH._ == 'server_DH_params_fail') {
-            var newNonceHash = sha1BytesSync(authObject.newNonce).slice(-16);
-            if (!bytesCmp(newNonceHash, responseDH.new_nonce_hash)) {
-              reject(
-                new Error('[MT] server_DH_params_fail new_nonce_hash mismatch')
-              );
-            }
-            reject(new Error('[MT] server_DH_params_fail'));
-          }
-
-          //mtpDecryptServerDhDataAnswer(authObject, responseDH.encrypted_answer);
-
-          authObject.localTime = tsNow();
-
-          authObject.tmpAesKey = sha1BytesSync(
-            authObject.newNonce.concat(authObject.serverNonce)
-          ).concat(
-            sha1BytesSync(
-              authObject.serverNonce.concat(authObject.newNonce)
-            ).slice(0, 12)
-          );
-          authObject.tmpAesIv = sha1BytesSync(
+        authObject.tmpAesKey = sha1BytesSync(
+          authObject.newNonce.concat(authObject.serverNonce)
+        ).concat(
+          sha1BytesSync(
             authObject.serverNonce.concat(authObject.newNonce)
-          )
-            .slice(12)
-            .concat(
-              sha1BytesSync(
-                [].concat(authObject.newNonce, authObject.newNonce)
-              ),
-              authObject.newNonce.slice(0, 4)
-            );
-
-          const answerWithHash = aesDecryptSync(
-            responseDH.encrypted_answer,
-            authObject.tmpAesKey,
-            authObject.tmpAesIv
+          ).slice(0, 12)
+        );
+        authObject.tmpAesIv = sha1BytesSync(
+          authObject.serverNonce.concat(authObject.newNonce)
+        )
+          .slice(12)
+          .concat(
+            sha1BytesSync([].concat(authObject.newNonce, authObject.newNonce)),
+            authObject.newNonce.slice(0, 4)
           );
 
-          var hash = answerWithHash.slice(0, 20);
-          var answerWithPadding = answerWithHash.slice(20);
-          var buffer = bytesToArrayBuffer(answerWithPadding);
+        const answerWithHash = aesDecryptSync(
+          responseDH.encrypted_answer,
+          authObject.tmpAesKey,
+          authObject.tmpAesIv
+        );
 
-          var deserializer = new TLDeserialization(buffer, { mtproto: true });
-          const responseDHInner = deserializer.fetchObject(
-            'Server_DH_inner_data'
+        var hash = answerWithHash.slice(0, 20);
+        var answerWithPadding = answerWithHash.slice(20);
+        var buffer = bytesToArrayBuffer(answerWithPadding);
+
+        var deserializer = new TLDeserialization(buffer, { mtproto: true });
+        const responseDHInner = deserializer.fetchObject(
+          'Server_DH_inner_data'
+        );
+
+        console.log('4. responseDHInner', responseDHInner);
+
+        if (responseDHInner._ != 'server_DH_inner_data') {
+          reject(
+            new Error(
+              '[MT] server_DH_inner_data response invalid: ' + constructor
+            )
           );
+        }
 
-          console.log('4. responseDHInner', responseDHInner);
+        if (!bytesCmp(authObject.nonce, responseDHInner.nonce)) {
+          reject(new Error('[MT] server_DH_inner_data nonce mismatch'));
+        }
 
-          if (responseDHInner._ != 'server_DH_inner_data') {
-            reject(
-              new Error(
-                '[MT] server_DH_inner_data response invalid: ' + constructor
-              )
-            );
-          }
+        if (!bytesCmp(authObject.serverNonce, responseDHInner.server_nonce)) {
+          reject(new Error('[MT] server_DH_inner_data serverNonce mismatch'));
+        }
 
-          if (!bytesCmp(authObject.nonce, responseDHInner.nonce)) {
-            reject(new Error('[MT] server_DH_inner_data nonce mismatch'));
-          }
+        console.log('5. Done decrypting answer');
 
-          if (!bytesCmp(authObject.serverNonce, responseDHInner.server_nonce)) {
-            reject(new Error('[MT] server_DH_inner_data serverNonce mismatch'));
-          }
+        authObject.g = responseDHInner.g;
+        authObject.dhPrime = responseDHInner.dh_prime;
+        authObject.gA = responseDHInner.g_a;
+        authObject.serverTime = responseDHInner.server_time;
+        authObject.retry = 0;
 
-          console.log('5. Done decrypting answer');
+        console.log('6. verifyDhParams start');
+        this.verifyDhParams(authObject.g, authObject.dhPrime, authObject.gA);
+        console.log('7. verifyDhParams finish');
 
-          authObject.g = responseDHInner.g;
-          authObject.dhPrime = responseDHInner.dh_prime;
-          authObject.gA = responseDHInner.g_a;
-          authObject.serverTime = responseDHInner.server_time;
-          authObject.retry = 0;
+        var offset = deserializer.getOffset();
 
-          console.log('6. verifyDhParams start');
-          this.verifyDhParams(authObject.g, authObject.dhPrime, authObject.gA);
-          console.log('7. verifyDhParams finish');
+        if (
+          !bytesCmp(hash, sha1BytesSync(answerWithPadding.slice(0, offset)))
+        ) {
+          reject(new Error('[MT] server_DH_inner_data SHA1-hash mismatch'));
+        }
 
-          var offset = deserializer.getOffset();
+        applyServerTime(authObject.serverTime);
 
-          if (
-            !bytesCmp(hash, sha1BytesSync(answerWithPadding.slice(0, offset)))
-          ) {
-            reject(new Error('[MT] server_DH_inner_data SHA1-hash mismatch'));
-          }
-
-          applyServerTime(authObject.serverTime);
-          mtpSendSetClientDhParams(authObject).then(() => {
-            console.log('8. authObject', authObject);
-            resolve(authObject);
-          });
+        return mtpSendSetClientDhParams(authObject).then(() => {
+          console.log('8. authObject', authObject);
+          saveAuth(authObject);
+          this.runLongPoll();
+          return authObject;
         });
       });
-    }).then(auth => {
-      saveAuth(auth);
-      this.runLongPoll();
-      return auth;
     });
   }
 

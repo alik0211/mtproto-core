@@ -11,7 +11,7 @@ const mtproto = new MTProto({
   https: location.protocol === 'https:',
 });
 
-const phoneNumber = '+9996621488';
+const phoneNumber = '+9996620000';
 
 mtproto.api
   .call('auth.sendCode', {
@@ -30,14 +30,14 @@ mtproto.api
     // console.log('auth.signIn[result]:', result);
     const { user } = result;
     console.log('user:', user);
-    let offsetDate = Math.round(new Date().getTime() / 1000);
-    return mtproto.api.call('messages.getDialogs', {
-      flags: 0,
-      offset_date: offsetDate,
-      offset_peer: { _: 'inputPeerEmpty' },
-      limit: 20,
-    });
-  })
-  .then(dialogs => {
-    console.log('messages.getDialogs[dialogs]:', dialogs);
+    // let offsetDate = Math.round(new Date().getTime() / 1000);
+    // return mtproto.api.call('messages.getDialogs', {
+    //   flags: 0,
+    //   offset_date: offsetDate,
+    //   offset_peer: { _: 'inputPeerEmpty' },
+    //   limit: 20,
+    // });
   });
+// .then(dialogs => {
+//   console.log('messages.getDialogs[dialogs]:', dialogs);
+// });
