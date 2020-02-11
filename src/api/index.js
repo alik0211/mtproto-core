@@ -375,169 +375,163 @@ function _sendEncryptedRequest(message) {
 
   var requestData = xhrSendBuffer ? request.getBuffer() : request.getArray();
 
-  return new Promise(function(resolve, reject) {
-    const request = http
-      .post(url, requestData, {
-        responseType: 'arraybuffer',
-        transformRequest: null,
-      })
-      .then(function(result) {
-        if (!result.data || !result.data.byteLength) {
-          throw new Error('no data');
-        }
+  // return new Promise(function(resolve, reject) {
+  return http
+    .post(url, requestData, {
+      responseType: 'arraybuffer',
+      transformRequest: null,
+    })
+    .then(function(result) {
+      if (!result.data || !result.data.byteLength) {
+        throw new Error('no data');
+      }
 
-        const responseBuffer = result.data;
+      const responseBuffer = result.data;
 
-        var responseDeserializer = new TLDeserialization(responseBuffer);
+      var responseDeserializer = new TLDeserialization(responseBuffer);
 
-        const serverAuthKeyID = responseDeserializer.fetchIntBytes(
-          64,
-          false,
-          'auth_key_id'
+      const serverAuthKeyID = responseDeserializer.fetchIntBytes(
+        64,
+        false,
+        'auth_key_id'
+      );
+      if (!bytesCmp(serverAuthKeyID, authKeyID)) {
+        throw new Error(
+          '[MT] Invalid server auth_key_id: ' + bytesToHex(serverAuthKeyID)
         );
-        if (!bytesCmp(serverAuthKeyID, authKeyID)) {
-          throw new Error(
-            '[MT] Invalid server auth_key_id: ' + bytesToHex(serverAuthKeyID)
-          );
-        }
-        var msgKey = responseDeserializer.fetchIntBytes(128, true, 'msg_key');
-        var encryptedData = responseDeserializer.fetchRawBytes(
-          responseBuffer.byteLength - responseDeserializer.getOffset(),
-          true,
-          'encrypted_data'
+      }
+      var msgKey = responseDeserializer.fetchIntBytes(128, true, 'msg_key');
+      var encryptedData = responseDeserializer.fetchRawBytes(
+        responseBuffer.byteLength - responseDeserializer.getOffset(),
+        true,
+        'encrypted_data'
+      );
+
+      const dataWithPadding = getDecryptedMessage(
+        authKeyUint8,
+        msgKey,
+        encryptedData
+      );
+      const calcMsgKey = getMsgKey(authKeyUint8, dataWithPadding, false);
+
+      //console.log(msgKey, calcMsgKey, dHexDump(msgKey), dHexDump(calcMsgKey));
+
+      if (!bytesCmp(msgKey, calcMsgKey)) {
+        console.warn('[MT] msg_keys', msgKey, bytesFromArrayBuffer(calcMsgKey));
+        throw new Error('[MT] server msgKey mismatch');
+      }
+
+      var dataDeserializer = new TLDeserialization(dataWithPadding, {
+        mtproto: true,
+      });
+
+      var salt = dataDeserializer.fetchIntBytes(64, false, 'salt');
+      var serverSessionID = dataDeserializer.fetchIntBytes(
+        64,
+        false,
+        'session_id'
+      );
+      var messageID = dataDeserializer.fetchLong('message_id');
+
+      if (
+        !bytesCmp(serverSessionID, sessionID) &&
+        (!prevSessionID || !bytesCmp(sessionID, prevSessionID))
+      ) {
+        console.warn('Sessions', serverSessionID, sessionID, prevSessionID);
+        throw new Error(
+          '[MT] Invalid server session_id: ' + bytesToHex(serverSessionID)
         );
+      }
 
-        const dataWithPadding = getDecryptedMessage(
-          authKeyUint8,
-          msgKey,
-          encryptedData
-        );
-        const calcMsgKey = getMsgKey(authKeyUint8, dataWithPadding, false);
+      var seqNo = dataDeserializer.fetchInt('seq_no');
 
-        //console.log(msgKey, calcMsgKey, dHexDump(msgKey), dHexDump(calcMsgKey));
+      var totalLength = dataWithPadding.byteLength;
 
-        if (!bytesCmp(msgKey, calcMsgKey)) {
-          console.warn(
-            '[MT] msg_keys',
-            msgKey,
-            bytesFromArrayBuffer(calcMsgKey)
-          );
-          throw new Error('[MT] server msgKey mismatch');
-        }
+      var messageBodyLength = dataDeserializer.fetchInt('message_data[length]');
 
-        var dataDeserializer = new TLDeserialization(dataWithPadding, {
-          mtproto: true,
-        });
+      if (
+        messageBodyLength % 4 ||
+        messageBodyLength > totalLength - dataDeserializer.getOffset()
+      ) {
+        throw new Error('[MT] Invalid body length: ' + messageBodyLength);
+      }
+      var messageBody = dataDeserializer.fetchRawBytes(
+        messageBodyLength,
+        true,
+        'message_data'
+      );
 
-        var salt = dataDeserializer.fetchIntBytes(64, false, 'salt');
-        var serverSessionID = dataDeserializer.fetchIntBytes(
-          64,
-          false,
-          'session_id'
-        );
-        var messageID = dataDeserializer.fetchLong('message_id');
+      var paddingLength = totalLength - dataDeserializer.getOffset();
+      if (paddingLength < 12 || paddingLength > 1024) {
+        throw new Error('[MT] Invalid padding length: ' + paddingLength);
+      }
 
-        if (
-          !bytesCmp(serverSessionID, sessionID) &&
-          (!prevSessionID || !bytesCmp(sessionID, prevSessionID))
-        ) {
-          console.warn('Sessions', serverSessionID, sessionID, prevSessionID);
-          throw new Error(
-            '[MT] Invalid server session_id: ' + bytesToHex(serverSessionID)
-          );
-        }
+      var buffer = bytesToArrayBuffer(messageBody);
+      var deserializerOptions = {
+        mtproto: true,
+        override: {
+          mt_message: function(result, field) {
+            result.msg_id = this.fetchLong(field + '[msg_id]');
+            result.seqno = this.fetchInt(field + '[seqno]');
+            result.bytes = this.fetchInt(field + '[bytes]');
 
-        var seqNo = dataDeserializer.fetchInt('seq_no');
+            var offset = this.getOffset();
 
-        var totalLength = dataWithPadding.byteLength;
-
-        var messageBodyLength = dataDeserializer.fetchInt(
-          'message_data[length]'
-        );
-
-        if (
-          messageBodyLength % 4 ||
-          messageBodyLength > totalLength - dataDeserializer.getOffset()
-        ) {
-          throw new Error('[MT] Invalid body length: ' + messageBodyLength);
-        }
-        var messageBody = dataDeserializer.fetchRawBytes(
-          messageBodyLength,
-          true,
-          'message_data'
-        );
-
-        var paddingLength = totalLength - dataDeserializer.getOffset();
-        if (paddingLength < 12 || paddingLength > 1024) {
-          throw new Error('[MT] Invalid padding length: ' + paddingLength);
-        }
-
-        var buffer = bytesToArrayBuffer(messageBody);
-        var deserializerOptions = {
-          mtproto: true,
-          override: {
-            mt_message: function(result, field) {
-              result.msg_id = this.fetchLong(field + '[msg_id]');
-              result.seqno = this.fetchInt(field + '[seqno]');
-              result.bytes = this.fetchInt(field + '[bytes]');
-
-              var offset = this.getOffset();
-
-              try {
-                result.body = this.fetchObject('Object', field + '[body]');
-              } catch (e) {
-                console.error('parse error', e.message, e.stack);
-                result.body = { _: 'parse_error', error: e };
-              }
-              if (this.offset != offset + result.bytes) {
-                this.offset = offset + result.bytes;
-              }
-            },
-            mt_rpc_result: function(result, field) {
-              result.req_msg_id = this.fetchLong(field + '[req_msg_id]');
-
-              var sentMessage = sentMessages[result.req_msg_id];
-              var type = (sentMessage && sentMessage.resultType) || 'Object';
-
-              if (result.req_msg_id && !sentMessage) {
-                return;
-              }
-              result.result = this.fetchObject(type, field + '[result]');
-            },
+            try {
+              result.body = this.fetchObject('Object', field + '[body]');
+            } catch (e) {
+              console.error('parse error', e.message, e.stack);
+              result.body = { _: 'parse_error', error: e };
+            }
+            if (this.offset != offset + result.bytes) {
+              this.offset = offset + result.bytes;
+            }
           },
-        };
-        var finalDeserializer = new TLDeserialization(
-          buffer,
-          deserializerOptions
-        );
-        var response = finalDeserializer.fetchObject('', 'INPUT');
+          mt_rpc_result: function(result, field) {
+            result.req_msg_id = this.fetchLong(field + '[req_msg_id]');
 
-        /* console.log('send encrypted request result', {
-         *   response,
-         *   messageID,
-         *   sessionID,
-         *   seqNo
-         * }); */
+            var sentMessage = sentMessages[result.req_msg_id];
+            var type = (sentMessage && sentMessage.resultType) || 'Object';
 
-        resolve({
-          response,
-          messageID,
-          sessionID,
-          seqNo,
-          messageDeferred: message.deferred.promise,
-        });
-      })
-      .catch(e => {
-        console.error('send encrypted request error', e);
-        /* reAuth().then(auth => {
+            if (result.req_msg_id && !sentMessage) {
+              return;
+            }
+            result.result = this.fetchObject(type, field + '[result]');
+          },
+        },
+      };
+      var finalDeserializer = new TLDeserialization(
+        buffer,
+        deserializerOptions
+      );
+      var response = finalDeserializer.fetchObject('', 'INPUT');
+
+      /* console.log('send encrypted request result', {
+       *   response,
+       *   messageID,
+       *   sessionID,
+       *   seqNo
+       * }); */
+
+      return {
+        response,
+        messageID,
+        sessionID,
+        seqNo,
+        messageDeferred: message.deferred.promise,
+      };
+    })
+    .catch(e => {
+      console.error('send encrypted request error', e);
+      /* reAuth().then(auth => {
           authObject = auth;
           // recursion
           _sendEncryptedRequest(message).then(result => {
             resolve(result);
           });
         }).catch(reject); */
-      });
-  });
+      // });
+    });
 }
 
 function getMsgKey(authKeyUint8, dataWithPadding, isOut) {
@@ -811,7 +805,7 @@ function sendEncryptedRequest(messages) {
   }
   function send(message) {
     return _sendEncryptedRequest(message).then(responsePackage => {
-      ///console.error('responsePackage', responsePackage)
+      // console.log(`responsePackage:`, responsePackage);
       const { response, messageID } = responsePackage;
       processMessage(response, messageID);
       sendAcks();
