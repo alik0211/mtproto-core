@@ -27,6 +27,7 @@ const {
   bytesModPow,
   getNonce,
   getAesKeyIv,
+  tsNow,
 } = require('../utils');
 const RsaKeysManager = require('../utils/rsa');
 
@@ -35,11 +36,6 @@ const authStorageKey = '__mtproto-auth';
 let authObject = {};
 
 let server_time_offset = 0;
-
-function tsNow(seconds) {
-  var t = +new Date() + (window.tsOffset || 0);
-  return seconds ? Math.floor(t / 1000) : t;
-}
 
 const secureRandom = new SecureRandom();
 
