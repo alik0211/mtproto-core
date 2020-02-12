@@ -741,6 +741,42 @@ function bytesModPow(x, y, m) {
   );
 }
 
+function getNonce() {
+  const nonce = [];
+  for (var i = 0; i < 16; i++) {
+    nonce.push(nextRandomInt(0xff));
+  }
+  return nonce;
+}
+
+function getAesKeyIv(authKeyUint8, msgKey, isOut) {
+  const authKey = authKeyUint8;
+  const x = isOut ? 0 : 8;
+  const sha2aText = new Uint8Array(52);
+  const sha2bText = new Uint8Array(52);
+
+  sha2aText.set(msgKey, 0);
+  sha2aText.set(authKey.subarray(x, x + 36), 16);
+
+  sha2bText.set(authKey.subarray(40 + x, 40 + x + 36), 0);
+  sha2bText.set(msgKey, 36);
+
+  const aesKey = new Uint8Array(32);
+  const aesIv = new Uint8Array(32);
+  const sha2a = new Uint8Array(sha256HashSync(sha2aText));
+  const sha2b = new Uint8Array(sha256HashSync(sha2bText));
+
+  aesKey.set(sha2a.subarray(0, 8));
+  aesKey.set(sha2b.subarray(8, 24), 8);
+  aesKey.set(sha2a.subarray(24, 32), 24);
+
+  aesIv.set(sha2b.subarray(0, 8));
+  aesIv.set(sha2a.subarray(8, 24), 8);
+  aesIv.set(sha2b.subarray(24, 32), 24);
+
+  return [aesKey, aesIv];
+}
+
 module.exports = {
   bigint,
   bigStringInt,
@@ -786,4 +822,6 @@ module.exports = {
   pqPrimeLong,
   pqPrimeLeemon,
   bytesModPow,
+  getNonce,
+  getAesKeyIv,
 };
