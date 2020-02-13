@@ -14,30 +14,28 @@ const mtproto = new MTProto({
 const phoneNumber = '+9996620000';
 
 mtproto.api
-  .call('auth.sendCode', {
-    flags: 0,
-    phone_number: phoneNumber,
+  .call('users.getFullUser', {
+    id: {
+      _: 'inputUserSelf',
+    },
   })
   .then(result => {
-    // console.log('auth.sendCode[result]:', result);
-    return mtproto.api.call('auth.signIn', {
-      phone_code: '22222',
-      phone_number: phoneNumber,
-      phone_code_hash: result.phone_code_hash,
-    });
+    console.log(`users.getFullUser[result]:`, result);
   })
-  .then(result => {
-    // console.log('auth.signIn[result]:', result);
-    const { user } = result;
-    console.log('user:', user);
-    // let offsetDate = Math.round(new Date().getTime() / 1000);
-    // return mtproto.api.call('messages.getDialogs', {
-    //   flags: 0,
-    //   offset_date: offsetDate,
-    //   offset_peer: { _: 'inputPeerEmpty' },
-    //   limit: 20,
-    // });
+  .catch(() => {
+    mtproto.api
+      .call('auth.sendCode', {
+        flags: 0,
+        phone_number: phoneNumber,
+      })
+      .then(result => {
+        return mtproto.api.call('auth.signIn', {
+          phone_code: '22222',
+          phone_number: phoneNumber,
+          phone_code_hash: result.phone_code_hash,
+        });
+      })
+      .then(result => {
+        console.log('auth.signIn[result]:', result);
+      });
   });
-// .then(dialogs => {
-//   console.log('messages.getDialogs[dialogs]:', dialogs);
-// });

@@ -34,8 +34,14 @@ const RsaKeysManager = require('../utils/rsa');
 const authStorageKey = '__mtproto-auth';
 
 let authObject = {};
+let lastMessageID = [0, 0];
+let timeOffset = 0;
+let _seqNo = 0;
+let sessionID, prevSessionID;
+const sentMessages = {};
+let pendingAcks = [];
 
-let server_time_offset = 0;
+let url = null;
 
 const secureRandom = new SecureRandom();
 
@@ -55,8 +61,6 @@ function Deferred() {
   );
   Object.freeze(this);
 }
-
-// Copied from zhukov/webogram with slight changes:
 
 function mtpSendSetClientDhParams(auth) {
   var gBytes = bytesFromHex(auth.g.toString(16));
@@ -169,31 +173,15 @@ function mtpSendSetClientDhParams(auth) {
         throw new Error('[MT] Set_client_DH_params_answer fail');
     }
   });
-  // TODO: May be catch
-}
-
-let lastMessageID = [0, 0];
-function setLastMessageID(messageID) {
-  lastMessageID = messageID;
-}
-
-// TODO: timeOffset always zero (not true, see applyServerTime)
-var timeOffset = 0;
-function setTimeOffset(newTimeOffset) {
-  timeOffset = newTimeOffset;
-}
-function getTimeOffset() {
-  return timeOffset;
 }
 
 function applyServerTime(serverTime) {
-  var newTimeOffset =
+  const newTimeOffset =
     serverTime - Math.floor((authObject.localTime || tsNow()) / 1000);
-  var changed = Math.abs(getTimeOffset() - newTimeOffset) > 10;
+  const changed = Math.abs(timeOffset - newTimeOffset) > 10;
 
   lastMessageID = [0, 0];
   timeOffset = newTimeOffset;
-  server_time_offset = newTimeOffset;
 
   console.log(
     'Apply server time',
@@ -207,12 +195,13 @@ function applyServerTime(serverTime) {
 }
 
 function generateMessageID() {
-  var timeTicks = tsNow(),
-    timeSec = Math.floor(timeTicks / 1000) + timeOffset,
-    timeMSec = timeTicks % 1000,
-    random = nextRandomInt(0xffff);
+  const timeTicks = tsNow();
+  const timeSec = Math.floor(timeTicks / 1000) + timeOffset;
+  const timeMSec = timeTicks % 1000;
+  const random = nextRandomInt(0xffff);
 
-  var messageID = [timeSec, (timeMSec << 21) | (random << 3) | 4];
+  let messageID = [timeSec, (timeMSec << 21) | (random << 3) | 4];
+
   if (
     lastMessageID[0] > messageID[0] ||
     (lastMessageID[0] == messageID[0] && lastMessageID[1] >= messageID[1])
@@ -224,8 +213,6 @@ function generateMessageID() {
 
   return longFromInts(messageID[0], messageID[1]);
 }
-
-let url = null;
 
 function sendPlainRequest(requestBuffer) {
   const requestLength = requestBuffer.byteLength;
@@ -247,7 +234,7 @@ function sendPlainRequest(requestBuffer) {
   resultArray.set(requestArray, headerArray.length);
 
   const requestData = xhrSendBuffer ? resultBuffer : resultArray;
-  let requestPromise;
+
   return http
     .post(url, requestData, {
       responseType: 'arraybuffer',
@@ -266,13 +253,9 @@ function sendPlainRequest(requestBuffer) {
       var msg_len = deserializer.fetchInt('msg_len');
 
       return deserializer;
-    })
-    .catch(e => {
-      console.error('catched', e);
     });
 }
 
-var _seqNo = 0;
 function generateSeqNo(notContentRelated) {
   var seqNo = _seqNo * 2;
 
@@ -284,7 +267,6 @@ function generateSeqNo(notContentRelated) {
   return seqNo;
 }
 
-let sessionID, prevSessionID;
 function updateSession() {
   prevSessionID = sessionID;
   sessionID = new Array(8);
@@ -298,8 +280,6 @@ function applyServerSalt(salt) {
   authObject.serverSalt = longToBytes(salt);
   saveAuth(authObject);
 }
-
-const sentMessages = {};
 
 function _sendEncryptedRequest(message) {
   const authKey = authObject.authKey;
@@ -344,7 +324,6 @@ function _sendEncryptedRequest(message) {
 
   var requestData = xhrSendBuffer ? request.getBuffer() : request.getArray();
 
-  // return new Promise(function(resolve, reject) {
   return http
     .post(url, requestData, {
       responseType: 'arraybuffer',
@@ -352,7 +331,7 @@ function _sendEncryptedRequest(message) {
     })
     .then(function(result) {
       if (!result.data || !result.data.byteLength) {
-        throw new Error('no data');
+        throw new Error('No data');
       }
 
       const responseBuffer = result.data;
@@ -489,17 +468,6 @@ function _sendEncryptedRequest(message) {
         seqNo,
         messageDeferred: message.deferred.promise,
       };
-    })
-    .catch(e => {
-      console.error('send encrypted request error', e);
-      /* reAuth().then(auth => {
-          authObject = auth;
-          // recursion
-          _sendEncryptedRequest(message).then(result => {
-            resolve(result);
-          });
-        }).catch(reject); */
-      // });
     });
 }
 
@@ -535,19 +503,15 @@ function getDecryptedMessage(authKeyUint8, msgKey, encryptedData) {
   );
 }
 
-function reAuth() {
-  localStorage.removeItem(authStorageKey);
-  return authorize();
-}
-
 function saveAuth(auth) {
   authObject = auth;
   localStorage.setItem(authStorageKey, JSON.stringify(auth));
 }
 
 function processMessage(message, messageID) {
-  // console.log('processMessage', message, messageID);
+  console.log('processMessage', message, messageID);
   let sentMessage;
+
   switch (message._) {
     case 'msg_container':
       var len = message.messages.length;
@@ -654,18 +618,18 @@ function processMessage(message, messageID) {
       if (sentMessages[sentMessageID]) {
         const deferred = sentMessages[sentMessageID].deferred;
         if (message.result._ == 'rpc_error') {
-          console.log('Rpc error', message.result);
+          // console.log('Rpc error', message.result);
           deferred.reject(message.result);
         } else {
-          var dRes = message.result._;
-          if (!dRes) {
-            if (message.result.length > 5) {
-              dRes = '[..' + message.result.length + '..]';
-            } else {
-              dRes = message.result;
-            }
-          }
-          //console.log('Rpc response', dRes)
+          // var dRes = message.result._;
+          // if (!dRes) {
+          //   if (message.result.length > 5) {
+          //     dRes = '[..' + message.result.length + '..]';
+          //   } else {
+          //     dRes = message.result;
+          //   }
+          // }
+          // console.log('Rpc response', dRes);
           deferred.resolve(message.result);
         }
 
@@ -692,8 +656,6 @@ function processMessageAck(messageID) {
   return false;
 }
 
-let pendingAcks = [];
-
 const longPollMaxWait = 15000;
 
 const sendAcks = debounce(function() {
@@ -701,7 +663,7 @@ const sendAcks = debounce(function() {
     return;
   }
 
-  //console.error('pending acks', pendingAcks);
+  console.log(`JSON.stringify(pendingAcks):`, JSON.stringify(pendingAcks));
 
   var waitSerializer = new TLSerialization({ mtproto: true });
   waitSerializer.storeMethod('http_wait', {
@@ -730,7 +692,7 @@ const sendAcks = debounce(function() {
 }, 500);
 
 function ackMessage(messageID) {
-  //console.log('ack', messageID);
+  console.log('ackMessage[messageID]:', messageID);
 
   pendingAcks.push(messageID);
 }
@@ -1138,6 +1100,7 @@ class API {
 
   invokeApiCall(method, params = {}, options = {}) {
     const message = this.getApiCallMessage(method, params, options);
+    console.log(`invokeApiCall[message.msg_id]:`, message.msg_id);
     sendAcks();
     return sendEncryptedRequest(message);
   }
