@@ -45,11 +45,6 @@ let url = null;
 
 const secureRandom = new SecureRandom();
 
-const chromeMatches = navigator.userAgent.match(/Chrome\/(\d+(\.\d+)?)/);
-const chromeVersion = (chromeMatches && parseFloat(chromeMatches[1])) || false;
-const xhrSendBuffer =
-  !('ArrayBufferView' in window) && chromeVersion > 0 && chromeVersion < 30;
-
 function Deferred() {
   this.resolve = null;
   this.reject = null;
@@ -233,7 +228,7 @@ function sendPlainRequest(requestBuffer) {
   resultArray.set(headerArray);
   resultArray.set(requestArray, headerArray.length);
 
-  const requestData = xhrSendBuffer ? resultBuffer : resultArray;
+  const requestData = resultArray;
 
   return http
     .post(url, requestData, {
@@ -322,7 +317,7 @@ function _sendEncryptedRequest(message) {
   request.storeIntBytes(encryptedResult.msgKey, 128, 'msg_key');
   request.storeRawBytes(encryptedResult.bytes, 'encrypted_data');
 
-  var requestData = xhrSendBuffer ? request.getBuffer() : request.getArray();
+  var requestData = request.getArray();
 
   return http
     .post(url, requestData, {
@@ -509,7 +504,7 @@ function saveAuth(auth) {
 }
 
 function processMessage(message, messageID) {
-  console.log('processMessage', message, messageID);
+  // console.log('processMessage', message, messageID);
   let sentMessage;
 
   switch (message._) {
@@ -633,6 +628,10 @@ function processMessage(message, messageID) {
           deferred.resolve(message.result);
         }
 
+        // console.log(
+        //   `JSON.stringify(Object.keys(sentMessages)):`,
+        //   JSON.stringify(Object.keys(sentMessages))
+        // );
         delete sentMessages[sentMessageID];
       }
       break;
@@ -698,7 +697,7 @@ function ackMessage(messageID) {
 }
 
 function sendEncryptedRequest(messages) {
-  //console.log('send req', messages.length)
+  // console.log(`sendEncryptedRequest[messages]:`, messages);
 
   if (!(messages instanceof Array)) {
     messages = [messages];
