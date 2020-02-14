@@ -655,8 +655,6 @@ function processMessageAck(messageID) {
   return false;
 }
 
-const longPollMaxWait = 15000;
-
 const sendAcks = debounce(function() {
   if (!pendingAcks.length) {
     return;
@@ -699,22 +697,9 @@ function ackMessage(messageID) {
 function sendEncryptedRequest(messages) {
   // console.log(`sendEncryptedRequest[messages]:`, messages);
 
-  if (!(messages instanceof Array)) {
-    messages = [messages];
-  }
-  function send(message) {
-    return _sendEncryptedRequest(message).then(responsePackage => {
-      // console.log(`responsePackage:`, responsePackage);
-      const { response, messageID } = responsePackage;
-      processMessage(response, messageID);
-      sendAcks();
-      return responsePackage;
-    });
-  }
-  // do buffering
-  if (messages.length === 1) {
-    return send(messages[0]);
-  } else {
+  let resultMessage = messages;
+
+  if (Array.isArray(messages)) {
     const messagesByteLen = messages.reduce(
       (acc, message) =>
         acc + (message.body.byteLength || message.body.length) + 32,
@@ -754,15 +739,21 @@ function sendEncryptedRequest(messages) {
       inner: innerMessages,
     };
 
-    const message = {
+    resultMessage = {
       ...{ body: container.getBytes(true) },
       ...containerSentMessage,
     };
 
-    sentMessages[message.msg_id] = containerSentMessage;
-
-    return send(message);
+    sentMessages[resultMessage.msg_id] = containerSentMessage;
   }
+
+  return _sendEncryptedRequest(resultMessage).then(responsePackage => {
+    // console.log(`responsePackage:`, responsePackage);
+    const { response, messageID } = responsePackage;
+    processMessage(response, messageID);
+    sendAcks();
+    return responsePackage;
+  });
 }
 
 class Auth {
@@ -1031,7 +1022,7 @@ class Auth {
       serializer.storeMethod('http_wait', {
         max_delay: 500,
         wait_after: 150,
-        max_wait: longPollMaxWait,
+        max_wait: 15000,
       });
 
       var messageID = generateMessageID();
