@@ -1092,16 +1092,13 @@ class API {
     return message;
   }
 
-  invokeApiCall(method, params = {}, options = {}) {
-    const message = this.getApiCallMessage(method, params, options);
-    console.log(`invokeApiCall[message.msg_id]:`, message.msg_id);
-    this.auth.sendAcks();
-    return this.auth.sendEncryptedRequest(message);
-  }
-
   apiCall(method, params = {}, options = {}) {
+    const message = this.getApiCallMessage(method, params, options);
+    this.auth.sendAcks();
+
     return new Promise((resolve, reject) => {
-      this.invokeApiCall(method, params, options)
+      this.auth
+        .sendEncryptedRequest(message)
         .then(response => {
           const { messageDeferred } = response;
           messageDeferred.then(resolve);
