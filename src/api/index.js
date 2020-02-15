@@ -390,146 +390,6 @@ function saveAuth(auth) {
   localStorage.setItem(authStorageKey, JSON.stringify(auth));
 }
 
-function processMessage(message, messageID) {
-  // console.log('processMessage', message, messageID);
-  let sentMessage;
-
-  switch (message._) {
-    case 'msg_container':
-      var len = message.messages.length;
-      for (var i = 0; i < len; i++) {
-        processMessage(message.messages[i], message.messages[i].msg_id);
-      }
-      break;
-
-    case 'bad_server_salt':
-      console.log('Bad server salt');
-      sentMessage = sentMessages[message.bad_msg_id];
-      if (!sentMessage || sentMessage.seq_no != message.bad_msg_seqno) {
-        console.log(message.bad_msg_id, message.bad_msg_seqno);
-        throw new Error('[MT] Bad server salt for invalid message');
-      }
-
-      applyServerSalt(message.new_server_salt);
-      sendEncryptedRequest(sentMessages[message.bad_msg_id]);
-      ackMessage(messageID);
-      break;
-
-    case 'bad_msg_notification':
-      console.log('Bad msg notification', message);
-      sentMessage = sentMessages[message.bad_msg_id];
-      if (!sentMessage || sentMessage.seq_no != message.bad_msg_seqno) {
-        console.log(message.bad_msg_id, message.bad_msg_seqno);
-        throw new Error('[MT] Bad msg notification for invalid message');
-      }
-
-      if (message.error_code == 16 || message.error_code == 17) {
-        if (
-          applyServerTime(
-            bigStringInt(messageID)
-              .shiftRight(32)
-              .toString(10)
-          )
-        ) {
-          console.log('Update session');
-          updateSession();
-        }
-        sendEncryptedRequest(sentMessages[message.bad_msg_id]);
-        ackMessage(messageID);
-      }
-      break;
-
-    case 'message':
-      ackMessage(messageID);
-      processMessage(message.body, message.msg_id);
-      break;
-
-    case 'new_session_created':
-      ackMessage(messageID);
-
-      processMessageAck(message.first_msg_id);
-      applyServerSalt(message.server_salt);
-
-      break;
-
-    case 'msgs_ack':
-      for (var i = 0; i < message.msg_ids.length; i++) {
-        processMessageAck(message.msg_ids[i]);
-      }
-      break;
-
-    case 'msg_detailed_info':
-      //console.log('msg_detailed_info', message);
-      break;
-    /* if (!this.sentMessages[message.msg_id]) {
-     *   this.ackMessage(message.answer_msg_id)
-     *   break
-     * } */
-    case 'msg_new_detailed_info':
-      //console.log('msg_detailed_info', message);
-      break;
-    /* if (this.pendingAcks.indexOf(message.answer_msg_id)) {
-     *   break
-     * }
-     * this.reqResendMessage(message.answer_msg_id)
-     * break */
-
-    case 'msgs_state_info':
-      ackMessage(message.answer_msg_id);
-      console.log('msgs_state_info', message);
-      /* if (this.lastResendReq && this.lastResendReq.req_msg_id == message.req_msg_id && this.pendingResends.length) {
-       *   var i, badMsgID, pos
-       *   for (i = 0; i < this.lastResendReq.resend_msg_ids.length; i++) {
-       *     badMsgID = this.lastResendReq.resend_msg_ids[i]
-       *     pos = this.pendingResends.indexOf(badMsgID)
-       *     if (pos != -1) {
-       *       this.pendingResends.splice(pos, 1)
-       *     }
-       *   }
-       * } */
-      break;
-
-    case 'rpc_result':
-      const sentMessageID = message.req_msg_id;
-
-      //console.log('res', message);
-
-      ackMessage(messageID);
-
-      processMessageAck(sentMessageID);
-      if (sentMessages[sentMessageID]) {
-        const deferred = sentMessages[sentMessageID].deferred;
-        if (message.result._ == 'rpc_error') {
-          // console.log('Rpc error', message.result);
-          deferred.reject(message.result);
-        } else {
-          // var dRes = message.result._;
-          // if (!dRes) {
-          //   if (message.result.length > 5) {
-          //     dRes = '[..' + message.result.length + '..]';
-          //   } else {
-          //     dRes = message.result;
-          //   }
-          // }
-          // console.log('Rpc response', dRes);
-          deferred.resolve(message.result);
-        }
-
-        // console.log(
-        //   `JSON.stringify(Object.keys(sentMessages)):`,
-        //   JSON.stringify(Object.keys(sentMessages))
-        // );
-        delete sentMessages[sentMessageID];
-      }
-      break;
-
-    default:
-      ackMessage(messageID);
-      //console.log('default', message);
-      break;
-  }
-}
-
 function processMessageAck(messageID) {
   const sentMessage = sentMessages[messageID];
   if (sentMessage && !sentMessage.acked) {
@@ -542,110 +402,42 @@ function processMessageAck(messageID) {
   return false;
 }
 
-const sendAcks = debounce(function() {
-  if (!pendingAcks.length) {
-    return;
-  }
-
-  console.log(`JSON.stringify(pendingAcks):`, JSON.stringify(pendingAcks));
-
-  var waitSerializer = new TLSerialization({ mtproto: true });
-  waitSerializer.storeMethod('http_wait', {
-    max_delay: 500,
-    wait_after: 150,
-    max_wait: 1000,
-  });
-  const waitMessage = {
-    msg_id: generateMessageID(),
-    seq_no: generateSeqNo(),
-    body: waitSerializer.getBytes(),
-  };
-
-  const serializer = new TLSerialization({ mtproto: true });
-  serializer.storeObject({ _: 'msgs_ack', msg_ids: pendingAcks }, 'Object');
-
-  const message = {
-    msg_id: generateMessageID(),
-    seq_no: generateSeqNo(true),
-    body: serializer.getBytes(),
-  };
-
-  pendingAcks = [];
-
-  sendEncryptedRequest([waitMessage, message]);
-}, 500);
-
-function ackMessage(messageID) {
-  console.log('ackMessage[messageID]:', messageID);
-
-  pendingAcks.push(messageID);
-}
-
-function sendEncryptedRequest(messages) {
-  // console.log(`sendEncryptedRequest[messages]:`, messages);
-
-  let resultMessage = messages;
-
-  if (Array.isArray(messages)) {
-    const messagesByteLen = messages.reduce(
-      (acc, message) =>
-        acc + (message.body.byteLength || message.body.length) + 32,
-      0
-    );
-    //create container;
-    var container = new TLSerialization({
-      mtproto: true,
-      startMaxLength: messagesByteLen + 64,
-    });
-    container.storeInt(0x73f1f8dc, 'CONTAINER[id]');
-    container.storeInt(messages.length, 'CONTAINER[count]');
-    var onloads = [];
-    var innerMessages = [];
-    for (var i = 0; i < messages.length; i++) {
-      container.storeLong(messages[i].msg_id, 'CONTAINER[' + i + '][msg_id]');
-      innerMessages.push(messages[i].msg_id);
-
-      /* sentMessages[messages[i].msg_id] = messages[i];
-       * sentMessages[messages[i].msg_id].inContainer = true; */
-
-      container.storeInt(messages[i].seq_no, 'CONTAINER[' + i + '][seq_no]');
-      container.storeInt(
-        messages[i].body.length,
-        'CONTAINER[' + i + '][bytes]'
-      );
-      container.storeRawBytes(messages[i].body, 'CONTAINER[' + i + '][body]');
-      /* if (messages[i].noResponse) {
-       *   //noResponseMsgs.push(messages[i].msg_id);
-       * } */
-    }
-
-    const containerSentMessage = {
-      msg_id: generateMessageID(),
-      seq_no: generateSeqNo(true),
-      container: true,
-      inner: innerMessages,
-    };
-
-    resultMessage = {
-      ...{ body: container.getBytes(true) },
-      ...containerSentMessage,
-    };
-
-    sentMessages[resultMessage.msg_id] = containerSentMessage;
-  }
-
-  return _sendEncryptedRequest(resultMessage).then(responsePackage => {
-    // console.log(`responsePackage:`, responsePackage);
-    const { response, messageID } = responsePackage;
-    processMessage(response, messageID);
-    sendAcks();
-    return responsePackage;
-  });
-}
-
 class Auth {
   constructor() {
     this.longPollRunning = false;
+
+    this.sendAcks = debounce(() => {
+      if (!pendingAcks.length) {
+        return;
+      }
+
+      // console.log(`JSON.stringify(pendingAcks):`, JSON.stringify(pendingAcks));
+
+      var waitSerializer = new TLSerialization({ mtproto: true });
+      waitSerializer.storeMethod('http_wait', {
+        max_delay: 500,
+        wait_after: 150,
+        max_wait: 1000,
+      });
+      const waitMessage = {
+        msg_id: generateMessageID(),
+        seq_no: generateSeqNo(),
+        body: waitSerializer.getBytes(),
+      };
+
+      const serializer = new TLSerialization({ mtproto: true });
+      serializer.storeObject({ _: 'msgs_ack', msg_ids: pendingAcks }, 'Object');
+
+      const message = {
+        msg_id: generateMessageID(),
+        seq_no: generateSeqNo(true),
+        body: serializer.getBytes(),
+      };
+
+      pendingAcks = [];
+
+      this.sendEncryptedRequest([waitMessage, message]);
+    }, 500);
   }
 
   init() {
@@ -1012,11 +804,221 @@ class Auth {
     });
   }
 
+  sendEncryptedRequest(messages) {
+    // console.log(`sendEncryptedRequest[messages]:`, messages);
+
+    let resultMessage = messages;
+
+    if (Array.isArray(messages)) {
+      const messagesByteLen = messages.reduce(
+        (acc, message) =>
+          acc + (message.body.byteLength || message.body.length) + 32,
+        0
+      );
+      //create container;
+      var container = new TLSerialization({
+        mtproto: true,
+        startMaxLength: messagesByteLen + 64,
+      });
+      container.storeInt(0x73f1f8dc, 'CONTAINER[id]');
+      container.storeInt(messages.length, 'CONTAINER[count]');
+      var onloads = [];
+      var innerMessages = [];
+      for (var i = 0; i < messages.length; i++) {
+        container.storeLong(messages[i].msg_id, 'CONTAINER[' + i + '][msg_id]');
+        innerMessages.push(messages[i].msg_id);
+
+        /* sentMessages[messages[i].msg_id] = messages[i];
+         * sentMessages[messages[i].msg_id].inContainer = true; */
+
+        container.storeInt(messages[i].seq_no, 'CONTAINER[' + i + '][seq_no]');
+        container.storeInt(
+          messages[i].body.length,
+          'CONTAINER[' + i + '][bytes]'
+        );
+        container.storeRawBytes(messages[i].body, 'CONTAINER[' + i + '][body]');
+        /* if (messages[i].noResponse) {
+         *   //noResponseMsgs.push(messages[i].msg_id);
+         * } */
+      }
+
+      const containerSentMessage = {
+        msg_id: generateMessageID(),
+        seq_no: generateSeqNo(true),
+        container: true,
+        inner: innerMessages,
+      };
+
+      resultMessage = {
+        ...{ body: container.getBytes(true) },
+        ...containerSentMessage,
+      };
+
+      sentMessages[resultMessage.msg_id] = containerSentMessage;
+    }
+
+    return _sendEncryptedRequest(resultMessage).then(responsePackage => {
+      // console.log(`responsePackage:`, responsePackage);
+      const { response, messageID } = responsePackage;
+      this.processMessage(response, messageID);
+      this.sendAcks();
+      return responsePackage;
+    });
+  }
+
+  processMessage(message, messageID) {
+    console.log('processMessage', message, messageID);
+    let sentMessage;
+
+    switch (message._) {
+      case 'msg_container':
+        var len = message.messages.length;
+        for (var i = 0; i < len; i++) {
+          this.processMessage(message.messages[i], message.messages[i].msg_id);
+        }
+        break;
+
+      case 'bad_server_salt':
+        console.log('Bad server salt');
+        sentMessage = sentMessages[message.bad_msg_id];
+        if (!sentMessage || sentMessage.seq_no != message.bad_msg_seqno) {
+          console.log(message.bad_msg_id, message.bad_msg_seqno);
+          throw new Error('[MT] Bad server salt for invalid message');
+        }
+
+        applyServerSalt(message.new_server_salt);
+        this.sendEncryptedRequest(sentMessages[message.bad_msg_id]);
+        this.ackMessage(messageID);
+        break;
+
+      case 'bad_msg_notification':
+        console.log('Bad msg notification', message);
+        sentMessage = sentMessages[message.bad_msg_id];
+        if (!sentMessage || sentMessage.seq_no != message.bad_msg_seqno) {
+          console.log(message.bad_msg_id, message.bad_msg_seqno);
+          throw new Error('[MT] Bad msg notification for invalid message');
+        }
+
+        if (message.error_code == 16 || message.error_code == 17) {
+          if (
+            applyServerTime(
+              bigStringInt(messageID)
+                .shiftRight(32)
+                .toString(10)
+            )
+          ) {
+            console.log('Update session');
+            updateSession();
+          }
+          this.sendEncryptedRequest(sentMessages[message.bad_msg_id]);
+          this.ackMessage(messageID);
+        }
+        break;
+
+      case 'message':
+        this.ackMessage(messageID);
+        this.processMessage(message.body, message.msg_id);
+        break;
+
+      case 'new_session_created':
+        this.ackMessage(messageID);
+
+        processMessageAck(message.first_msg_id);
+        applyServerSalt(message.server_salt);
+
+        break;
+
+      case 'msgs_ack':
+        for (var i = 0; i < message.msg_ids.length; i++) {
+          processMessageAck(message.msg_ids[i]);
+        }
+        break;
+
+      case 'msg_detailed_info':
+        //console.log('msg_detailed_info', message);
+        break;
+      /* if (!this.sentMessages[message.msg_id]) {
+       *   this.ackMessage(message.answer_msg_id)
+       *   break
+       * } */
+      case 'msg_new_detailed_info':
+        //console.log('msg_detailed_info', message);
+        break;
+      /* if (this.pendingAcks.indexOf(message.answer_msg_id)) {
+       *   break
+       * }
+       * this.reqResendMessage(message.answer_msg_id)
+       * break */
+
+      case 'msgs_state_info':
+        this.ackMessage(message.answer_msg_id);
+        console.log('msgs_state_info', message);
+        /* if (this.lastResendReq && this.lastResendReq.req_msg_id == message.req_msg_id && this.pendingResends.length) {
+         *   var i, badMsgID, pos
+         *   for (i = 0; i < this.lastResendReq.resend_msg_ids.length; i++) {
+         *     badMsgID = this.lastResendReq.resend_msg_ids[i]
+         *     pos = this.pendingResends.indexOf(badMsgID)
+         *     if (pos != -1) {
+         *       this.pendingResends.splice(pos, 1)
+         *     }
+         *   }
+         * } */
+        break;
+
+      case 'rpc_result':
+        const sentMessageID = message.req_msg_id;
+
+        //console.log('res', message);
+
+        this.ackMessage(messageID);
+
+        processMessageAck(sentMessageID);
+        if (sentMessages[sentMessageID]) {
+          const deferred = sentMessages[sentMessageID].deferred;
+          if (message.result._ == 'rpc_error') {
+            // console.log('Rpc error', message.result);
+            deferred.reject(message.result);
+          } else {
+            // var dRes = message.result._;
+            // if (!dRes) {
+            //   if (message.result.length > 5) {
+            //     dRes = '[..' + message.result.length + '..]';
+            //   } else {
+            //     dRes = message.result;
+            //   }
+            // }
+            // console.log('Rpc response', dRes);
+            deferred.resolve(message.result);
+          }
+
+          // console.log(
+          //   `JSON.stringify(Object.keys(sentMessages)):`,
+          //   JSON.stringify(Object.keys(sentMessages))
+          // );
+          delete sentMessages[sentMessageID];
+        }
+        break;
+
+      default:
+        this.ackMessage(messageID);
+        //console.log('default', message);
+        break;
+    }
+  }
+
+  ackMessage(messageID) {
+    // console.log('ackMessage[messageID]:', messageID);
+
+    pendingAcks.push(messageID);
+  }
+
   runLongPoll() {
     if (this.longPollRunning) {
       return;
     }
     this.longPollRunning = true;
+
+    const self = this;
 
     (function longPollInner() {
       //console.log('long poll');
@@ -1035,7 +1037,7 @@ class Auth {
         body: serializer.getBytes(),
       };
 
-      sendEncryptedRequest(message).finally(longPollInner);
+      self.sendEncryptedRequest(message).finally(longPollInner);
     })();
   }
 }
@@ -1093,8 +1095,8 @@ class API {
   invokeApiCall(method, params = {}, options = {}) {
     const message = this.getApiCallMessage(method, params, options);
     console.log(`invokeApiCall[message.msg_id]:`, message.msg_id);
-    sendAcks();
-    return sendEncryptedRequest(message);
+    this.auth.sendAcks();
+    return this.auth.sendEncryptedRequest(message);
   }
 
   apiCall(method, params = {}, options = {}) {
