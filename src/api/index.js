@@ -160,27 +160,6 @@ function getMsgKey(authKeyUint8, dataWithPadding, isOut) {
   return new Uint8Array(msgKeyLarge).subarray(8, 24);
 }
 
-function getEncryptedMessage(dataWithPadding, authKeyUint8) {
-  const msgKey = getMsgKey(authKeyUint8, dataWithPadding, true);
-  const keyIv = getAesKeyIv(authKeyUint8, msgKey, true);
-  // console.log('after msg key iv')
-  //convertToArrayBuffer(aesEncryptSync(dataWithPadding, msgKey, keyIv)) ?
-  const encryptedBytes = convertToArrayBuffer(
-    aesEncryptSync(dataWithPadding, keyIv[0], keyIv[1])
-  );
-  return {
-    bytes: encryptedBytes,
-    msgKey: msgKey,
-  };
-}
-
-function getDecryptedMessage(authKeyUint8, msgKey, encryptedData) {
-  const keyIv = getAesKeyIv(authKeyUint8, msgKey, false);
-  return convertToArrayBuffer(
-    aesDecryptSync(encryptedData, keyIv[0], keyIv[1])
-  );
-}
-
 class Auth {
   constructor() {
     this.longPollRunning = false;
@@ -677,7 +656,10 @@ class Auth {
 
     var dataWithPadding = bufferConcat(dataBuffer, padding);
 
-    const encryptedResult = getEncryptedMessage(dataWithPadding, authKeyUint8);
+    const encryptedResult = this.getEncryptedMessage(
+      dataWithPadding,
+      authKeyUint8
+    );
 
     //console.log('encryptedResult.msgKey', encryptedResult.msgKey, dHexDump(encryptedResult.msgKey));
 
@@ -695,7 +677,7 @@ class Auth {
         responseType: 'arraybuffer',
         transformRequest: null,
       })
-      .then(function(result) {
+      .then(result => {
         if (!result.data || !result.data.byteLength) {
           throw new Error('No data');
         }
@@ -721,7 +703,7 @@ class Auth {
           'encrypted_data'
         );
 
-        const dataWithPadding = getDecryptedMessage(
+        const dataWithPadding = this.getDecryptedMessage(
           authKeyUint8,
           msgKey,
           encryptedData
@@ -841,6 +823,27 @@ class Auth {
           messageDeferred: message.deferred.promise,
         };
       });
+  }
+
+  getEncryptedMessage(dataWithPadding, authKeyUint8) {
+    const msgKey = getMsgKey(authKeyUint8, dataWithPadding, true);
+    const keyIv = getAesKeyIv(authKeyUint8, msgKey, true);
+    // console.log('after msg key iv')
+    //convertToArrayBuffer(aesEncryptSync(dataWithPadding, msgKey, keyIv)) ?
+    const encryptedBytes = convertToArrayBuffer(
+      aesEncryptSync(dataWithPadding, keyIv[0], keyIv[1])
+    );
+    return {
+      bytes: encryptedBytes,
+      msgKey: msgKey,
+    };
+  }
+
+  getDecryptedMessage(authKeyUint8, msgKey, encryptedData) {
+    const keyIv = getAesKeyIv(authKeyUint8, msgKey, false);
+    return convertToArrayBuffer(
+      aesDecryptSync(encryptedData, keyIv[0], keyIv[1])
+    );
   }
 
   processMessage(message, messageID) {
