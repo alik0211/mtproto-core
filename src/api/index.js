@@ -57,26 +57,6 @@ function Deferred() {
   Object.freeze(this);
 }
 
-function generateMessageID() {
-  const timeTicks = tsNow();
-  const timeSec = Math.floor(timeTicks / 1000) + timeOffset;
-  const timeMSec = timeTicks % 1000;
-  const random = nextRandomInt(0xffff);
-
-  let messageID = [timeSec, (timeMSec << 21) | (random << 3) | 4];
-
-  if (
-    lastMessageID[0] > messageID[0] ||
-    (lastMessageID[0] == messageID[0] && lastMessageID[1] >= messageID[1])
-  ) {
-    messageID = [lastMessageID[0], lastMessageID[1] + 4];
-  }
-
-  lastMessageID = messageID;
-
-  return longFromInts(messageID[0], messageID[1]);
-}
-
 class Auth {
   constructor() {
     this.longPollRunning = false;
@@ -95,7 +75,7 @@ class Auth {
         max_wait: 1000,
       });
       const waitMessage = {
-        msg_id: generateMessageID(),
+        msg_id: this.generateMessageID(),
         seq_no: this.generateSeqNo(),
         body: waitSerializer.getBytes(),
       };
@@ -104,7 +84,7 @@ class Auth {
       serializer.storeObject({ _: 'msgs_ack', msg_ids: pendingAcks }, 'Object');
 
       const message = {
-        msg_id: generateMessageID(),
+        msg_id: this.generateMessageID(),
         seq_no: this.generateSeqNo(true),
         body: serializer.getBytes(),
       };
@@ -520,7 +500,7 @@ class Auth {
       }
 
       const containerSentMessage = {
-        msg_id: generateMessageID(),
+        msg_id: this.generateMessageID(),
         seq_no: this.generateSeqNo(true),
         container: true,
         inner: innerMessages,
@@ -748,7 +728,7 @@ class Auth {
 
     const header = new TLSerialization();
     header.storeLongP(0, 0, 'auth_key_id');
-    header.storeLong(generateMessageID(), 'msg_id');
+    header.storeLong(this.generateMessageID(), 'msg_id');
     header.storeInt(requestLength, 'request_length');
 
     const headerBuffer = header.getBuffer();
@@ -1016,6 +996,26 @@ class Auth {
     return seqNo;
   }
 
+  generateMessageID() {
+    const timeTicks = tsNow();
+    const timeSec = Math.floor(timeTicks / 1000) + timeOffset;
+    const timeMSec = timeTicks % 1000;
+    const random = nextRandomInt(0xffff);
+
+    let messageID = [timeSec, (timeMSec << 21) | (random << 3) | 4];
+
+    if (
+      lastMessageID[0] > messageID[0] ||
+      (lastMessageID[0] == messageID[0] && lastMessageID[1] >= messageID[1])
+    ) {
+      messageID = [lastMessageID[0], lastMessageID[1] + 4];
+    }
+
+    lastMessageID = messageID;
+
+    return longFromInts(messageID[0], messageID[1]);
+  }
+
   saveAuth(auth) {
     authObject = auth;
     localStorage.setItem(authStorageKey, JSON.stringify(auth));
@@ -1038,7 +1038,7 @@ class Auth {
         max_wait: 15000,
       });
 
-      var messageID = generateMessageID();
+      var messageID = self.generateMessageID();
       var seqNo = self.generateSeqNo();
       var message = {
         msg_id: messageID,
@@ -1087,7 +1087,7 @@ class API {
     options.resultType = serializer.storeMethod(method, params);
 
     let toAck = []; //msgs_ack
-    const msg_id = generateMessageID();
+    const msg_id = this.auth.generateMessageID();
     const message = {
       msg_id,
       seq_no: this.auth.generateSeqNo(),
