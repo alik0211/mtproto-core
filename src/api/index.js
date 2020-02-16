@@ -158,11 +158,6 @@ function updateSession() {
 
 updateSession();
 
-function applyServerSalt(salt) {
-  authObject.serverSalt = longToBytes(salt);
-  saveAuth(authObject);
-}
-
 function getMsgKey(authKeyUint8, dataWithPadding, isOut) {
   var authKey = authKeyUint8;
   var x = isOut ? 0 : 8;
@@ -880,7 +875,7 @@ class Auth {
           throw new Error('[MT] Bad server salt for invalid message');
         }
 
-        applyServerSalt(message.new_server_salt);
+        this.applyServerSalt(message.new_server_salt);
         this.sendEncryptedRequest(sentMessages[message.bad_msg_id]);
         this.ackMessage(messageID);
         break;
@@ -918,7 +913,7 @@ class Auth {
         this.ackMessage(messageID);
 
         this.processMessageAck(message.first_msg_id);
-        applyServerSalt(message.server_salt);
+        this.applyServerSalt(message.server_salt);
 
         break;
 
@@ -1016,6 +1011,11 @@ class Auth {
     }
 
     return false;
+  }
+
+  applyServerSalt(salt) {
+    authObject.serverSalt = longToBytes(salt);
+    saveAuth(authObject);
   }
 
   runLongPoll() {
