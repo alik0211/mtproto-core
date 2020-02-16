@@ -181,11 +181,6 @@ function getDecryptedMessage(authKeyUint8, msgKey, encryptedData) {
   );
 }
 
-function saveAuth(auth) {
-  authObject = auth;
-  localStorage.setItem(authStorageKey, JSON.stringify(auth));
-}
-
 class Auth {
   constructor() {
     this.longPollRunning = false;
@@ -425,7 +420,7 @@ class Auth {
 
         return this.sendSetClientDhParams(authObject).then(() => {
           console.log('8. authObject', authObject);
-          saveAuth(authObject);
+          this.saveAuth(authObject);
           this.runLongPoll();
           return authObject;
         });
@@ -1008,7 +1003,7 @@ class Auth {
 
   applyServerSalt(salt) {
     authObject.serverSalt = longToBytes(salt);
-    saveAuth(authObject);
+    this.saveAuth(authObject);
   }
 
   updateSession() {
@@ -1016,6 +1011,11 @@ class Auth {
     sessionID = new Array(8);
     secureRandom.nextBytes(sessionID);
     _seqNo = 0;
+  }
+
+  saveAuth(auth) {
+    authObject = auth;
+    localStorage.setItem(authStorageKey, JSON.stringify(auth));
   }
 
   runLongPoll() {
