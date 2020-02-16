@@ -149,17 +149,6 @@ function generateSeqNo(notContentRelated) {
   return seqNo;
 }
 
-function getMsgKey(authKeyUint8, dataWithPadding, isOut) {
-  var authKey = authKeyUint8;
-  var x = isOut ? 0 : 8;
-  var msgKeyLargePlain = bufferConcat(
-    authKey.subarray(88 + x, 88 + x + 32),
-    dataWithPadding
-  );
-  const msgKeyLarge = sha256HashSync(msgKeyLargePlain);
-  return new Uint8Array(msgKeyLarge).subarray(8, 24);
-}
-
 class Auth {
   constructor() {
     this.longPollRunning = false;
@@ -708,7 +697,7 @@ class Auth {
           msgKey,
           encryptedData
         );
-        const calcMsgKey = getMsgKey(authKeyUint8, dataWithPadding, false);
+        const calcMsgKey = this.getMsgKey(authKeyUint8, dataWithPadding, false);
 
         //console.log(msgKey, calcMsgKey, dHexDump(msgKey), dHexDump(calcMsgKey));
 
@@ -826,7 +815,7 @@ class Auth {
   }
 
   getEncryptedMessage(dataWithPadding, authKeyUint8) {
-    const msgKey = getMsgKey(authKeyUint8, dataWithPadding, true);
+    const msgKey = this.getMsgKey(authKeyUint8, dataWithPadding, true);
     const keyIv = getAesKeyIv(authKeyUint8, msgKey, true);
     // console.log('after msg key iv')
     //convertToArrayBuffer(aesEncryptSync(dataWithPadding, msgKey, keyIv)) ?
@@ -1014,6 +1003,17 @@ class Auth {
     sessionID = new Array(8);
     secureRandom.nextBytes(sessionID);
     _seqNo = 0;
+  }
+
+  getMsgKey(authKeyUint8, dataWithPadding, isOut) {
+    var authKey = authKeyUint8;
+    var x = isOut ? 0 : 8;
+    var msgKeyLargePlain = bufferConcat(
+      authKey.subarray(88 + x, 88 + x + 32),
+      dataWithPadding
+    );
+    const msgKeyLarge = sha256HashSync(msgKeyLargePlain);
+    return new Uint8Array(msgKeyLarge).subarray(8, 24);
   }
 
   saveAuth(auth) {
