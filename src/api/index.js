@@ -33,34 +33,34 @@ const RsaKeysManager = require('../utils/rsa');
 
 const authStorageKey = '__mtproto-auth';
 
-let authObject = {};
-let lastMessageID = [0, 0];
-let timeOffset = 0;
-let _seqNo = 0;
-let sessionID, prevSessionID;
-const sentMessages = {};
-let pendingAcks = [];
-
 const secureRandom = new SecureRandom();
 
 function Deferred() {
   this.resolve = null;
   this.reject = null;
-  this.promise = new Promise(
-    function(resolve, reject) {
-      this.resolve = resolve;
-      this.reject = reject;
-    }.bind(this)
-  );
+  this.promise = new Promise((resolve, reject) => {
+    this.resolve = resolve;
+    this.reject = reject;
+  });
   Object.freeze(this);
 }
 
 class API {
   constructor({ api_id, api_hash, test, https }) {
-    this.longPollRunning = false;
-
     this.api_id = api_id;
     this.api_hash = api_hash;
+
+    this.authObject = {};
+
+    this.lastMessageID = [0, 0];
+    this.timeOffset = 0;
+    this._seqNo = 0;
+    this.sessionID = null;
+    this.prevSessionID = null;
+    this.longPollRunning = false;
+
+    this.sentMessages = {};
+    this.pendingAcks = [];
 
     const urlPath = test ? '/apiw_test1' : '/apiw1';
 
@@ -69,7 +69,7 @@ class API {
       : `http://149.154.167.40${urlPath}`;
 
     this.sendAcks = debounce(() => {
-      if (!pendingAcks.length) {
+      if (!this.pendingAcks.length) {
         return;
       }
 
@@ -88,7 +88,10 @@ class API {
       };
 
       const serializer = new TLSerialization({ mtproto: true });
-      serializer.storeObject({ _: 'msgs_ack', msg_ids: pendingAcks }, 'Object');
+      serializer.storeObject(
+        { _: 'msgs_ack', msg_ids: this.pendingAcks },
+        'Object'
+      );
 
       const message = {
         msg_id: this.generateMessageID(),
@@ -96,7 +99,7 @@ class API {
         body: serializer.getBytes(),
       };
 
-      pendingAcks = [];
+      this.pendingAcks = [];
 
       this.sendEncryptedRequest([waitMessage, message]);
     }, 500);
@@ -108,9 +111,9 @@ class API {
     try {
       const prevAuth = localStorage.getItem(authStorageKey);
       if (prevAuth) {
-        authObject = JSON.parse(prevAuth);
+        this.authObject = JSON.parse(prevAuth);
         this.runLongPoll();
-        return Promise.resolve(authObject);
+        return Promise.resolve(this.authObject);
       }
     } catch (e) {
       console.error(e);
@@ -132,10 +135,10 @@ class API {
         reject(new Error('[MT] resPQ nonce mismatch'));
       }
 
-      authObject.nonce = nonce;
-      authObject.serverNonce = responsePQ.server_nonce;
-      authObject.pq = responsePQ.pq;
-      authObject.fingerprints = responsePQ.server_public_key_fingerprints;
+      this.authObject.nonce = nonce;
+      this.authObject.serverNonce = responsePQ.server_nonce;
+      this.authObject.pq = responsePQ.pq;
+      this.authObject.fingerprints = responsePQ.server_public_key_fingerprints;
 
       // console.log(
       //   'Got ResPQ',
@@ -144,22 +147,24 @@ class API {
       //   authObject.fingerprints
       // );
 
-      authObject.publicKey = RsaKeysManager.select(authObject.fingerprints);
+      this.authObject.publicKey = RsaKeysManager.select(
+        this.authObject.fingerprints
+      );
 
-      if (!authObject.publicKey) {
+      if (!this.authObject.publicKey) {
         reject(new Error('[MT] No public key found'));
       }
 
       // console.log('PQ factorization start', authObject.pq);
 
-      const pAndQ = pqPrimeFactorization(authObject.pq);
+      const pAndQ = pqPrimeFactorization(this.authObject.pq);
 
-      authObject.p = pAndQ[0];
-      authObject.q = pAndQ[1];
+      this.authObject.p = pAndQ[0];
+      this.authObject.q = pAndQ[1];
 
       //mtpSendReqDhParams(authObject);
-      authObject.newNonce = new Array(32);
-      secureRandom.nextBytes(authObject.newNonce);
+      this.authObject.newNonce = new Array(32);
+      secureRandom.nextBytes(this.authObject.newNonce);
 
       // console.log('auth now', authObject);
 
@@ -167,12 +172,12 @@ class API {
       data.storeObject(
         {
           _: 'p_q_inner_data',
-          pq: authObject.pq,
-          p: authObject.p,
-          q: authObject.q,
-          nonce: authObject.nonce,
-          server_nonce: authObject.serverNonce,
-          new_nonce: authObject.newNonce,
+          pq: this.authObject.pq,
+          p: this.authObject.p,
+          q: this.authObject.q,
+          nonce: this.authObject.nonce,
+          server_nonce: this.authObject.serverNonce,
+          new_nonce: this.authObject.newNonce,
         },
         'P_Q_inner_data',
         'DECRYPTED_DATA'
@@ -184,12 +189,12 @@ class API {
 
       const request = new TLSerialization({ mtproto: true });
       request.storeMethod('req_DH_params', {
-        nonce: authObject.nonce,
-        server_nonce: authObject.serverNonce,
-        p: authObject.p,
-        q: authObject.q,
-        public_key_fingerprint: authObject.publicKey.fingerprint,
-        encrypted_data: rsaEncrypt(authObject.publicKey, dataWithHash),
+        nonce: this.authObject.nonce,
+        server_nonce: this.authObject.serverNonce,
+        p: this.authObject.p,
+        q: this.authObject.q,
+        public_key_fingerprint: this.authObject.publicKey.fingerprint,
+        encrypted_data: rsaEncrypt(this.authObject.publicKey, dataWithHash),
       });
 
       return this.sendPlainRequest(request.getBuffer()).then(deserializer => {
@@ -208,16 +213,16 @@ class API {
           );
         }
 
-        if (!bytesCmp(authObject.nonce, responseDH.nonce)) {
+        if (!bytesCmp(this.authObject.nonce, responseDH.nonce)) {
           reject(new Error('[MT] Server_DH_Params nonce mismatch'));
         }
 
-        if (!bytesCmp(authObject.serverNonce, responseDH.server_nonce)) {
+        if (!bytesCmp(this.authObject.serverNonce, responseDH.server_nonce)) {
           reject(new Error('[MT] Server_DH_Params server_nonce mismatch'));
         }
 
         if (responseDH._ == 'server_DH_params_fail') {
-          var newNonceHash = sha1BytesSync(authObject.newNonce).slice(-16);
+          var newNonceHash = sha1BytesSync(this.authObject.newNonce).slice(-16);
           if (!bytesCmp(newNonceHash, responseDH.new_nonce_hash)) {
             reject(
               new Error('[MT] server_DH_params_fail new_nonce_hash mismatch')
@@ -228,28 +233,30 @@ class API {
 
         //mtpDecryptServerDhDataAnswer(authObject, responseDH.encrypted_answer);
 
-        authObject.localTime = tsNow();
+        this.authObject.localTime = tsNow();
 
-        authObject.tmpAesKey = sha1BytesSync(
-          authObject.newNonce.concat(authObject.serverNonce)
+        this.authObject.tmpAesKey = sha1BytesSync(
+          this.authObject.newNonce.concat(this.authObject.serverNonce)
         ).concat(
           sha1BytesSync(
-            authObject.serverNonce.concat(authObject.newNonce)
+            this.authObject.serverNonce.concat(this.authObject.newNonce)
           ).slice(0, 12)
         );
-        authObject.tmpAesIv = sha1BytesSync(
-          authObject.serverNonce.concat(authObject.newNonce)
+        this.authObject.tmpAesIv = sha1BytesSync(
+          this.authObject.serverNonce.concat(this.authObject.newNonce)
         )
           .slice(12)
           .concat(
-            sha1BytesSync([].concat(authObject.newNonce, authObject.newNonce)),
-            authObject.newNonce.slice(0, 4)
+            sha1BytesSync(
+              [].concat(this.authObject.newNonce, this.authObject.newNonce)
+            ),
+            this.authObject.newNonce.slice(0, 4)
           );
 
         const answerWithHash = aesDecryptSync(
           responseDH.encrypted_answer,
-          authObject.tmpAesKey,
-          authObject.tmpAesIv
+          this.authObject.tmpAesKey,
+          this.authObject.tmpAesIv
         );
 
         var hash = answerWithHash.slice(0, 20);
@@ -271,24 +278,30 @@ class API {
           );
         }
 
-        if (!bytesCmp(authObject.nonce, responseDHInner.nonce)) {
+        if (!bytesCmp(this.authObject.nonce, responseDHInner.nonce)) {
           reject(new Error('[MT] server_DH_inner_data nonce mismatch'));
         }
 
-        if (!bytesCmp(authObject.serverNonce, responseDHInner.server_nonce)) {
+        if (
+          !bytesCmp(this.authObject.serverNonce, responseDHInner.server_nonce)
+        ) {
           reject(new Error('[MT] server_DH_inner_data serverNonce mismatch'));
         }
 
         console.log('5. Done decrypting answer');
 
-        authObject.g = responseDHInner.g;
-        authObject.dhPrime = responseDHInner.dh_prime;
-        authObject.gA = responseDHInner.g_a;
-        authObject.serverTime = responseDHInner.server_time;
-        authObject.retry = 0;
+        this.authObject.g = responseDHInner.g;
+        this.authObject.dhPrime = responseDHInner.dh_prime;
+        this.authObject.gA = responseDHInner.g_a;
+        this.authObject.serverTime = responseDHInner.server_time;
+        this.authObject.retry = 0;
 
         console.log('6. verifyDhParams start');
-        this.verifyDhParams(authObject.g, authObject.dhPrime, authObject.gA);
+        this.verifyDhParams(
+          this.authObject.g,
+          this.authObject.dhPrime,
+          this.authObject.gA
+        );
         console.log('7. verifyDhParams finish');
 
         var offset = deserializer.getOffset();
@@ -299,13 +312,13 @@ class API {
           reject(new Error('[MT] server_DH_inner_data SHA1-hash mismatch'));
         }
 
-        this.applyServerTime(authObject.serverTime);
+        this.applyServerTime(this.authObject.serverTime);
 
-        return this.sendSetClientDhParams(authObject).then(() => {
-          console.log('8. authObject', authObject);
-          this.saveAuth(authObject);
+        return this.sendSetClientDhParams(this.authObject).then(() => {
+          console.log('8. authObject', this.authObject);
+          this.saveAuth(this.authObject);
           this.runLongPoll();
-          return authObject;
+          return this.authObject;
         });
       });
     });
@@ -518,7 +531,7 @@ class API {
         ...containerSentMessage,
       };
 
-      sentMessages[resultMessage.msg_id] = containerSentMessage;
+      this.sentMessages[resultMessage.msg_id] = containerSentMessage;
     }
 
     return this._sendEncryptedRequest(resultMessage).then(responsePackage => {
@@ -531,20 +544,20 @@ class API {
   }
 
   _sendEncryptedRequest(message) {
-    const authKey = authObject.authKey;
+    const authKey = this.authObject.authKey;
     const authKeyUint8 = convertToUint8Array(authKey);
     const authKeyID = sha1BytesSync(authKey).slice(-8);
-    const serverSalt = authObject.serverSalt;
+    const serverSalt = this.authObject.serverSalt;
 
     var data = new TLSerialization({
       startMaxLength: message.body.length + 2048,
     });
 
     message.deferred = message.deferred || new Deferred();
-    sentMessages[message.msg_id] = message;
+    this.sentMessages[message.msg_id] = message;
 
     data.storeIntBytes(serverSalt, 64, 'salt');
-    data.storeIntBytes(sessionID, 64, 'session_id');
+    data.storeIntBytes(this.sessionID, 64, 'session_id');
 
     data.storeLong(message.msg_id, 'message_id');
     data.storeInt(message.seq_no, 'seq_no');
@@ -585,6 +598,8 @@ class API {
         if (!result.data || !result.data.byteLength) {
           throw new Error('No data');
         }
+
+        const self = this;
 
         const responseBuffer = result.data;
 
@@ -638,10 +653,15 @@ class API {
         var messageID = dataDeserializer.fetchLong('message_id');
 
         if (
-          !bytesCmp(serverSessionID, sessionID) &&
-          (!prevSessionID || !bytesCmp(sessionID, prevSessionID))
+          !bytesCmp(serverSessionID, this.sessionID) &&
+          (!this.prevSessionID || !bytesCmp(this.sessionID, this.prevSessionID))
         ) {
-          console.warn('Sessions', serverSessionID, sessionID, prevSessionID);
+          console.warn(
+            'Sessions',
+            serverSessionID,
+            this.sessionID,
+            this.prevSessionID
+          );
           throw new Error(
             '[MT] Invalid server session_id: ' + bytesToHex(serverSessionID)
           );
@@ -696,7 +716,7 @@ class API {
             mt_rpc_result: function(result, field) {
               result.req_msg_id = this.fetchLong(field + '[req_msg_id]');
 
-              var sentMessage = sentMessages[result.req_msg_id];
+              var sentMessage = self.sentMessages[result.req_msg_id];
               var type = (sentMessage && sentMessage.resultType) || 'Object';
 
               if (result.req_msg_id && !sentMessage) {
@@ -722,7 +742,7 @@ class API {
         return {
           response,
           messageID,
-          sessionID,
+          sessionID: this.sessionID,
           seqNo,
           messageDeferred: message.deferred.promise,
         };
@@ -806,20 +826,20 @@ class API {
 
       case 'bad_server_salt':
         console.log('Bad server salt');
-        sentMessage = sentMessages[message.bad_msg_id];
+        sentMessage = this.sentMessages[message.bad_msg_id];
         if (!sentMessage || sentMessage.seq_no != message.bad_msg_seqno) {
           console.log(message.bad_msg_id, message.bad_msg_seqno);
           throw new Error('[MT] Bad server salt for invalid message');
         }
 
         this.applyServerSalt(message.new_server_salt);
-        this.sendEncryptedRequest(sentMessages[message.bad_msg_id]);
+        this.sendEncryptedRequest(this.sentMessages[message.bad_msg_id]);
         this.ackMessage(messageID);
         break;
 
       case 'bad_msg_notification':
         console.log('Bad msg notification', message);
-        sentMessage = sentMessages[message.bad_msg_id];
+        sentMessage = this.sentMessages[message.bad_msg_id];
         if (!sentMessage || sentMessage.seq_no != message.bad_msg_seqno) {
           console.log(message.bad_msg_id, message.bad_msg_seqno);
           throw new Error('[MT] Bad msg notification for invalid message');
@@ -836,7 +856,7 @@ class API {
             console.log('Update session');
             this.updateSession();
           }
-          this.sendEncryptedRequest(sentMessages[message.bad_msg_id]);
+          this.sendEncryptedRequest(this.sentMessages[message.bad_msg_id]);
           this.ackMessage(messageID);
         }
         break;
@@ -899,8 +919,8 @@ class API {
         this.ackMessage(messageID);
 
         this.processMessageAck(sentMessageID);
-        if (sentMessages[sentMessageID]) {
-          const deferred = sentMessages[sentMessageID].deferred;
+        if (this.sentMessages[sentMessageID]) {
+          const deferred = this.sentMessages[sentMessageID].deferred;
           if (message.result._ == 'rpc_error') {
             // console.log('Rpc error', message.result);
             deferred.reject(message.result);
@@ -921,7 +941,7 @@ class API {
           //   `JSON.stringify(Object.keys(sentMessages)):`,
           //   JSON.stringify(Object.keys(sentMessages))
           // );
-          delete sentMessages[sentMessageID];
+          delete this.sentMessages[sentMessageID];
         }
         break;
 
@@ -935,11 +955,11 @@ class API {
   ackMessage(messageID) {
     // console.log('ackMessage[messageID]:', messageID);
 
-    pendingAcks.push(messageID);
+    this.pendingAcks.push(messageID);
   }
 
   processMessageAck(messageID) {
-    const sentMessage = sentMessages[messageID];
+    const sentMessage = this.sentMessages[messageID];
     if (sentMessage && !sentMessage.acked) {
       delete sentMessage.body;
       sentMessage.acked = true;
@@ -951,22 +971,22 @@ class API {
   }
 
   applyServerSalt(salt) {
-    authObject.serverSalt = longToBytes(salt);
-    this.saveAuth(authObject);
+    this.authObject.serverSalt = longToBytes(salt);
+    this.saveAuth(this.authObject);
   }
 
   applyServerTime(serverTime) {
     const newTimeOffset =
-      serverTime - Math.floor((authObject.localTime || tsNow()) / 1000);
-    const changed = Math.abs(timeOffset - newTimeOffset) > 10;
+      serverTime - Math.floor((this.authObject.localTime || tsNow()) / 1000);
+    const changed = Math.abs(this.timeOffset - newTimeOffset) > 10;
 
-    lastMessageID = [0, 0];
-    timeOffset = newTimeOffset;
+    this.lastMessageID = [0, 0];
+    this.timeOffset = newTimeOffset;
 
     console.log(
       'Apply server time',
       serverTime,
-      authObject.localTime,
+      this.authObject.localTime,
       newTimeOffset,
       changed
     );
@@ -975,10 +995,10 @@ class API {
   }
 
   updateSession() {
-    prevSessionID = sessionID;
-    sessionID = new Array(8);
-    secureRandom.nextBytes(sessionID);
-    _seqNo = 0;
+    this.prevSessionID = this.sessionID;
+    this.sessionID = new Array(8);
+    secureRandom.nextBytes(this.sessionID);
+    this._seqNo = 0;
   }
 
   getMsgKey(authKeyUint8, dataWithPadding, isOut) {
@@ -993,11 +1013,11 @@ class API {
   }
 
   generateSeqNo(notContentRelated) {
-    var seqNo = _seqNo * 2;
+    var seqNo = this._seqNo * 2;
 
     if (!notContentRelated) {
-      seqNo++;
-      _seqNo++;
+      seqNo += 1;
+      this._seqNo += 1;
     }
 
     return seqNo;
@@ -1005,9 +1025,11 @@ class API {
 
   generateMessageID() {
     const timeTicks = tsNow();
-    const timeSec = Math.floor(timeTicks / 1000) + timeOffset;
+    const timeSec = Math.floor(timeTicks / 1000) + this.timeOffset;
     const timeMSec = timeTicks % 1000;
     const random = nextRandomInt(0xffff);
+
+    const { lastMessageID } = this;
 
     let messageID = [timeSec, (timeMSec << 21) | (random << 3) | 4];
 
@@ -1018,13 +1040,13 @@ class API {
       messageID = [lastMessageID[0], lastMessageID[1] + 4];
     }
 
-    lastMessageID = messageID;
+    this.lastMessageID = messageID;
 
     return longFromInts(messageID[0], messageID[1]);
   }
 
   saveAuth(auth) {
-    authObject = auth;
+    this.authObject = auth;
     localStorage.setItem(authStorageKey, JSON.stringify(auth));
   }
 
