@@ -57,25 +57,6 @@ function Deferred() {
   Object.freeze(this);
 }
 
-function applyServerTime(serverTime) {
-  const newTimeOffset =
-    serverTime - Math.floor((authObject.localTime || tsNow()) / 1000);
-  const changed = Math.abs(timeOffset - newTimeOffset) > 10;
-
-  lastMessageID = [0, 0];
-  timeOffset = newTimeOffset;
-
-  console.log(
-    'Apply server time',
-    serverTime,
-    authObject.localTime,
-    newTimeOffset,
-    changed
-  );
-
-  return changed;
-}
-
 function generateMessageID() {
   const timeTicks = tsNow();
   const timeSec = Math.floor(timeTicks / 1000) + timeOffset;
@@ -373,7 +354,7 @@ class Auth {
           reject(new Error('[MT] server_DH_inner_data SHA1-hash mismatch'));
         }
 
-        applyServerTime(authObject.serverTime);
+        this.applyServerTime(authObject.serverTime);
 
         return this.sendSetClientDhParams(authObject).then(() => {
           console.log('8. authObject', authObject);
@@ -859,7 +840,7 @@ class Auth {
 
         if (message.error_code == 16 || message.error_code == 17) {
           if (
-            applyServerTime(
+            this.applyServerTime(
               bigStringInt(messageID)
                 .shiftRight(32)
                 .toString(10)
@@ -985,6 +966,25 @@ class Auth {
   applyServerSalt(salt) {
     authObject.serverSalt = longToBytes(salt);
     this.saveAuth(authObject);
+  }
+
+  applyServerTime(serverTime) {
+    const newTimeOffset =
+      serverTime - Math.floor((authObject.localTime || tsNow()) / 1000);
+    const changed = Math.abs(timeOffset - newTimeOffset) > 10;
+
+    lastMessageID = [0, 0];
+    timeOffset = newTimeOffset;
+
+    console.log(
+      'Apply server time',
+      serverTime,
+      authObject.localTime,
+      newTimeOffset,
+      changed
+    );
+
+    return changed;
   }
 
   updateSession() {
