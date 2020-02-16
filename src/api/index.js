@@ -41,8 +41,6 @@ let sessionID, prevSessionID;
 const sentMessages = {};
 let pendingAcks = [];
 
-let url = null;
-
 const secureRandom = new SecureRandom();
 
 function Deferred() {
@@ -57,9 +55,18 @@ function Deferred() {
   Object.freeze(this);
 }
 
-class Auth {
-  constructor() {
+class API {
+  constructor({ api_id, api_hash, test, https }) {
     this.longPollRunning = false;
+
+    this.api_id = api_id;
+    this.api_hash = api_hash;
+
+    const urlPath = test ? '/apiw_test1' : '/apiw1';
+
+    this.url = https
+      ? `https://venus.web.telegram.org${urlPath}`
+      : `http://149.154.167.40${urlPath}`;
 
     this.sendAcks = debounce(() => {
       if (!pendingAcks.length) {
@@ -570,7 +577,7 @@ class Auth {
     var requestData = request.getArray();
 
     return http
-      .post(url, requestData, {
+      .post(this.url, requestData, {
         responseType: 'arraybuffer',
         transformRequest: null,
       })
@@ -744,7 +751,7 @@ class Auth {
     const requestData = resultArray;
 
     return http
-      .post(url, requestData, {
+      .post(this.url, requestData, {
         responseType: 'arraybuffer',
         transformRequest: null,
       })
@@ -1049,20 +1056,6 @@ class Auth {
       self.sendEncryptedRequest(message).finally(longPollInner);
     })();
   }
-}
-
-class API {
-  constructor({ api_id, api_hash, test, https }) {
-    this.api_id = api_id;
-    this.api_hash = api_hash;
-    this.auth = new Auth();
-
-    const urlPath = test ? '/apiw_test1' : '/apiw1';
-
-    url = https
-      ? `https://venus.web.telegram.org${urlPath}`
-      : `http://149.154.167.40${urlPath}`;
-  }
 
   getApiCallMessage(method, params = {}, options = {}) {
     const serializer = new TLSerialization(options);
@@ -1087,10 +1080,10 @@ class API {
     options.resultType = serializer.storeMethod(method, params);
 
     let toAck = []; //msgs_ack
-    const msg_id = this.auth.generateMessageID();
+    const msg_id = this.generateMessageID();
     const message = {
       msg_id,
-      seq_no: this.auth.generateSeqNo(),
+      seq_no: this.generateSeqNo(),
       body: serializer.getBytes(true),
       isAPI: true,
       method,
@@ -1103,11 +1096,10 @@ class API {
 
   apiCall(method, params = {}, options = {}) {
     const message = this.getApiCallMessage(method, params, options);
-    this.auth.sendAcks();
+    this.sendAcks();
 
     return new Promise((resolve, reject) => {
-      this.auth
-        .sendEncryptedRequest(message)
+      this.sendEncryptedRequest(message)
         .then(response => {
           const { messageDeferred } = response;
           messageDeferred.then(resolve);
@@ -1118,7 +1110,7 @@ class API {
   }
 
   call(method, data) {
-    return this.auth.init().then(() => {
+    return this.init().then(() => {
       return this.apiCall(method, {
         api_hash: this.api_hash,
         api_id: this.api_id,
