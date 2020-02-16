@@ -149,15 +149,6 @@ function generateSeqNo(notContentRelated) {
   return seqNo;
 }
 
-function updateSession() {
-  prevSessionID = sessionID;
-  sessionID = new Array(8);
-  secureRandom.nextBytes(sessionID);
-  _seqNo = 0;
-}
-
-updateSession();
-
 function getMsgKey(authKeyUint8, dataWithPadding, isOut) {
   var authKey = authKeyUint8;
   var x = isOut ? 0 : 8;
@@ -231,6 +222,8 @@ class Auth {
 
       this.sendEncryptedRequest([waitMessage, message]);
     }, 500);
+
+    this.updateSession();
   }
 
   init() {
@@ -897,7 +890,7 @@ class Auth {
             )
           ) {
             console.log('Update session');
-            updateSession();
+            this.updateSession();
           }
           this.sendEncryptedRequest(sentMessages[message.bad_msg_id]);
           this.ackMessage(messageID);
@@ -1016,6 +1009,13 @@ class Auth {
   applyServerSalt(salt) {
     authObject.serverSalt = longToBytes(salt);
     saveAuth(authObject);
+  }
+
+  updateSession() {
+    prevSessionID = sessionID;
+    sessionID = new Array(8);
+    secureRandom.nextBytes(sessionID);
+    _seqNo = 0;
   }
 
   runLongPoll() {
