@@ -138,17 +138,6 @@ function sendPlainRequest(requestBuffer) {
     });
 }
 
-function generateSeqNo(notContentRelated) {
-  var seqNo = _seqNo * 2;
-
-  if (!notContentRelated) {
-    seqNo++;
-    _seqNo++;
-  }
-
-  return seqNo;
-}
-
 class Auth {
   constructor() {
     this.longPollRunning = false;
@@ -168,7 +157,7 @@ class Auth {
       });
       const waitMessage = {
         msg_id: generateMessageID(),
-        seq_no: generateSeqNo(),
+        seq_no: this.generateSeqNo(),
         body: waitSerializer.getBytes(),
       };
 
@@ -177,7 +166,7 @@ class Auth {
 
       const message = {
         msg_id: generateMessageID(),
-        seq_no: generateSeqNo(true),
+        seq_no: this.generateSeqNo(true),
         body: serializer.getBytes(),
       };
 
@@ -593,7 +582,7 @@ class Auth {
 
       const containerSentMessage = {
         msg_id: generateMessageID(),
-        seq_no: generateSeqNo(true),
+        seq_no: this.generateSeqNo(true),
         container: true,
         inner: innerMessages,
       };
@@ -1016,6 +1005,17 @@ class Auth {
     return new Uint8Array(msgKeyLarge).subarray(8, 24);
   }
 
+  generateSeqNo(notContentRelated) {
+    var seqNo = _seqNo * 2;
+
+    if (!notContentRelated) {
+      seqNo++;
+      _seqNo++;
+    }
+
+    return seqNo;
+  }
+
   saveAuth(auth) {
     authObject = auth;
     localStorage.setItem(authStorageKey, JSON.stringify(auth));
@@ -1039,7 +1039,7 @@ class Auth {
       });
 
       var messageID = generateMessageID();
-      var seqNo = generateSeqNo();
+      var seqNo = self.generateSeqNo();
       var message = {
         msg_id: messageID,
         seq_no: seqNo,
@@ -1090,7 +1090,7 @@ class API {
     const msg_id = generateMessageID();
     const message = {
       msg_id,
-      seq_no: generateSeqNo(),
+      seq_no: this.auth.generateSeqNo(),
       body: serializer.getBytes(true),
       isAPI: true,
       method,
