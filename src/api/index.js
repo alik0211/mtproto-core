@@ -77,48 +77,6 @@ function generateMessageID() {
   return longFromInts(messageID[0], messageID[1]);
 }
 
-function sendPlainRequest(requestBuffer) {
-  const requestLength = requestBuffer.byteLength;
-  const requestArray = new Int32Array(requestBuffer);
-
-  const header = new TLSerialization();
-  header.storeLongP(0, 0, 'auth_key_id');
-  header.storeLong(generateMessageID(), 'msg_id');
-  header.storeInt(requestLength, 'request_length');
-
-  const headerBuffer = header.getBuffer();
-  const headerArray = new Int32Array(headerBuffer);
-  const headerLength = headerBuffer.byteLength;
-
-  const resultBuffer = new ArrayBuffer(headerLength + requestLength);
-  const resultArray = new Int32Array(resultBuffer);
-
-  resultArray.set(headerArray);
-  resultArray.set(requestArray, headerArray.length);
-
-  const requestData = resultArray;
-
-  return http
-    .post(url, requestData, {
-      responseType: 'arraybuffer',
-      transformRequest: null,
-    })
-    .then(function(result) {
-      if (!result.data || !result.data.byteLength) {
-        throw new Error('no data');
-      }
-
-      var deserializer = new TLDeserialization(result.data, {
-        mtproto: true,
-      });
-      var auth_key_id = deserializer.fetchLong('auth_key_id');
-      var msg_id = deserializer.fetchLong('msg_id');
-      var msg_len = deserializer.fetchInt('msg_len');
-
-      return deserializer;
-    });
-}
-
 class Auth {
   constructor() {
     this.longPollRunning = false;
@@ -175,7 +133,7 @@ class Auth {
     const request = new TLSerialization({ mtproto: true });
     request.storeMethod('req_pq_multi', { nonce });
     // request.storeMethod('req_pq', { nonce });
-    return sendPlainRequest(request.getBuffer()).then(deserializer => {
+    return this.sendPlainRequest(request.getBuffer()).then(deserializer => {
       const responsePQ = deserializer.fetchObject('ResPQ');
       console.log('2. response', responsePQ);
 
@@ -247,7 +205,7 @@ class Auth {
         encrypted_data: rsaEncrypt(authObject.publicKey, dataWithHash),
       });
 
-      return sendPlainRequest(request.getBuffer()).then(deserializer => {
+      return this.sendPlainRequest(request.getBuffer()).then(deserializer => {
         const responseDH = deserializer.fetchObject(
           'Server_DH_Params',
           'RESPONSE'
@@ -443,7 +401,7 @@ class Auth {
     });
 
     console.log('Send set_client_DH_params');
-    return sendPlainRequest(request.getBuffer()).then(deserializer => {
+    return this.sendPlainRequest(request.getBuffer()).then(deserializer => {
       var response = deserializer.fetchObject('Set_client_DH_params_answer');
 
       if (
@@ -781,6 +739,48 @@ class Auth {
           seqNo,
           messageDeferred: message.deferred.promise,
         };
+      });
+  }
+
+  sendPlainRequest(requestBuffer) {
+    const requestLength = requestBuffer.byteLength;
+    const requestArray = new Int32Array(requestBuffer);
+
+    const header = new TLSerialization();
+    header.storeLongP(0, 0, 'auth_key_id');
+    header.storeLong(generateMessageID(), 'msg_id');
+    header.storeInt(requestLength, 'request_length');
+
+    const headerBuffer = header.getBuffer();
+    const headerArray = new Int32Array(headerBuffer);
+    const headerLength = headerBuffer.byteLength;
+
+    const resultBuffer = new ArrayBuffer(headerLength + requestLength);
+    const resultArray = new Int32Array(resultBuffer);
+
+    resultArray.set(headerArray);
+    resultArray.set(requestArray, headerArray.length);
+
+    const requestData = resultArray;
+
+    return http
+      .post(url, requestData, {
+        responseType: 'arraybuffer',
+        transformRequest: null,
+      })
+      .then(function(result) {
+        if (!result.data || !result.data.byteLength) {
+          throw new Error('no data');
+        }
+
+        var deserializer = new TLDeserialization(result.data, {
+          mtproto: true,
+        });
+        var auth_key_id = deserializer.fetchLong('auth_key_id');
+        var msg_id = deserializer.fetchLong('msg_id');
+        var msg_len = deserializer.fetchInt('msg_len');
+
+        return deserializer;
       });
   }
 
