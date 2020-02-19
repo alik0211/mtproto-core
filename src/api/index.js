@@ -1077,9 +1077,10 @@ class API extends EventEmitter {
   getApiCallMessage(method, params = {}, options = {}) {
     const serializer = new TLSerialization(options);
 
-    serializer.storeInt(config.invokeWithLayer, 'invokeWithLayer');
-    serializer.storeInt(config.layer, 'layer');
-    serializer.storeInt(config.initConnection, 'initConnection');
+    serializer.storeInt(0xda9b0d0d, 'invokeWithLayer');
+    serializer.storeInt(108, 'layer');
+    serializer.storeInt(0x785188b8, 'initConnection');
+    serializer.storeInt(0, 'flags'); // because the proxy is not set
     serializer.storeInt(this.api_id, 'api_id');
     serializer.storeString(
       navigator.userAgent || 'Unknown UserAgent',

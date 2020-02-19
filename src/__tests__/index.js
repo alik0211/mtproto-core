@@ -25,8 +25,10 @@ mtproto.api
   .catch(() => {
     mtproto.api
       .call('auth.sendCode', {
-        flags: 0,
         phone_number: phoneNumber,
+        settings: {
+          _: 'codeSettings',
+        },
       })
       .then(result => {
         return mtproto.api.call('auth.signIn', {
