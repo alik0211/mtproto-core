@@ -1079,27 +1079,24 @@ class API extends EventEmitter {
     }
     this.longPollRunning = true;
 
-    const self = this;
-
-    (function longPollInner() {
-      //console.log('long poll');
-      var serializer = new TLSerialization({ mtproto: true });
+    const longPollInner = () => {
+      const serializer = new TLSerialization({ mtproto: true });
       serializer.storeMethod('http_wait', {
         max_delay: 500,
         wait_after: 150,
         max_wait: 15000,
       });
 
-      var messageID = self.generateMessageId();
-      var seqNo = self.generateSeqNo();
-      var message = {
-        msg_id: messageID,
-        seq_no: seqNo,
+      const message = {
+        msg_id: this.generateMessageId(),
+        seq_no: this.generateSeqNo(),
         body: serializer.getBytes(),
       };
 
-      self.sendEncryptedRequest(message).finally(longPollInner);
-    })();
+      this.sendEncryptedRequest(message).finally(longPollInner);
+    };
+
+    longPollInner();
   }
 
   getApiCallMessage(method, params = {}) {
