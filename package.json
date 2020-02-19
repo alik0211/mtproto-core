@@ -1,6 +1,6 @@
 {
   "name": "@mtproto/core",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Telegram API for browser",
   "keywords": [
     "telegram",
