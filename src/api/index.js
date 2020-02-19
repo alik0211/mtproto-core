@@ -54,11 +54,11 @@ class API extends EventEmitter {
 
     this.authObject = {};
 
-    this.lastMessageID = [0, 0];
+    this.lastMessageId = [0, 0];
     this.timeOffset = 0;
     this._seqNo = 0;
-    this.sessionID = null;
-    this.prevSessionID = null;
+    this.sessionId = null;
+    this.prevSessionId = null;
     this.longPollRunning = false;
 
     this.sentMessages = {};
@@ -84,7 +84,7 @@ class API extends EventEmitter {
         max_wait: 1000,
       });
       const waitMessage = {
-        msg_id: this.generateMessageID(),
+        msg_id: this.generateMessageId(),
         seq_no: this.generateSeqNo(),
         body: waitSerializer.getBytes(),
       };
@@ -96,7 +96,7 @@ class API extends EventEmitter {
       );
 
       const message = {
-        msg_id: this.generateMessageID(),
+        msg_id: this.generateMessageId(),
         seq_no: this.generateSeqNo(true),
         body: serializer.getBytes(),
       };
@@ -522,7 +522,7 @@ class API extends EventEmitter {
       }
 
       const containerSentMessage = {
-        msg_id: this.generateMessageID(),
+        msg_id: this.generateMessageId(),
         seq_no: this.generateSeqNo(true),
         container: true,
         inner: innerMessages,
@@ -559,7 +559,7 @@ class API extends EventEmitter {
     this.sentMessages[message.msg_id] = message;
 
     data.storeIntBytes(serverSalt, 64, 'salt');
-    data.storeIntBytes(this.sessionID, 64, 'session_id');
+    data.storeIntBytes(this.sessionId, 64, 'session_id');
 
     data.storeLong(message.msg_id, 'message_id');
     data.storeInt(message.seq_no, 'seq_no');
@@ -655,14 +655,14 @@ class API extends EventEmitter {
         var messageID = dataDeserializer.fetchLong('message_id');
 
         if (
-          !bytesCmp(serverSessionID, this.sessionID) &&
-          (!this.prevSessionID || !bytesCmp(this.sessionID, this.prevSessionID))
+          !bytesCmp(serverSessionID, this.sessionId) &&
+          (!this.prevSessionId || !bytesCmp(this.sessionId, this.prevSessionId))
         ) {
           console.warn(
             'Sessions',
             serverSessionID,
-            this.sessionID,
-            this.prevSessionID
+            this.sessionId,
+            this.prevSessionId
           );
           throw new Error(
             '[MT] Invalid server session_id: ' + bytesToHex(serverSessionID)
@@ -744,7 +744,7 @@ class API extends EventEmitter {
         return {
           response,
           messageID,
-          sessionID: this.sessionID,
+          sessionID: this.sessionId,
           seqNo,
           messageDeferred: message.deferred.promise,
         };
@@ -757,7 +757,7 @@ class API extends EventEmitter {
 
     const header = new TLSerialization();
     header.storeLongP(0, 0, 'auth_key_id');
-    header.storeLong(this.generateMessageID(), 'msg_id');
+    header.storeLong(this.generateMessageId(), 'msg_id');
     header.storeInt(requestLength, 'request_length');
 
     const headerBuffer = header.getBuffer();
@@ -974,7 +974,7 @@ class API extends EventEmitter {
       serverTime - Math.floor((this.authObject.localTime || tsNow()) / 1000);
     const changed = Math.abs(this.timeOffset - newTimeOffset) > 10;
 
-    this.lastMessageID = [0, 0];
+    this.lastMessageId = [0, 0];
     this.timeOffset = newTimeOffset;
 
     console.log(
@@ -989,9 +989,9 @@ class API extends EventEmitter {
   }
 
   updateSession() {
-    this.prevSessionID = this.sessionID;
-    this.sessionID = new Array(8);
-    secureRandom.nextBytes(this.sessionID);
+    this.prevSessionId = this.sessionId;
+    this.sessionId = new Array(8);
+    secureRandom.nextBytes(this.sessionId);
     this._seqNo = 0;
   }
 
@@ -1017,26 +1017,26 @@ class API extends EventEmitter {
     return seqNo;
   }
 
-  generateMessageID() {
+  generateMessageId() {
     const timeTicks = tsNow();
     const timeSec = Math.floor(timeTicks / 1000) + this.timeOffset;
     const timeMSec = timeTicks % 1000;
     const random = nextRandomInt(0xffff);
 
-    const { lastMessageID } = this;
+    const { lastMessageId } = this;
 
-    let messageID = [timeSec, (timeMSec << 21) | (random << 3) | 4];
+    let messageId = [timeSec, (timeMSec << 21) | (random << 3) | 4];
 
     if (
-      lastMessageID[0] > messageID[0] ||
-      (lastMessageID[0] == messageID[0] && lastMessageID[1] >= messageID[1])
+      lastMessageId[0] > messageId[0] ||
+      (lastMessageId[0] == messageId[0] && lastMessageId[1] >= messageId[1])
     ) {
-      messageID = [lastMessageID[0], lastMessageID[1] + 4];
+      messageId = [lastMessageId[0], lastMessageId[1] + 4];
     }
 
-    this.lastMessageID = messageID;
+    this.lastMessageId = messageId;
 
-    return longFromInts(messageID[0], messageID[1]);
+    return longFromInts(messageId[0], messageId[1]);
   }
 
   saveAuth(auth) {
@@ -1061,7 +1061,7 @@ class API extends EventEmitter {
         max_wait: 15000,
       });
 
-      var messageID = self.generateMessageID();
+      var messageID = self.generateMessageId();
       var seqNo = self.generateSeqNo();
       var message = {
         msg_id: messageID,
@@ -1073,8 +1073,8 @@ class API extends EventEmitter {
     })();
   }
 
-  getApiCallMessage(method, params = {}, options = {}) {
-    const serializer = new TLSerialization(options);
+  getApiCallMessage(method, params = {}) {
+    const serializer = new TLSerialization();
 
     serializer.storeInt(0xda9b0d0d, 'invokeWithLayer');
     serializer.storeInt(108, 'layer');
@@ -1094,12 +1094,15 @@ class API extends EventEmitter {
     serializer.storeString('', 'lang_pack');
     serializer.storeString(navigator.language || 'en', 'lang_code');
 
-    options.resultType = serializer.storeMethod(method, params);
+    serializer.storeMethod(method, {
+      api_hash: this.api_hash,
+      api_id: this.api_id,
+      ...params,
+    });
 
     let toAck = []; //msgs_ack
-    const msg_id = this.generateMessageID();
     const message = {
-      msg_id,
+      msg_id: this.generateMessageId(),
       seq_no: this.generateSeqNo(),
       body: serializer.getBytes(true),
       isAPI: true,
@@ -1111,27 +1114,19 @@ class API extends EventEmitter {
     return message;
   }
 
-  apiCall(method, params = {}, options = {}) {
-    const message = this.getApiCallMessage(method, params, options);
-    this.sendAcks();
-
-    return new Promise((resolve, reject) => {
-      this.sendEncryptedRequest(message)
-        .then(response => {
-          const { messageDeferred } = response;
-          messageDeferred.then(resolve);
-          messageDeferred.catch(reject);
-        })
-        .catch(reject);
-    });
-  }
-
-  call(method, data) {
+  call(method, params) {
     return this.init().then(() => {
-      return this.apiCall(method, {
-        api_hash: this.api_hash,
-        api_id: this.api_id,
-        ...data,
+      const message = this.getApiCallMessage(method, params);
+      this.sendAcks();
+
+      return new Promise((resolve, reject) => {
+        this.sendEncryptedRequest(message)
+          .then(response => {
+            const { messageDeferred } = response;
+            messageDeferred.then(resolve);
+            messageDeferred.catch(reject);
+          })
+          .catch(reject);
       });
     });
   }
