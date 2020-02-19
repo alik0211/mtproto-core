@@ -26,6 +26,49 @@ module.exports = {
       type: 'P_Q_inner_data',
     },
     {
+      id: '-1443537003',
+      predicate: 'p_q_inner_data_dc',
+      params: [
+        { name: 'pq', type: 'bytes' },
+        { name: 'p', type: 'bytes' },
+        { name: 'q', type: 'bytes' },
+        { name: 'nonce', type: 'int128' },
+        { name: 'server_nonce', type: 'int128' },
+        { name: 'new_nonce', type: 'int256' },
+        { name: 'dc', type: 'int' },
+      ],
+      type: 'P_Q_inner_data',
+    },
+    {
+      id: '1013613780',
+      predicate: 'p_q_inner_data_temp',
+      params: [
+        { name: 'pq', type: 'bytes' },
+        { name: 'p', type: 'bytes' },
+        { name: 'q', type: 'bytes' },
+        { name: 'nonce', type: 'int128' },
+        { name: 'server_nonce', type: 'int128' },
+        { name: 'new_nonce', type: 'int256' },
+        { name: 'expires_in', type: 'int' },
+      ],
+      type: 'P_Q_inner_data',
+    },
+    {
+      id: '1459478408',
+      predicate: 'p_q_inner_data_temp_dc',
+      params: [
+        { name: 'pq', type: 'bytes' },
+        { name: 'p', type: 'bytes' },
+        { name: 'q', type: 'bytes' },
+        { name: 'nonce', type: 'int128' },
+        { name: 'server_nonce', type: 'int128' },
+        { name: 'new_nonce', type: 'int256' },
+        { name: 'dc', type: 'int' },
+        { name: 'expires_in', type: 'int' },
+      ],
+      type: 'P_Q_inner_d',
+    },
+    {
       id: '2043348061',
       predicate: 'server_DH_params_fail',
       params: [
@@ -169,18 +212,6 @@ module.exports = {
       type: 'Pong',
     },
     {
-      id: '-501201412',
-      predicate: 'destroy_session_ok',
-      params: [{ name: 'session_id', type: 'long' }],
-      type: 'DestroySessionRes',
-    },
-    {
-      id: '1658015945',
-      predicate: 'destroy_session_none',
-      params: [{ name: 'session_id', type: 'long' }],
-      type: 'DestroySessionRes',
-    },
-    {
       id: '-1631450872',
       predicate: 'new_session_created',
       params: [
@@ -253,6 +284,12 @@ module.exports = {
       type: 'MsgResendReq',
     },
     {
+      id: '-2045723925',
+      predicate: 'msg_resend_ans_req',
+      params: [{ name: 'msg_ids', type: 'Vector<long>' }],
+      type: 'MsgResendReq',
+    },
+    {
       id: '-630588590',
       predicate: 'msgs_state_req',
       params: [{ name: 'msg_ids', type: 'Vector<long>' }],
@@ -297,6 +334,48 @@ module.exports = {
       ],
       type: 'MsgDetailedInfo',
     },
+    {
+      id: '1973679973',
+      predicate: 'bind_auth_key_inner',
+      params: [
+        { name: 'nonce', type: 'long' },
+        { name: 'temp_auth_key_id', type: 'long' },
+        { name: 'perm_auth_key_id', type: 'long' },
+        { name: 'temp_session_id', type: 'long' },
+        { name: 'expires_at', type: 'int' },
+      ],
+      type: 'BindAuthKeyInner',
+    },
+    {
+      id: '-161422892',
+      predicate: 'destroy_auth_key_ok',
+      params: [],
+      type: 'DestroyAuthKeyRes',
+    },
+    {
+      id: '178201177',
+      predicate: 'destroy_auth_key_none',
+      params: [],
+      type: 'DestroyAuthKeyRes',
+    },
+    {
+      id: '-368010477',
+      predicate: 'destroy_auth_key_fail',
+      params: [],
+      type: 'DestroyAuthKeyRes',
+    },
+    {
+      id: '-501201412',
+      predicate: 'destroy_session_ok',
+      params: [{ name: 'session_id', type: 'long' }],
+      type: 'DestroySessionRes',
+    },
+    {
+      id: '1658015945',
+      predicate: 'destroy_session_none',
+      params: [{ name: 'session_id', type: 'long' }],
+      type: 'DestroySessionRes',
+    },
   ],
   methods: [
     {
@@ -306,7 +385,7 @@ module.exports = {
       type: 'ResPQ',
     },
     {
-      id: '3195965169',
+      id: '-1099002127',
       method: 'req_pq_multi',
       params: [{ name: 'nonce', type: 'int128' }],
       type: 'ResPQ',
@@ -362,12 +441,6 @@ module.exports = {
       type: 'Pong',
     },
     {
-      id: '-414113498',
-      method: 'destroy_session',
-      params: [{ name: 'session_id', type: 'long' }],
-      type: 'DestroySessionRes',
-    },
-    {
       id: '-1835453025',
       method: 'http_wait',
       params: [
@@ -376,6 +449,18 @@ module.exports = {
         { name: 'max_wait', type: 'int' },
       ],
       type: 'HttpWait',
+    },
+    {
+      id: '-784117408',
+      method: 'destroy_auth_key',
+      params: [],
+      type: 'DestroyAuthKeyRes',
+    },
+    {
+      id: '-414113498',
+      method: 'destroy_session',
+      params: [{ name: 'session_id', type: 'long' }],
+      type: 'DestroySessionRes',
     },
   ],
 };

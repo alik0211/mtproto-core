@@ -6,6 +6,4 @@ module.exports = {
     api: apiSchema,
     mtproto: mtprotoSchema,
   },
-
-  app: {},
 };

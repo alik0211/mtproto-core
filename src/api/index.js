@@ -1,7 +1,6 @@
 const debounce = require('lodash.debounce');
 const EventEmitter = require('events');
 const http = require('../transport');
-const config = require('../config');
 const { BigInteger, SecureRandom } = require('../vendors/jsbn');
 const { TLSerialization, TLDeserialization } = require('../tl');
 const {
@@ -125,7 +124,7 @@ class API extends EventEmitter {
     const nonce = getNonce();
     const request = new TLSerialization({ mtproto: true });
     request.storeMethod('req_pq_multi', { nonce });
-    // request.storeMethod('req_pq', { nonce });
+
     return this.sendPlainRequest(request.getBuffer()).then(deserializer => {
       const responsePQ = deserializer.fetchObject('ResPQ');
       console.log('2. response', responsePQ);
