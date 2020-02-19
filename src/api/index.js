@@ -1,4 +1,5 @@
 const debounce = require('lodash.debounce');
+const EventEmitter = require('events');
 const http = require('../transport');
 const config = require('../config');
 const { BigInteger, SecureRandom } = require('../vendors/jsbn');
@@ -45,8 +46,10 @@ function Deferred() {
   Object.freeze(this);
 }
 
-class API {
+class API extends EventEmitter {
   constructor({ api_id, api_hash, test, https }) {
+    super();
+
     this.api_id = api_id;
     this.api_hash = api_hash;
 
@@ -813,7 +816,7 @@ class API {
   }
 
   processMessage(message, messageID) {
-    console.log('processMessage', message, messageID);
+    // console.log('processMessage', message, messageID);
     let sentMessage;
 
     switch (message._) {
@@ -922,18 +925,8 @@ class API {
         if (this.sentMessages[sentMessageID]) {
           const deferred = this.sentMessages[sentMessageID].deferred;
           if (message.result._ == 'rpc_error') {
-            // console.log('Rpc error', message.result);
             deferred.reject(message.result);
           } else {
-            // var dRes = message.result._;
-            // if (!dRes) {
-            //   if (message.result.length > 5) {
-            //     dRes = '[..' + message.result.length + '..]';
-            //   } else {
-            //     dRes = message.result;
-            //   }
-            // }
-            // console.log('Rpc response', dRes);
             deferred.resolve(message.result);
           }
 
@@ -946,8 +939,10 @@ class API {
         break;
 
       default:
+        // console.log('default', message);
         this.ackMessage(messageID);
-        //console.log('default', message);
+        this.emit(message._, message);
+        // console.log('processMessage', message, messageID);
         break;
     }
   }

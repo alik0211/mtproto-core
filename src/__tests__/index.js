@@ -39,3 +39,7 @@ mtproto.api
         console.log('auth.signIn[result]:', result);
       });
   });
+
+mtproto.api.on('updateShort', message => {
+  console.log(`updateShort[message]:`, message);
+});
