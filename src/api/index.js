@@ -51,6 +51,8 @@ class API extends EventEmitter {
 
     this.api_id = api_id;
     this.api_hash = api_hash;
+    this.test = test;
+    this.https = https;
 
     this.authObject = {};
 
@@ -63,12 +65,6 @@ class API extends EventEmitter {
 
     this.sentMessages = {};
     this.pendingAcks = [];
-
-    const urlPath = test ? '/apiw_test1' : '/apiw1';
-
-    this.url = https
-      ? `https://venus.web.telegram.org${urlPath}`
-      : `http://149.154.167.40${urlPath}`;
 
     this.sendAcks = debounce(() => {
       if (!this.pendingAcks.length) {
@@ -107,6 +103,7 @@ class API extends EventEmitter {
     }, 500);
 
     this.updateSession();
+    this.setUrl();
   }
 
   init() {
@@ -1042,6 +1039,38 @@ class API extends EventEmitter {
   saveAuth(auth) {
     this.authObject = auth;
     localStorage.setItem(authStorageKey, JSON.stringify(auth));
+  }
+
+  setUrl(dcId = 2) {
+    const subdomainsMap = {
+      1: 'pluto',
+      2: 'venus',
+      3: 'aurora',
+      4: 'vesta',
+      5: 'flora',
+    };
+
+    const ipMap = this.test
+      ? {
+          1: '149.154.175.10',
+          2: '149.154.167.40',
+          3: '149.154.175.117',
+        }
+      : {
+          1: '149.154.175.50',
+          2: '149.154.167.51',
+          3: '149.154.175.100',
+          4: '149.154.167.91',
+          5: '149.154.171.5',
+        };
+
+    const urlPath = this.test ? '/apiw_test1' : '/apiw1';
+
+    if (this.https) {
+      this.url = `https://${subdomainsMap[dcId]}.web.telegram.org${urlPath}`;
+    } else {
+      this.url = `http://${ipMap[dcId]}${urlPath}`;
+    }
   }
 
   runLongPoll() {
