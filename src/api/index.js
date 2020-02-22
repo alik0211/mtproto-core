@@ -127,11 +127,11 @@ class API extends EventEmitter {
       console.log('2. response', responsePQ);
 
       if (responsePQ._ != 'resPQ') {
-        reject(new Error('[MT] resPQ response invalid: ' + responsePQ._));
+        throw new Error('[MT] resPQ response invalid: ' + responsePQ._);
       }
 
       if (!bytesCmp(nonce, responsePQ.nonce)) {
-        reject(new Error('[MT] resPQ nonce mismatch'));
+        throw new Error('[MT] resPQ nonce mismatch');
       }
 
       this.authObject.nonce = nonce;
@@ -151,7 +151,7 @@ class API extends EventEmitter {
       );
 
       if (!this.authObject.publicKey) {
-        reject(new Error('[MT] No public key found'));
+        throw new Error('[MT] No public key found');
       }
 
       // console.log('PQ factorization start', authObject.pq);
@@ -207,27 +207,27 @@ class API extends EventEmitter {
           responseDH._ != 'server_DH_params_fail' &&
           responseDH._ != 'server_DH_params_ok'
         ) {
-          reject(
-            new Error('[MT] Server_DH_Params response invalid: ' + responseDH._)
+          throw new Error(
+            '[MT] Server_DH_Params response invalid: ' + responseDH._
           );
         }
 
         if (!bytesCmp(this.authObject.nonce, responseDH.nonce)) {
-          reject(new Error('[MT] Server_DH_Params nonce mismatch'));
+          throw new Error('[MT] Server_DH_Params nonce mismatch');
         }
 
         if (!bytesCmp(this.authObject.serverNonce, responseDH.server_nonce)) {
-          reject(new Error('[MT] Server_DH_Params server_nonce mismatch'));
+          throw new Error('[MT] Server_DH_Params server_nonce mismatch');
         }
 
         if (responseDH._ == 'server_DH_params_fail') {
           var newNonceHash = sha1BytesSync(this.authObject.newNonce).slice(-16);
           if (!bytesCmp(newNonceHash, responseDH.new_nonce_hash)) {
-            reject(
-              new Error('[MT] server_DH_params_fail new_nonce_hash mismatch')
+            throw new Error(
+              '[MT] server_DH_params_fail new_nonce_hash mismatch'
             );
           }
-          reject(new Error('[MT] server_DH_params_fail'));
+          throw new Error('[MT] server_DH_params_fail');
         }
 
         //mtpDecryptServerDhDataAnswer(authObject, responseDH.encrypted_answer);
@@ -270,21 +270,19 @@ class API extends EventEmitter {
         console.log('4. responseDHInner', responseDHInner);
 
         if (responseDHInner._ != 'server_DH_inner_data') {
-          reject(
-            new Error(
-              '[MT] server_DH_inner_data response invalid: ' + constructor
-            )
+          throw new Error(
+            '[MT] server_DH_inner_data response invalid: ' + constructor
           );
         }
 
         if (!bytesCmp(this.authObject.nonce, responseDHInner.nonce)) {
-          reject(new Error('[MT] server_DH_inner_data nonce mismatch'));
+          throw new Error('[MT] server_DH_inner_data nonce mismatch');
         }
 
         if (
           !bytesCmp(this.authObject.serverNonce, responseDHInner.server_nonce)
         ) {
-          reject(new Error('[MT] server_DH_inner_data serverNonce mismatch'));
+          throw new Error('[MT] server_DH_inner_data serverNonce mismatch');
         }
 
         console.log('5. Done decrypting answer');
@@ -308,7 +306,7 @@ class API extends EventEmitter {
         if (
           !bytesCmp(hash, sha1BytesSync(answerWithPadding.slice(0, offset)))
         ) {
-          reject(new Error('[MT] server_DH_inner_data SHA1-hash mismatch'));
+          throw new Error('[MT] server_DH_inner_data SHA1-hash mismatch');
         }
 
         this.applyServerTime(this.authObject.serverTime);
@@ -424,9 +422,9 @@ class API extends EventEmitter {
       }
 
       const authKey = bytesModPow(auth.gA, auth.b, auth.dhPrime);
-      var authKeyHash = sha1BytesSync(authKey),
-        authKeyAux = authKeyHash.slice(0, 8),
-        authKeyID = authKeyHash.slice(-8);
+      const authKeyHash = sha1BytesSync(authKey);
+      const authKeyAux = authKeyHash.slice(0, 8);
+      const authKeyId = authKeyHash.slice(-8);
 
       console.log('Got Set_client_DH_params_answer', response._, response);
       switch (response._) {
@@ -445,9 +443,9 @@ class API extends EventEmitter {
             auth.newNonce.slice(0, 8),
             auth.serverNonce.slice(0, 8)
           );
-          console.log('Auth successfull!', authKeyID, authKey, serverSalt);
+          console.log('Auth successfull!', authKeyId, authKey, serverSalt);
 
-          auth.authKeyID = authKeyID;
+          auth.authKeyId = authKeyId;
           auth.authKey = authKey;
           auth.serverSalt = serverSalt;
 
@@ -535,8 +533,8 @@ class API extends EventEmitter {
 
     return this._sendEncryptedRequest(resultMessage).then(responsePackage => {
       // console.log(`responsePackage:`, responsePackage);
-      const { response, messageID } = responsePackage;
-      this.processMessage(response, messageID);
+      const { response, messageId } = responsePackage;
+      this.processMessage(response, messageId);
       this.sendAcks();
       return responsePackage;
     });
@@ -545,7 +543,7 @@ class API extends EventEmitter {
   _sendEncryptedRequest(message) {
     const authKey = this.authObject.authKey;
     const authKeyUint8 = convertToUint8Array(authKey);
-    const authKeyID = sha1BytesSync(authKey).slice(-8);
+    const authKeyId = sha1BytesSync(authKey).slice(-8);
     const serverSalt = this.authObject.serverSalt;
 
     var data = new TLSerialization({
@@ -582,7 +580,7 @@ class API extends EventEmitter {
     var request = new TLSerialization({
       startMaxLength: encryptedResult.bytes.byteLength + 256,
     });
-    request.storeIntBytes(authKeyID, 64, 'auth_key_id');
+    request.storeIntBytes(authKeyId, 64, 'auth_key_id');
     request.storeIntBytes(encryptedResult.msgKey, 128, 'msg_key');
     request.storeRawBytes(encryptedResult.bytes, 'encrypted_data');
 
@@ -604,14 +602,14 @@ class API extends EventEmitter {
 
         var responseDeserializer = new TLDeserialization(responseBuffer);
 
-        const serverAuthKeyID = responseDeserializer.fetchIntBytes(
+        const serverAuthKeyId = responseDeserializer.fetchIntBytes(
           64,
           false,
           'auth_key_id'
         );
-        if (!bytesCmp(serverAuthKeyID, authKeyID)) {
+        if (!bytesCmp(serverAuthKeyId, authKeyId)) {
           throw new Error(
-            '[MT] Invalid server auth_key_id: ' + bytesToHex(serverAuthKeyID)
+            '[MT] Invalid server auth_key_id: ' + bytesToHex(serverAuthKeyId)
           );
         }
         var msgKey = responseDeserializer.fetchIntBytes(128, true, 'msg_key');
@@ -644,25 +642,25 @@ class API extends EventEmitter {
         });
 
         var salt = dataDeserializer.fetchIntBytes(64, false, 'salt');
-        var serverSessionID = dataDeserializer.fetchIntBytes(
+        var serverSessionId = dataDeserializer.fetchIntBytes(
           64,
           false,
           'session_id'
         );
-        var messageID = dataDeserializer.fetchLong('message_id');
+        var messageId = dataDeserializer.fetchLong('message_id');
 
         if (
-          !bytesCmp(serverSessionID, this.sessionId) &&
+          !bytesCmp(serverSessionId, this.sessionId) &&
           (!this.prevSessionId || !bytesCmp(this.sessionId, this.prevSessionId))
         ) {
           console.warn(
             'Sessions',
-            serverSessionID,
+            serverSessionId,
             this.sessionId,
             this.prevSessionId
           );
           throw new Error(
-            '[MT] Invalid server session_id: ' + bytesToHex(serverSessionID)
+            '[MT] Invalid server session_id: ' + bytesToHex(serverSessionId)
           );
         }
 
@@ -731,17 +729,10 @@ class API extends EventEmitter {
         );
         var response = finalDeserializer.fetchObject('', 'INPUT');
 
-        /* console.log('send encrypted request result', {
-         *   response,
-         *   messageID,
-         *   sessionID,
-         *   seqNo
-         * }); */
-
         return {
           response,
-          messageID,
-          sessionID: this.sessionId,
+          messageId,
+          sessionId: this.sessionId,
           seqNo,
           messageDeferred: message.deferred.promise,
         };
@@ -811,8 +802,8 @@ class API extends EventEmitter {
     );
   }
 
-  processMessage(message, messageID) {
-    // console.log('processMessage', message, messageID);
+  processMessage(message, messageId) {
+    // console.log('processMessage', message, messageId);
     let sentMessage;
 
     switch (message._) {
@@ -833,7 +824,7 @@ class API extends EventEmitter {
 
         this.applyServerSalt(message.new_server_salt);
         this.sendEncryptedRequest(this.sentMessages[message.bad_msg_id]);
-        this.ackMessage(messageID);
+        this.ackMessage(messageId);
         break;
 
       case 'bad_msg_notification':
@@ -847,7 +838,7 @@ class API extends EventEmitter {
         if (message.error_code == 16 || message.error_code == 17) {
           if (
             this.applyServerTime(
-              bigStringInt(messageID)
+              bigStringInt(messageId)
                 .shiftRight(32)
                 .toString(10)
             )
@@ -856,17 +847,17 @@ class API extends EventEmitter {
             this.updateSession();
           }
           this.sendEncryptedRequest(this.sentMessages[message.bad_msg_id]);
-          this.ackMessage(messageID);
+          this.ackMessage(messageId);
         }
         break;
 
       case 'message':
-        this.ackMessage(messageID);
+        this.ackMessage(messageId);
         this.processMessage(message.body, message.msg_id);
         break;
 
       case 'new_session_created':
-        this.ackMessage(messageID);
+        this.ackMessage(messageId);
 
         this.processMessageAck(message.first_msg_id);
         this.applyServerSalt(message.server_salt);
@@ -899,10 +890,10 @@ class API extends EventEmitter {
         this.ackMessage(message.answer_msg_id);
         console.log('msgs_state_info', message);
         /* if (this.lastResendReq && this.lastResendReq.req_msg_id == message.req_msg_id && this.pendingResends.length) {
-         *   var i, badMsgID, pos
+         *   var i, badMsgId, pos
          *   for (i = 0; i < this.lastResendReq.resend_msg_ids.length; i++) {
-         *     badMsgID = this.lastResendReq.resend_msg_ids[i]
-         *     pos = this.pendingResends.indexOf(badMsgID)
+         *     badMsgId = this.lastResendReq.resend_msg_ids[i]
+         *     pos = this.pendingResends.indexOf(badMsgId)
          *     if (pos != -1) {
          *       this.pendingResends.splice(pos, 1)
          *     }
@@ -911,15 +902,15 @@ class API extends EventEmitter {
         break;
 
       case 'rpc_result':
-        const sentMessageID = message.req_msg_id;
+        const sentMessageId = message.req_msg_id;
 
         //console.log('res', message);
 
-        this.ackMessage(messageID);
+        this.ackMessage(messageId);
 
-        this.processMessageAck(sentMessageID);
-        if (this.sentMessages[sentMessageID]) {
-          const deferred = this.sentMessages[sentMessageID].deferred;
+        this.processMessageAck(sentMessageId);
+        if (this.sentMessages[sentMessageId]) {
+          const deferred = this.sentMessages[sentMessageId].deferred;
           if (message.result._ == 'rpc_error') {
             deferred.reject(message.result);
           } else {
@@ -930,27 +921,27 @@ class API extends EventEmitter {
           //   `JSON.stringify(Object.keys(sentMessages)):`,
           //   JSON.stringify(Object.keys(sentMessages))
           // );
-          delete this.sentMessages[sentMessageID];
+          delete this.sentMessages[sentMessageId];
         }
         break;
 
       default:
         // console.log('default', message);
-        this.ackMessage(messageID);
+        this.ackMessage(messageId);
         this.emit(message._, message);
-        // console.log('processMessage', message, messageID);
+        // console.log('processMessage', message, messageId);
         break;
     }
   }
 
-  ackMessage(messageID) {
-    // console.log('ackMessage[messageID]:', messageID);
+  ackMessage(messageId) {
+    // console.log('ackMessage[messageId]:', messageId);
 
-    this.pendingAcks.push(messageID);
+    this.pendingAcks.push(messageId);
   }
 
-  processMessageAck(messageID) {
-    const sentMessage = this.sentMessages[messageID];
+  processMessageAck(messageId) {
+    const sentMessage = this.sentMessages[messageId];
     if (sentMessage && !sentMessage.acked) {
       delete sentMessage.body;
       sentMessage.acked = true;
