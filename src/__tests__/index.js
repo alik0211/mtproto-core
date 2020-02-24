@@ -11,7 +11,9 @@ const mtproto = new MTProto({
   https: location.protocol === 'https:',
 });
 
-const phoneNumber = '+9996620000';
+// Ali: +9996611111 -> @test9996611111
+// Pavel: +9996622222 -> @test9996622222
+const phoneNumber = '+9996621111';
 
 mtproto.api
   .call('users.getFullUser', {

@@ -20,10 +20,12 @@ module.exports = {
     contentBase: path.join(__dirname, 'dist'),
     compress: true,
     port: 3001,
+    open: true,
+    overlay: true,
 
     https: true,
-    liveReload: false,
+    liveReload: true,
     hot: false,
-    inline: false,
+    // inline: false,
   },
 };
