@@ -1,5 +1,8 @@
 const path = require('path');
 const Dotenv = require('dotenv-webpack');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+
+const sourcePath = path.resolve(__dirname, './src');
 
 module.exports = {
   mode: 'development',
@@ -14,7 +17,12 @@ module.exports = {
     filename: '[name].js',
   },
 
-  plugins: [new Dotenv()],
+  plugins: [
+    new Dotenv(),
+    new HtmlWebpackPlugin({
+      template: path.join(sourcePath, './__tests__/index.html'),
+    }),
+  ],
 
   devServer: {
     contentBase: path.join(__dirname, 'dist'),

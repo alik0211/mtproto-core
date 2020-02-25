@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>@mtproto/core</title>
+    <style>
+      .page {
+        margin: 0;
+      }
+
+      .page__login {
+        padding: 8px;
+        border-bottom: 1px solid #ccc;
+      }
+
+      .login__form {
+        display: flex;
+        margin-bottom: 8px;
+      }
+
+      .login__field {
+        display: block;
+      }
+
+      .login__button {
+        margin-left: 8px;
+      }
+    </style>
+  </head>
+  <body class="page">
+    <div class="page__login login">
+      <div class="login__fields">
+        <form id="form-phone" class="login__form">
+          <input
+            class="login__field"
+            type="text"
+            name="phone"
+            placeholder="+99966XYYYY"
+            value="+9996621111"
+            required
+          />
+          <button class="login__button">Get code</button>
+        </form>
+        <form id="form-code" class="login__form">
+          <input
+            class="login__field"
+            type="text"
+            name="code"
+            placeholder="XXXXX"
+            value="22222"
+            required
+          />
+          <button class="login__button">Send code</button>
+        </form>
+        <form id="form-password" class="login__form">
+          <input
+            class="login__field"
+            type="text"
+            name="password"
+            placeholder="pass"
+            required
+          />
+          <button class="login__button">Send password</button>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>
