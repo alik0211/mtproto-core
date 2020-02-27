@@ -49,9 +49,11 @@ const phoneNumber = '+9996621111';
 //   console.log(`updateShort[message]:`, message);
 // });
 
-const formPhone = document.getElementById('form-phone');
 const formCode = document.getElementById('form-code');
+const formPhone = document.getElementById('form-phone');
+const getFullUser = document.getElementById('getFullUser');
 const formPassword = document.getElementById('form-password');
+const servers = document.querySelectorAll('.page__servers .page__server');
 
 let phone = null;
 let phoneCodeHash = null;
@@ -100,4 +102,25 @@ formPassword.addEventListener('submit', event => {
   password = formPassword.elements.password.value;
 
   console.log(`password:`, password);
+});
+
+servers.forEach(button => {
+  button.addEventListener('click', () => {
+    const { id } = button.dataset;
+
+    console.log(`id:`, id);
+    mtproto.api.setDc(id);
+  });
+});
+
+getFullUser.addEventListener('click', () => {
+  mtproto.api
+    .call('users.getFullUser', {
+      id: {
+        _: 'inputUserSelf',
+      },
+    })
+    .then(result => {
+      console.log(`users.getFullUser[result]:`, result);
+    });
 });

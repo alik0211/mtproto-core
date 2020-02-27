@@ -31,8 +31,6 @@ const {
 } = require('./utils');
 const RsaKeysManager = require('./utils/rsa');
 
-const authStorageKey = '__mtproto-auth';
-
 const secureRandom = new SecureRandom();
 
 function Deferred() {
@@ -54,8 +52,7 @@ class API extends EventEmitter {
     this.test = test;
     this.https = https;
 
-    this.authObject = {};
-
+    this.localTime = tsNow();
     this.lastMessageId = [0, 0];
     this.timeOffset = 0;
     this._seqNo = 0;
@@ -103,19 +100,20 @@ class API extends EventEmitter {
     }, 500);
 
     this.updateSession();
-    this.setUrl();
+    this.setDc();
   }
 
   init() {
-    try {
-      const prevAuth = localStorage.getItem(authStorageKey);
-      if (prevAuth) {
-        this.authObject = JSON.parse(prevAuth);
-        this.runLongPoll();
-        return Promise.resolve(this.authObject);
-      }
-    } catch (e) {
-      console.error(e);
+    const serverSalt = this.getServerSalt();
+    const authKey = this.getAuthKey();
+
+    if (serverSalt && authKey) {
+      this.setServerSalt(serverSalt);
+      this.setAuthKey(authKey);
+
+      this.runLongPoll();
+
+      return Promise.resolve();
     }
 
     const nonce = getNonce();
@@ -134,49 +132,38 @@ class API extends EventEmitter {
         throw new Error('[MT] resPQ nonce mismatch');
       }
 
-      this.authObject.nonce = nonce;
-      this.authObject.serverNonce = responsePQ.server_nonce;
-      this.authObject.pq = responsePQ.pq;
-      this.authObject.fingerprints = responsePQ.server_public_key_fingerprints;
+      const serverNonce = responsePQ.server_nonce;
+      const pq = responsePQ.pq;
+      const publicKey = RsaKeysManager.select(
+        responsePQ.server_public_key_fingerprints
+      );
 
       // console.log(
       //   'Got ResPQ',
-      //   bytesToHex(authObject.serverNonce),
-      //   bytesToHex(authObject.pq),
-      //   authObject.fingerprints
+      //   bytesToHex(responsePQ.server_nonce),
+      //   bytesToHex(responsePQ.pq),
+      //   responsePQ.server_public_key_fingerprints
       // );
 
-      this.authObject.publicKey = RsaKeysManager.select(
-        this.authObject.fingerprints
-      );
-
-      if (!this.authObject.publicKey) {
+      if (!publicKey) {
         throw new Error('[MT] No public key found');
       }
 
-      // console.log('PQ factorization start', authObject.pq);
+      const [p, q] = pqPrimeFactorization(pq);
 
-      const pAndQ = pqPrimeFactorization(this.authObject.pq);
-
-      this.authObject.p = pAndQ[0];
-      this.authObject.q = pAndQ[1];
-
-      //mtpSendReqDhParams(authObject);
-      this.authObject.newNonce = new Array(32);
-      secureRandom.nextBytes(this.authObject.newNonce);
-
-      // console.log('auth now', authObject);
+      const newNonce = new Array(32);
+      secureRandom.nextBytes(newNonce);
 
       const data = new TLSerialization({ mtproto: true });
       data.storeObject(
         {
           _: 'p_q_inner_data',
-          pq: this.authObject.pq,
-          p: this.authObject.p,
-          q: this.authObject.q,
-          nonce: this.authObject.nonce,
-          server_nonce: this.authObject.serverNonce,
-          new_nonce: this.authObject.newNonce,
+          pq: pq,
+          p: p,
+          q: q,
+          nonce: nonce,
+          server_nonce: serverNonce,
+          new_nonce: newNonce,
         },
         'P_Q_inner_data',
         'DECRYPTED_DATA'
@@ -188,12 +175,12 @@ class API extends EventEmitter {
 
       const request = new TLSerialization({ mtproto: true });
       request.storeMethod('req_DH_params', {
-        nonce: this.authObject.nonce,
-        server_nonce: this.authObject.serverNonce,
-        p: this.authObject.p,
-        q: this.authObject.q,
-        public_key_fingerprint: this.authObject.publicKey.fingerprint,
-        encrypted_data: rsaEncrypt(this.authObject.publicKey, dataWithHash),
+        nonce: nonce,
+        server_nonce: serverNonce,
+        p: p,
+        q: q,
+        public_key_fingerprint: publicKey.fingerprint,
+        encrypted_data: rsaEncrypt(publicKey, dataWithHash),
       });
 
       return this.sendPlainRequest(request.getBuffer()).then(deserializer => {
@@ -212,16 +199,16 @@ class API extends EventEmitter {
           );
         }
 
-        if (!bytesCmp(this.authObject.nonce, responseDH.nonce)) {
+        if (!bytesCmp(nonce, responseDH.nonce)) {
           throw new Error('[MT] Server_DH_Params nonce mismatch');
         }
 
-        if (!bytesCmp(this.authObject.serverNonce, responseDH.server_nonce)) {
+        if (!bytesCmp(serverNonce, responseDH.server_nonce)) {
           throw new Error('[MT] Server_DH_Params server_nonce mismatch');
         }
 
         if (responseDH._ == 'server_DH_params_fail') {
-          var newNonceHash = sha1BytesSync(this.authObject.newNonce).slice(-16);
+          var newNonceHash = sha1BytesSync(newNonce).slice(-16);
           if (!bytesCmp(newNonceHash, responseDH.new_nonce_hash)) {
             throw new Error(
               '[MT] server_DH_params_fail new_nonce_hash mismatch'
@@ -230,32 +217,22 @@ class API extends EventEmitter {
           throw new Error('[MT] server_DH_params_fail');
         }
 
-        //mtpDecryptServerDhDataAnswer(authObject, responseDH.encrypted_answer);
+        this.localTime = tsNow();
 
-        this.authObject.localTime = tsNow();
-
-        this.authObject.tmpAesKey = sha1BytesSync(
-          this.authObject.newNonce.concat(this.authObject.serverNonce)
-        ).concat(
-          sha1BytesSync(
-            this.authObject.serverNonce.concat(this.authObject.newNonce)
-          ).slice(0, 12)
+        const tmpAesKey = sha1BytesSync(newNonce.concat(serverNonce)).concat(
+          sha1BytesSync(serverNonce.concat(newNonce)).slice(0, 12)
         );
-        this.authObject.tmpAesIv = sha1BytesSync(
-          this.authObject.serverNonce.concat(this.authObject.newNonce)
-        )
+        const tmpAesIv = sha1BytesSync(serverNonce.concat(newNonce))
           .slice(12)
           .concat(
-            sha1BytesSync(
-              [].concat(this.authObject.newNonce, this.authObject.newNonce)
-            ),
-            this.authObject.newNonce.slice(0, 4)
+            sha1BytesSync([].concat(newNonce, newNonce)),
+            newNonce.slice(0, 4)
           );
 
         const answerWithHash = aesDecryptSync(
           responseDH.encrypted_answer,
-          this.authObject.tmpAesKey,
-          this.authObject.tmpAesIv
+          tmpAesKey,
+          tmpAesIv
         );
 
         var hash = answerWithHash.slice(0, 20);
@@ -275,30 +252,23 @@ class API extends EventEmitter {
           );
         }
 
-        if (!bytesCmp(this.authObject.nonce, responseDHInner.nonce)) {
+        if (!bytesCmp(nonce, responseDHInner.nonce)) {
           throw new Error('[MT] server_DH_inner_data nonce mismatch');
         }
 
-        if (
-          !bytesCmp(this.authObject.serverNonce, responseDHInner.server_nonce)
-        ) {
+        if (!bytesCmp(serverNonce, responseDHInner.server_nonce)) {
           throw new Error('[MT] server_DH_inner_data serverNonce mismatch');
         }
 
         console.log('5. Done decrypting answer');
 
-        this.authObject.g = responseDHInner.g;
-        this.authObject.dhPrime = responseDHInner.dh_prime;
-        this.authObject.gA = responseDHInner.g_a;
-        this.authObject.serverTime = responseDHInner.server_time;
-        this.authObject.retry = 0;
+        const g = responseDHInner.g;
+        const dhPrime = responseDHInner.dh_prime;
+        const gA = responseDHInner.g_a;
+        const retry = 0;
 
         console.log('6. verifyDhParams start');
-        this.verifyDhParams(
-          this.authObject.g,
-          this.authObject.dhPrime,
-          this.authObject.gA
-        );
+        this.verifyDhParams(g, dhPrime, gA);
         console.log('7. verifyDhParams finish');
 
         var offset = deserializer.getOffset();
@@ -309,13 +279,22 @@ class API extends EventEmitter {
           throw new Error('[MT] server_DH_inner_data SHA1-hash mismatch');
         }
 
-        this.applyServerTime(this.authObject.serverTime);
+        this.applyServerTime(responseDHInner.server_time);
 
-        return this.sendSetClientDhParams(this.authObject).then(() => {
-          console.log('8. authObject', this.authObject);
-          this.saveAuth(this.authObject);
+        return this.sendSetClientDhParams({
+          nonce,
+          serverNonce,
+          newNonce,
+          tmpAesKey,
+          tmpAesIv,
+          g,
+          dhPrime,
+          gA,
+          retry,
+        }).then(() => {
           this.runLongPoll();
-          return this.authObject;
+
+          return Promise.resolve();
         });
       });
     });
@@ -446,8 +425,8 @@ class API extends EventEmitter {
           console.log('Auth successfull!', authKeyId, authKey, serverSalt);
 
           auth.authKeyId = authKeyId;
-          auth.authKey = authKey;
-          auth.serverSalt = serverSalt;
+          this.setAuthKey(authKey);
+          this.setServerSalt(serverSalt);
 
           return auth;
 
@@ -541,10 +520,10 @@ class API extends EventEmitter {
   }
 
   _sendEncryptedRequest(message) {
-    const authKey = this.authObject.authKey;
+    const authKey = this.getAuthKey();
     const authKeyUint8 = convertToUint8Array(authKey);
     const authKeyId = sha1BytesSync(authKey).slice(-8);
-    const serverSalt = this.authObject.serverSalt;
+    const serverSalt = this.getServerSalt();
 
     var data = new TLSerialization({
       startMaxLength: message.body.length + 2048,
@@ -822,7 +801,7 @@ class API extends EventEmitter {
           throw new Error('[MT] Bad server salt for invalid message');
         }
 
-        this.applyServerSalt(message.new_server_salt);
+        this.setServerSalt(longToBytes(message.new_server_salt));
         this.sendEncryptedRequest(this.sentMessages[message.bad_msg_id]);
         this.ackMessage(messageId);
         break;
@@ -860,7 +839,7 @@ class API extends EventEmitter {
         this.ackMessage(messageId);
 
         this.processMessageAck(message.first_msg_id);
-        this.applyServerSalt(message.server_salt);
+        this.setServerSalt(longToBytes(message.server_salt));
 
         break;
 
@@ -926,7 +905,7 @@ class API extends EventEmitter {
         break;
 
       default:
-        // console.log('default', message);
+        console.log('default', message);
         this.ackMessage(messageId);
         this.emit(message._, message);
         // console.log('processMessage', message, messageId);
@@ -952,14 +931,8 @@ class API extends EventEmitter {
     return false;
   }
 
-  applyServerSalt(salt) {
-    this.authObject.serverSalt = longToBytes(salt);
-    this.saveAuth(this.authObject);
-  }
-
   applyServerTime(serverTime) {
-    const newTimeOffset =
-      serverTime - Math.floor((this.authObject.localTime || tsNow()) / 1000);
+    const newTimeOffset = serverTime - Math.floor(this.localTime / 1000);
     const changed = Math.abs(this.timeOffset - newTimeOffset) > 10;
 
     this.lastMessageId = [0, 0];
@@ -968,7 +941,7 @@ class API extends EventEmitter {
     console.log(
       'Apply server time',
       serverTime,
-      this.authObject.localTime,
+      this.localTime,
       newTimeOffset,
       changed
     );
@@ -1027,12 +1000,61 @@ class API extends EventEmitter {
     return longFromInts(messageId[0], messageId[1]);
   }
 
-  saveAuth(auth) {
-    this.authObject = auth;
-    localStorage.setItem(authStorageKey, JSON.stringify(auth));
+  getServerSalt() {
+    const key = `dc${this.dcId}ServerSalt`;
+
+    const fromThis = this[key];
+
+    if (fromThis) {
+      return fromThis;
+    }
+
+    const fromStorage = localStorage.getItem(key);
+
+    if (fromStorage) {
+      return JSON.parse(fromStorage);
+    }
+
+    return null;
   }
 
-  setUrl(dcId = 2) {
+  setServerSalt(serverSalt) {
+    const key = `dc${this.dcId}ServerSalt`;
+    this[key] = serverSalt;
+
+    localStorage.setItem(key, JSON.stringify(serverSalt));
+  }
+
+  getAuthKey() {
+    const key = `dc${this.dcId}AuthKey`;
+
+    const fromThis = this[key];
+
+    if (fromThis) {
+      return fromThis;
+    }
+
+    const fromStorage = localStorage.getItem(key);
+
+    if (fromStorage) {
+      return JSON.parse(fromStorage);
+    }
+
+    return null;
+  }
+
+  setAuthKey(authKey) {
+    const key = `dc${this.dcId}AuthKey`;
+    this[key] = authKey;
+
+    localStorage.setItem(key, JSON.stringify(authKey));
+  }
+
+  setDc(dcId) {
+    const fromStorage = localStorage.getItem('dcId', dcId);
+    this.dcId = dcId || fromStorage || 2;
+    localStorage.setItem('dcId', this.dcId);
+
     const subdomainsMap = {
       1: 'pluto',
       2: 'venus',
@@ -1058,9 +1080,11 @@ class API extends EventEmitter {
     const urlPath = this.test ? '/apiw_test1' : '/apiw1';
 
     if (this.https) {
-      this.url = `https://${subdomainsMap[dcId]}.web.telegram.org${urlPath}`;
+      this.url = `https://${
+        subdomainsMap[this.dcId]
+      }.web.telegram.org${urlPath}`;
     } else {
-      this.url = `http://${ipMap[dcId]}${urlPath}`;
+      this.url = `http://${ipMap[this.dcId]}${urlPath}`;
     }
   }
 
@@ -1141,7 +1165,16 @@ class API extends EventEmitter {
           .then(response => {
             const { messageDeferred } = response;
             messageDeferred.then(resolve);
-            messageDeferred.catch(reject);
+            messageDeferred.catch(error => {
+              const { error_message } = error;
+              if (error_message.includes('PHONE_MIGRATE_')) {
+                const dcId = error_message.replace('PHONE_MIGRATE_', '');
+
+                this.setDc(dcId);
+
+                this.call(method, params).then(resolve);
+              }
+            });
           })
           .catch(reject);
       });
