@@ -1,14 +1,18 @@
 {
   "name": "@mtproto/core",
   "version": "0.0.7",
-  "description": "Telegram API for browser",
+  "description": "Telegram API (MTProto) client library for browser",
   "keywords": [
     "telegram",
     "telegram-api",
     "mtproto",
-    "mtproto2",
+    "tdlib",
     "browser",
-    "api"
+    "client",
+    "api",
+    "messenger",
+    "telegram-web",
+    "telegram-online"
   ],
   "homepage": "https://github.com/alik0211/mtproto-core#readme",
   "bugs": {
