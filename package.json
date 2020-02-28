@@ -9,6 +9,8 @@
     "tdlib",
     "browser",
     "client",
+    "library",
+    "lib",
     "api",
     "messenger",
     "telegram-web",
