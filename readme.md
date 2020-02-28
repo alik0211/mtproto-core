@@ -7,4 +7,4 @@
 * **Relevant.** 108 layer in the API scheme
 * **Easy.** Cryptography is hidden. Just make requests to the API
 * **Events.** Subscribe to updates via the EventEmitter API
-* **Reliable.** Supports all data centers. Automatically handles errors `PHONE_MIGRATE_X`
+* **Reliable.** Supports all data centers. Automatically handles `MIGRATE` errors
