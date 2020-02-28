@@ -1167,12 +1167,14 @@ class API extends EventEmitter {
             messageDeferred.then(resolve);
             messageDeferred.catch(error => {
               const { error_message } = error;
-              if (error_message.includes('PHONE_MIGRATE_')) {
-                const dcId = error_message.replace('PHONE_MIGRATE_', '');
+              if (error_message.includes('_MIGRATE_')) {
+                const [_type, dcId] = error_message.split('_MIGRATE_');
 
                 this.setDc(dcId);
 
                 this.call(method, params).then(resolve);
+              } else {
+                reject(error);
               }
             });
           })
