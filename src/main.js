@@ -883,23 +883,14 @@ class API extends EventEmitter {
       case 'rpc_result':
         const sentMessageId = message.req_msg_id;
 
-        //console.log('res', message);
-
         this.ackMessage(messageId);
 
         this.processMessageAck(sentMessageId);
         if (this.sentMessages[sentMessageId]) {
-          const deferred = this.sentMessages[sentMessageId].deferred;
-          if (message.result._ == 'rpc_error') {
-            deferred.reject(message.result);
-          } else {
-            deferred.resolve(message.result);
-          }
+          const { deferred } = this.sentMessages[sentMessageId];
 
-          // console.log(
-          //   `JSON.stringify(Object.keys(sentMessages)):`,
-          //   JSON.stringify(Object.keys(sentMessages))
-          // );
+          deferred.resolve(message);
+
           delete this.sentMessages[sentMessageId];
         }
         break;
@@ -1155,7 +1146,7 @@ class API extends EventEmitter {
     return message;
   }
 
-  call(method, params) {
+  innerCall(method, params) {
     return this.init().then(() => {
       const message = this.getApiCallMessage(method, params);
       this.sendAcks();
@@ -1164,22 +1155,32 @@ class API extends EventEmitter {
         this.sendEncryptedRequest(message)
           .then(response => {
             const { messageDeferred } = response;
-            messageDeferred.then(resolve);
-            messageDeferred.catch(error => {
-              const { error_message } = error;
-              if (error_message.includes('_MIGRATE_')) {
-                const [_type, dcId] = error_message.split('_MIGRATE_');
-
-                this.setDc(dcId);
-
-                this.call(method, params).then(resolve);
+            messageDeferred.then(message => {
+              if (message.result._ === 'rpc_error') {
+                reject(message.result);
               } else {
-                reject(error);
+                resolve(message.result);
               }
             });
           })
           .catch(reject);
       });
+    });
+  }
+
+  call(method, params) {
+    return this.innerCall(method, params).catch(error => {
+      const { error_message } = error;
+
+      if (error_message.includes('_MIGRATE_')) {
+        const [_type, dcId] = error_message.split('_MIGRATE_');
+
+        this.setDc(dcId);
+
+        return this.call(method, params);
+      }
+
+      throw error;
     });
   }
 
