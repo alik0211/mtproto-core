@@ -1,7 +1,8 @@
+const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
 const EventEmitter = require('events');
 const http = require('./transport');
-const { BigInteger, SecureRandom } = require('./vendors/jsbn');
+const { SecureRandom } = require('./vendors/jsbn');
 const { TLSerialization, TLDeserialization } = require('./tl');
 const {
   getSRPParams,
@@ -303,7 +304,8 @@ class API extends EventEmitter {
 
   verifyDhParams(g, dhPrime, gA) {
     console.log('Verifying DH params');
-    var dhPrimeHex = bytesToHex(dhPrime);
+    const dhPrimeHex = bytesToHex(dhPrime);
+
     if (
       g != 3 ||
       dhPrimeHex !==
@@ -312,32 +314,34 @@ class API extends EventEmitter {
       // The verified value is from https://core.telegram.org/mtproto/security_guidelines
       throw new Error('[MT] DH params are not verified: unknown dhPrime');
     }
+
     console.log('dhPrime cmp OK');
 
-    var gABigInt = new BigInteger(bytesToHex(gA), 16);
-    var dhPrimeBigInt = new BigInteger(dhPrimeHex, 16);
+    const gABigInt = bigInt(bytesToHex(gA), 16);
+    const dhPrimeBigInt = bigInt(dhPrimeHex, 16);
 
-    if (gABigInt.compareTo(BigInteger.ONE) <= 0) {
+    if (gABigInt.compareTo(bigInt.one) <= 0) {
       throw new Error('[MT] DH params are not verified: gA <= 1');
     }
 
-    if (gABigInt.compareTo(dhPrimeBigInt.subtract(BigInteger.ONE)) >= 0) {
+    if (gABigInt.compareTo(dhPrimeBigInt.subtract(bigInt.one)) >= 0) {
       throw new Error('[MT] DH params are not verified: gA >= dhPrime - 1');
     }
+
     console.log('1 < gA < dhPrime-1 OK');
 
-    var two = new BigInteger(null);
-    two.fromInt(2);
-    var twoPow = two.pow(2048 - 64);
+    const twoPow = bigInt(2).pow(2048 - 64);
 
     if (gABigInt.compareTo(twoPow) < 0) {
       throw new Error('[MT] DH params are not verified: gA < 2^{2048-64}');
     }
+
     if (gABigInt.compareTo(dhPrimeBigInt.subtract(twoPow)) >= 0) {
       throw new Error(
         '[MT] DH params are not verified: gA > dhPrime - 2^{2048-64}'
       );
     }
+
     console.log('2^{2048-64} < gA < dhPrime-2^{2048-64} OK');
 
     return true;
