@@ -4,6 +4,7 @@ const http = require('./transport');
 const { BigInteger, SecureRandom } = require('./vendors/jsbn');
 const { TLSerialization, TLDeserialization } = require('./tl');
 const {
+  getSRPParams,
   arrayBufferToBase64,
   bigStringInt,
   bytesToHex,
@@ -1181,6 +1182,31 @@ class API extends EventEmitter {
       }
 
       throw error;
+    });
+  }
+
+  checkPassword(password) {
+    return this.call('account.getPassword').then(async result => {
+      const { srp_id, current_algo, secure_random, srp_B } = result;
+      const { salt1, salt2, g, p } = current_algo;
+
+      const { A, M1 } = await getSRPParams({
+        g,
+        p,
+        salt1,
+        salt2,
+        gB: srp_B,
+        password,
+      });
+
+      return this.call('auth.checkPassword', {
+        password: {
+          _: 'inputCheckPasswordSRP',
+          srp_id,
+          A,
+          M1,
+        },
+      });
     });
   }
 

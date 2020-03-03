@@ -1,5 +1,6 @@
 const { Zlib } = require('zlibjs/bin/gunzip.min.js');
 const Rusha = require('rusha');
+const bigInt = require('big-integer');
 const {
   powMod,
   eGCD_,
@@ -19,6 +20,156 @@ const {
 } = require('leemon');
 const CryptoJS = require('../vendors/crypto-js');
 const { BigInteger, SecureRandom } = require('../vendors/jsbn');
+
+function bigIntToBytes(bigInt, len) {
+  return hexToBytes(bigInt.toString(16), len);
+}
+
+function hexToBytes(str, len) {
+  if (!len) {
+    len = Math.ceil(str.length / 2);
+  }
+  while (str.length < len * 2) {
+    str = '0' + str;
+  }
+  const buf = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    buf[i] = parseInt(str.slice(i * 2, i * 2 + 2), 16);
+  }
+  return buf;
+}
+
+function bytesToBigInt(bytes) {
+  const digits = new Array(bytes.byteLength);
+  for (let i = 0; i < bytes.byteLength; i++) {
+    digits[i] =
+      bytes[i] < 16 ? '0' + bytes[i].toString(16) : bytes[i].toString(16);
+  }
+  return bigInt(digits.join(''), 16);
+}
+
+function randomBytes(len) {
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  return bytes;
+}
+
+function xorBytes(bytes1, bytes2) {
+  let bytes = new Uint8Array(bytes1.byteLength);
+  for (let i = 0; i < bytes1.byteLength; i++) {
+    bytes[i] = bytes1[i] ^ bytes2[i];
+  }
+  return bytes;
+}
+
+function concatBytes(...arrays) {
+  let totalLength = 0;
+  for (let bytes of arrays) {
+    if (typeof bytes === 'number') {
+      // padding
+      totalLength = Math.ceil(totalLength / bytes) * bytes;
+    } else {
+      totalLength += bytes.byteLength;
+    }
+  }
+  let merged = new Uint8Array(totalLength);
+  let offset = 0;
+  for (let bytes of arrays) {
+    if (typeof bytes === 'number') {
+      merged.set(randomBytes(totalLength - offset), offset);
+    } else {
+      merged.set(
+        bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes,
+        offset
+      );
+      offset += bytes.byteLength;
+    }
+  }
+  return merged;
+}
+
+async function SHA256(data) {
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', data));
+}
+
+async function PBKDF2(hash, password, salt, iterations) {
+  return new Uint8Array(
+    await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        hash,
+        salt,
+        iterations,
+      },
+      await crypto.subtle.importKey(
+        'raw',
+        password,
+        { name: 'PBKDF2' },
+        false,
+        ['deriveBits']
+      ),
+      512
+    )
+  );
+}
+
+async function getSRPParams({ g, p, salt1, salt2, gB, password }) {
+  const H = SHA256;
+  const SH = (data, salt) => {
+    return SHA256(concatBytes(salt, data, salt));
+  };
+  const PH1 = async (password, salt1, salt2) => {
+    return await SH(await SH(password, salt1), salt2);
+  };
+  const PH2 = async (password, salt1, salt2) => {
+    return await SH(
+      await PBKDF2('SHA-512', await PH1(password, salt1, salt2), salt1, 100000),
+      salt2
+    );
+  };
+
+  const encoder = new TextEncoder();
+
+  const gBigInt = bigInt(g);
+  const gBytes = bigIntToBytes(gBigInt, 256);
+  const pBigInt = bytesToBigInt(p);
+  const aBigInt = bytesToBigInt(randomBytes(256));
+  const gABigInt = gBigInt.modPow(aBigInt, pBigInt);
+  const gABytes = bigIntToBytes(gABigInt);
+  const gBBytes = bytesToBigInt(gB);
+  const [k, u, x] = await Promise.all([
+    H(concatBytes(p, gBytes)),
+    H(concatBytes(gABytes, gB)),
+    PH2(encoder.encode(password), salt1, salt2),
+  ]);
+  const kBigInt = bytesToBigInt(k);
+  const uBigInt = bytesToBigInt(u);
+  const xBigInt = bytesToBigInt(x);
+  const vBigInt = gBigInt.modPow(xBigInt, pBigInt);
+  const kVBigInt = kBigInt.multiply(vBigInt).mod(pBigInt);
+  let tBigInt = gBBytes.subtract(kVBigInt).mod(pBigInt);
+  if (tBigInt.isNegative()) {
+    tBigInt = tBigInt.add(pBigInt);
+  }
+  const sABigInt = tBigInt.modPow(
+    aBigInt.add(uBigInt.multiply(xBigInt)),
+    pBigInt
+  );
+  const sABytes = bigIntToBytes(sABigInt);
+  const kA = await H(sABytes);
+  const M1 = await H(
+    concatBytes(
+      xorBytes(await H(p), await H(gBytes)),
+      await H(salt1),
+      await H(salt2),
+      gABytes,
+      gB,
+      kA
+    )
+  );
+
+  return { A: gABytes, M1 };
+}
 
 function bigint(num) {
   return new BigInteger(num.toString(16), 16);
@@ -376,9 +527,9 @@ function sha1BytesSync(bytes) {
 }
 
 function sha256HashSync(bytes) {
-  // console.log(dT(), 'SHA-2 hash start', bytes.byteLength || bytes.length)
+  // console.log(dT(), 'SHA-256 hash start', bytes.byteLength || bytes.length)
   var hashWords = CryptoJS.SHA256(bytesToWords(bytes));
-  // console.log(dT(), 'SHA-2 hash finish')
+  // console.log(dT(), 'SHA-256 hash finish')
 
   var hashBytes = bytesFromWords(hashWords);
 
@@ -783,6 +934,15 @@ function tsNow(seconds) {
 }
 
 module.exports = {
+  bigIntToBytes,
+  hexToBytes,
+  bytesToBigInt,
+  randomBytes,
+  xorBytes,
+  concatBytes,
+  SHA256,
+  PBKDF2,
+  getSRPParams,
   bigint,
   bigStringInt,
   dHexDump,
