@@ -1,4 +1,6 @@
 const MTProto = require('../main');
+const { TLSerialization } = require('../tl');
+const TLSerializer = require('../tl/serializer');
 
 const mtproto = new MTProto({
   // App credentials
@@ -11,7 +13,7 @@ const mtproto = new MTProto({
   https: location.protocol === 'https:',
 });
 
-// Ali: +9996611111 -> @test9996611111
+// Ali: +9996621111 -> @test9996621111
 // Pavel: +9996622222 -> @test9996622222
 // Ivan: +9996627777 -> @test9996627777
 const phoneNumber = '+9996621111';

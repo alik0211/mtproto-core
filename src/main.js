@@ -4,6 +4,7 @@ const EventEmitter = require('events');
 const http = require('./transport');
 const { SecureRandom } = require('./vendors/jsbn');
 const { TLSerialization, TLDeserialization } = require('./tl');
+const TLSerializer = require('./tl/serializer');
 const {
   getSRPParams,
   arrayBufferToBase64,
@@ -62,6 +63,7 @@ class API extends EventEmitter {
     this.prevSessionId = null;
     this.longPollRunning = false;
 
+    // TODO: Use Map()
     this.sentMessages = {};
     this.pendingAcks = [];
 
@@ -72,8 +74,8 @@ class API extends EventEmitter {
 
       // console.log(`JSON.stringify(pendingAcks):`, JSON.stringify(pendingAcks));
 
-      var waitSerializer = new TLSerialization({ mtproto: true });
-      waitSerializer.storeMethod('http_wait', {
+      const waitSerializer = new TLSerializer({ mtproto: true });
+      waitSerializer.method('http_wait', {
         max_delay: 500,
         wait_after: 150,
         max_wait: 1000,
@@ -84,10 +86,13 @@ class API extends EventEmitter {
         body: waitSerializer.getBytes(),
       };
 
-      const serializer = new TLSerialization({ mtproto: true });
-      serializer.storeObject(
-        { _: 'msgs_ack', msg_ids: this.pendingAcks },
-        'Object'
+      const serializer = new TLSerializer({ mtproto: true });
+      serializer.predicate(
+        {
+          _: 'msgs_ack',
+          msg_ids: this.pendingAcks,
+        },
+        'MsgsAck'
       );
 
       const message = {
@@ -119,8 +124,8 @@ class API extends EventEmitter {
     }
 
     const nonce = getNonce();
-    const request = new TLSerialization({ mtproto: true });
-    request.storeMethod('req_pq_multi', { nonce });
+    const request = new TLSerializer({ mtproto: true });
+    request.method('req_pq_multi', { nonce });
 
     return this.sendPlainRequest(request.getBuffer()).then(deserializer => {
       const responsePQ = deserializer.fetchObject('ResPQ');
@@ -156,8 +161,8 @@ class API extends EventEmitter {
       const newNonce = new Array(32);
       secureRandom.nextBytes(newNonce);
 
-      const data = new TLSerialization({ mtproto: true });
-      data.storeObject(
+      const data = new TLSerializer({ mtproto: true });
+      data.predicate(
         {
           _: 'p_q_inner_data',
           pq: pq,
@@ -167,16 +172,15 @@ class API extends EventEmitter {
           server_nonce: serverNonce,
           new_nonce: newNonce,
         },
-        'P_Q_inner_data',
-        'DECRYPTED_DATA'
+        'P_Q_inner_data'
       );
 
       const dataWithHash = sha1BytesSync(data.getBuffer()).concat(
         data.getBytes()
       );
 
-      const request = new TLSerialization({ mtproto: true });
-      request.storeMethod('req_DH_params', {
+      const request = new TLSerializer({ mtproto: true });
+      request.method('req_DH_params', {
         nonce: nonce,
         server_nonce: serverNonce,
         p: p,
@@ -354,13 +358,13 @@ class API extends EventEmitter {
     secureRandom.nextBytes(auth.b);
 
     const gB = bytesModPow(gBytes, auth.b, auth.dhPrime);
-    var data = new TLSerialization({ mtproto: true });
-    data.storeObject(
+    const data = new TLSerializer({ mtproto: true });
+    data.predicate(
       {
         _: 'client_DH_inner_data',
         nonce: auth.nonce,
         server_nonce: auth.serverNonce,
-        retry_id: [0, auth.retry++],
+        retry_id: [0, auth.retry++], // long (:
         g_b: gB,
       },
       'Client_DH_Inner_Data'
@@ -374,8 +378,8 @@ class API extends EventEmitter {
       auth.tmpAesIv
     );
 
-    var request = new TLSerialization({ mtproto: true });
-    request.storeMethod('set_client_DH_params', {
+    const request = new TLSerializer({ mtproto: true });
+    request.method('set_client_DH_params', {
       nonce: auth.nonce,
       server_nonce: auth.serverNonce,
       encrypted_data: encryptedData,
@@ -468,37 +472,30 @@ class API extends EventEmitter {
     let resultMessage = messages;
 
     if (Array.isArray(messages)) {
-      const messagesByteLen = messages.reduce(
-        (acc, message) =>
-          acc + (message.body.byteLength || message.body.length) + 32,
-        0
-      );
-      //create container;
-      var container = new TLSerialization({
+      const messagesByteLength = messages.reduce((accumulator, message) => {
+        const length = message.body.byteLength || message.body.length;
+
+        return accumulator + length + 32;
+      }, 0);
+
+      const container = new TLSerializer({
         mtproto: true,
-        startMaxLength: messagesByteLen + 64,
+        maxLength: messagesByteLength + 64,
       });
-      container.storeInt(0x73f1f8dc, 'CONTAINER[id]');
-      container.storeInt(messages.length, 'CONTAINER[count]');
-      var onloads = [];
-      var innerMessages = [];
-      for (var i = 0; i < messages.length; i++) {
-        container.storeLong(messages[i].msg_id, 'CONTAINER[' + i + '][msg_id]');
-        innerMessages.push(messages[i].msg_id);
 
-        /* sentMessages[messages[i].msg_id] = messages[i];
-         * sentMessages[messages[i].msg_id].inContainer = true; */
+      container.int(0x73f1f8dc); // container id
+      container.int(messages.length); // container count
 
-        container.storeInt(messages[i].seq_no, 'CONTAINER[' + i + '][seq_no]');
-        container.storeInt(
-          messages[i].body.length,
-          'CONTAINER[' + i + '][bytes]'
-        );
-        container.storeRawBytes(messages[i].body, 'CONTAINER[' + i + '][body]');
-        /* if (messages[i].noResponse) {
-         *   //noResponseMsgs.push(messages[i].msg_id);
-         * } */
-      }
+      const innerMessages = [];
+
+      messages.forEach(message => {
+        container.long(message.msg_id); // 'CONTAINER[i][msg_id]'
+        container.int(message.seq_no); // 'CONTAINER[i][seq_no]'
+        container.int(message.body.length); // 'CONTAINER[i][bytes]'
+        container.bytesRaw(message.body); // 'CONTAINER[i][body]'
+
+        innerMessages.push(message.msg_id);
+      });
 
       const containerSentMessage = {
         msg_id: this.generateMessageId(),
@@ -508,7 +505,7 @@ class API extends EventEmitter {
       };
 
       resultMessage = {
-        ...{ body: container.getBytes(true) },
+        ...{ body: container.getTypedBytes() },
         ...containerSentMessage,
       };
 
@@ -727,10 +724,10 @@ class API extends EventEmitter {
     const requestLength = requestBuffer.byteLength;
     const requestArray = new Int32Array(requestBuffer);
 
-    const header = new TLSerialization();
-    header.storeLongP(0, 0, 'auth_key_id');
-    header.storeLong(this.generateMessageId(), 'msg_id');
-    header.storeInt(requestLength, 'request_length');
+    const header = new TLSerializer();
+    header.long([0, 0]); // auth_key_id
+    header.long(this.generateMessageId()); // msg_id
+    header.int(requestLength); // request_length
 
     const headerBuffer = header.getBuffer();
     const headerArray = new Int32Array(headerBuffer);
@@ -1091,8 +1088,8 @@ class API extends EventEmitter {
     this.longPollRunning = true;
 
     const longPollInner = () => {
-      const serializer = new TLSerialization({ mtproto: true });
-      serializer.storeMethod('http_wait', {
+      const serializer = new TLSerializer({ mtproto: true });
+      serializer.method('http_wait', {
         max_delay: 500,
         wait_after: 150,
         max_wait: 15000,

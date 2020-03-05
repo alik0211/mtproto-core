@@ -497,12 +497,10 @@ function longFromInts(high, low) {
     .toString(10);
 }
 
-function intToUint(val) {
-  val = parseInt(val);
-  if (val < 0) {
-    val = val + 4294967296;
-  }
-  return val;
+function intToUint(value) {
+  value = +value;
+
+  return value < 0 ? value + 4294967296 : value;
 }
 
 function uintToInt(val) {
