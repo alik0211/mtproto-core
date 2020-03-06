@@ -1,6 +1,6 @@
 const bigInt = require('big-integer');
 const config = require('../config');
-const { intToUint, bigIntToBytes, bigint, bigStringInt } = require('../utils');
+const { intToUint, bigIntToBytes } = require('../utils');
 
 class TLSerializer {
   constructor(options = {}) {
@@ -10,6 +10,10 @@ class TLSerializer {
     this.offset = 0; // in bytes
     this.schema = mtproto ? config.schema.mtproto : config.schema.api;
 
+    this.createBuffer();
+  }
+
+  createBuffer() {
     this.buffer = new ArrayBuffer(this.maxLength);
     this.dataView = new DataView(this.buffer);
     this.intView = new Int32Array(this.buffer);
@@ -46,6 +50,23 @@ class TLSerializer {
     return resultArray;
   }
 
+  checkLength(needBytes) {
+    if (this.offset + needBytes < this.maxLength) {
+      return;
+    }
+
+    this.maxLength =
+      Math.ceil(
+        Math.max(this.maxLength * 2, this.offset + needBytes + 16) / 4
+      ) * 4;
+    const previousBuffer = this.buffer;
+    const previousArray = new Int32Array(previousBuffer);
+
+    this.createBuffer();
+
+    new Int32Array(this.buffer).set(previousArray);
+  }
+
   method(methodName, params) {
     let methodData = null;
     const { methods } = this.schema;
@@ -65,13 +86,10 @@ class TLSerializer {
 
     methodData.params.forEach(paramData => {
       const param = params[paramData.name];
-      // console.log(`paramData:`, paramData);
-      // console.log(`param:`, param);
+      // TODO: Handle flags
 
       this.predicate(param, paramData.type);
     });
-
-    // console.log(`methodData:`, methodData);
   }
 
   predicate(predicate, type) {
@@ -79,18 +97,27 @@ class TLSerializer {
     // console.log(`type:`, type);
 
     switch (type) {
+      case '#':
       case 'int':
         return this.int(predicate);
       case 'int128':
         return this.int128(predicate);
       case 'int256':
         return this.int256(predicate);
+      case 'int512':
+        return this.int512(predicate);
       case 'string':
         return this.string(predicate);
       case 'long':
         return this.long(predicate);
+      case 'double':
+        return this.double(predicate);
+      case 'Bool':
+        return this.bool(predicate);
       case 'bytes':
         return this.bytes(predicate);
+      case 'true':
+        return;
     }
 
     if (
@@ -123,7 +150,15 @@ class TLSerializer {
       throw new Error(`Constructor ${predicate._} not found in schema`);
     }
 
-    const isBare = predicate === type;
+    let isBare = type.charAt(0) === '%';
+
+    if (isBare) {
+      type = type.substr(1);
+    }
+
+    if (predicate === type) {
+      isBare = true;
+    }
 
     if (!isBare) {
       this.int(intToUint(constructorData.id));
@@ -131,11 +166,22 @@ class TLSerializer {
 
     constructorData.params.forEach(paramData => {
       const param = predicate[paramData.name];
-      this.predicate(param, paramData.type);
+      let paramType = paramData.type;
+      if (paramType.indexOf('?') !== -1) {
+        const condType = paramType.split('?');
+        const fieldBit = condType[0].split('.');
+        if (!(predicate[fieldBit[0]] & (1 << fieldBit[1]))) {
+          return;
+        }
+        paramType = condType[1];
+      }
+
+      this.predicate(param, paramType);
     });
   }
 
   int(value) {
+    this.checkLength(4);
     this.dataView.setInt32(this.offset, value, true);
     this.offset += 4;
   }
@@ -144,6 +190,7 @@ class TLSerializer {
     if (array instanceof bigInt) {
       array = bigIntToBytes(array, 16);
     }
+    this.checkLength(16);
     this.byteView.set(array, this.offset);
     this.offset += 16;
   }
@@ -152,17 +199,32 @@ class TLSerializer {
     if (array instanceof bigInt) {
       array = bigIntToBytes(array, 32);
     }
+    this.checkLength(32);
     this.byteView.set(array, this.offset);
     this.offset += 32;
   }
 
+  int512(array) {
+    if (array instanceof bigInt) {
+      array = bigIntToBytes(array, 64);
+    }
+    this.checkLength(64);
+    this.byteView.set(array, this.offset);
+    this.offset += 64;
+  }
+
   uint32(value) {
+    this.checkLength(4);
     this.dataView.setUint32(this.offset, value, true);
     this.offset += 4;
   }
 
   string(value) {
-    console.log(`srting[value]:`, value);
+    const encoder = new TextEncoder();
+
+    const bytes = encoder.encode(value);
+
+    this.bytes(bytes);
   }
 
   long(value) {
@@ -181,6 +243,20 @@ class TLSerializer {
     this.int(intToUint(quotient.toJSNumber()));
   }
 
+  double(value) {
+    this.checkLength(8);
+    this.dataView.setFloat64(this.offset, value, true);
+    this.offset += 8;
+  }
+
+  bool(value) {
+    if (value) {
+      this.int(0x997275b5);
+    } else {
+      this.int(0xbc799737);
+    }
+  }
+
   bytes(bytes) {
     if (bytes instanceof ArrayBuffer) {
       bytes = new Uint8Array(bytes);
@@ -189,7 +265,9 @@ class TLSerializer {
     }
 
     const length = bytes.byteLength || bytes.length;
-    // this.checkLength(len + 8);
+
+    this.checkLength(length + 8);
+
     if (length <= 253) {
       this.byteView[this.offset++] = length;
     } else {
@@ -213,7 +291,7 @@ class TLSerializer {
       bytes = new Uint8Array(bytes);
     }
 
-    // this.checkLength(len);
+    this.checkLength(bytes.length);
 
     this.byteView.set(bytes, this.offset);
     this.offset += bytes.length;

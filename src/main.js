@@ -527,23 +527,23 @@ class API extends EventEmitter {
     const authKeyId = sha1BytesSync(authKey).slice(-8);
     const serverSalt = this.getServerSalt();
 
-    var data = new TLSerialization({
-      startMaxLength: message.body.length + 2048,
+    const data = new TLSerializer({
+      maxLength: message.body.length + 2048,
     });
 
     message.deferred = message.deferred || new Deferred();
     this.sentMessages[message.msg_id] = message;
 
-    data.storeIntBytes(serverSalt, 64, 'salt');
-    data.storeIntBytes(this.sessionId, 64, 'session_id');
+    data.bytesRaw(serverSalt, 64, 'salt');
+    data.bytesRaw(this.sessionId, 64, 'session_id');
 
-    data.storeLong(message.msg_id, 'message_id');
-    data.storeInt(message.seq_no, 'seq_no');
+    data.long(message.msg_id, 'message_id');
+    data.int(message.seq_no, 'seq_no');
 
-    data.storeInt(message.body.length, 'message_data_length');
-    data.storeRawBytes(message.body, 'message_data');
+    data.int(message.body.length, 'message_data_length');
+    data.bytesRaw(message.body, 'message_data');
 
-    var dataBuffer = data.getBuffer();
+    const dataBuffer = data.getBuffer();
 
     var paddingLength = 16 - (data.offset % 16) + 16 * (1 + nextRandomInt(5));
     var padding = new Array(paddingLength);
@@ -558,14 +558,14 @@ class API extends EventEmitter {
 
     //console.log('encryptedResult.msgKey', encryptedResult.msgKey, dHexDump(encryptedResult.msgKey));
 
-    var request = new TLSerialization({
-      startMaxLength: encryptedResult.bytes.byteLength + 256,
+    const request = new TLSerializer({
+      maxLength: encryptedResult.bytes.byteLength + 256,
     });
-    request.storeIntBytes(authKeyId, 64, 'auth_key_id');
-    request.storeIntBytes(encryptedResult.msgKey, 128, 'msg_key');
-    request.storeRawBytes(encryptedResult.bytes, 'encrypted_data');
+    request.bytesRaw(authKeyId, 64, 'auth_key_id');
+    request.bytesRaw(encryptedResult.msgKey, 128, 'msg_key');
+    request.bytesRaw(encryptedResult.bytes, 'encrypted_data');
 
-    var requestData = request.getArray();
+    const requestData = request.getArray();
 
     return http
       .post(this.url, requestData, {
@@ -1108,27 +1108,27 @@ class API extends EventEmitter {
   }
 
   getApiCallMessage(method, params = {}) {
-    const serializer = new TLSerialization();
+    const serializer = new TLSerializer();
 
-    serializer.storeInt(0xda9b0d0d, 'invokeWithLayer');
-    serializer.storeInt(108, 'layer');
-    serializer.storeInt(0x785188b8, 'initConnection');
-    serializer.storeInt(0, 'flags'); // because the proxy is not set
-    serializer.storeInt(this.api_id, 'api_id');
-    serializer.storeString(
+    serializer.int(0xda9b0d0d, 'invokeWithLayer');
+    serializer.int(108, 'layer');
+    serializer.int(0x785188b8, 'initConnection');
+    serializer.int(0, 'flags'); // because the proxy is not set
+    serializer.int(this.api_id, 'api_id');
+    serializer.string(
       navigator.userAgent || 'Unknown UserAgent',
       'device_model'
     );
-    serializer.storeString(
+    serializer.string(
       navigator.platform || 'Unknown Platform',
       'system_version'
     );
-    serializer.storeString('1.0.0', 'app_version');
-    serializer.storeString(navigator.language || 'en', 'system_lang_code');
-    serializer.storeString('', 'lang_pack');
-    serializer.storeString(navigator.language || 'en', 'lang_code');
+    serializer.string('1.0.0', 'app_version');
+    serializer.string(navigator.language || 'en', 'system_lang_code');
+    serializer.string('', 'lang_pack');
+    serializer.string(navigator.language || 'en', 'lang_code');
 
-    serializer.storeMethod(method, {
+    serializer.method(method, {
       api_hash: this.api_hash,
       api_id: this.api_id,
       ...params,
@@ -1138,7 +1138,7 @@ class API extends EventEmitter {
     const message = {
       msg_id: this.generateMessageId(),
       seq_no: this.generateSeqNo(),
-      body: serializer.getBytes(true),
+      body: serializer.getTypedBytes(),
       isAPI: true,
       method,
     };
@@ -1172,6 +1172,7 @@ class API extends EventEmitter {
 
   call(method, params) {
     return this.innerCall(method, params).catch(error => {
+      console.log(`error:`, error);
       const { error_message } = error;
 
       if (error_message.includes('_MIGRATE_')) {
