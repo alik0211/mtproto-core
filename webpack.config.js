@@ -10,7 +10,7 @@ module.exports = {
   devtool: 'inline-source-map',
 
   entry: {
-    index: './src/__tests__/index.js',
+    index: './src/__playground/index.js',
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -20,7 +20,7 @@ module.exports = {
   plugins: [
     new Dotenv(),
     new HtmlWebpackPlugin({
-      template: path.join(sourcePath, './__tests__/index.html'),
+      template: path.join(sourcePath, './__playground/index.html'),
     }),
   ],
 
