@@ -30,8 +30,8 @@
   "scripts": {
     "start": "webpack-dev-server --color",
     "build": "webpack --mode production",
-    "watch": "karma start",
-    "test": "karma start --single-run"
+    "watch": "karma start --browsers Chrome",
+    "test": "karma start --browsers ChromeCI --single-run"
   },
   "license": "GPL-3.0",
   "dependencies": {
