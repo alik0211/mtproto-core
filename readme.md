@@ -1,6 +1,7 @@
 # @mtproto/core
 
 [![NPM](https://img.shields.io/npm/v/@mtproto/core.svg?style=flat-square)](https://www.npmjs.com/package/@mtproto/core)
+[![Travis](https://img.shields.io/travis/com/alik0211/mtproto-core/master.svg?style=flat-square)](https://travis-ci.com/alik0211/mtproto-core)
 
 > Telegram API (MTProto) client library for browser
 
