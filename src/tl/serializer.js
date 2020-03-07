@@ -86,9 +86,18 @@ class TLSerializer {
 
     methodData.params.forEach(paramData => {
       const param = params[paramData.name];
-      // TODO: Handle flags
+      let paramType = paramData.type;
 
-      this.predicate(param, paramData.type);
+      if (paramType.indexOf('?') !== -1) {
+        const condType = paramType.split('?');
+        const fieldBit = condType[0].split('.');
+        if (!(params[fieldBit[0]] & (1 << fieldBit[1]))) {
+          return;
+        }
+        paramType = condType[1];
+      }
+
+      this.predicate(param, paramType);
     });
   }
 
@@ -117,6 +126,7 @@ class TLSerializer {
       case 'bytes':
         return this.bytes(predicate);
       case 'true':
+      case '!X':
         return;
     }
 
@@ -167,6 +177,7 @@ class TLSerializer {
     constructorData.params.forEach(paramData => {
       const param = predicate[paramData.name];
       let paramType = paramData.type;
+
       if (paramType.indexOf('?') !== -1) {
         const condType = paramType.split('?');
         const fieldBit = condType[0].split('.');
