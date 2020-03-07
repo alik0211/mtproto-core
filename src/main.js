@@ -1110,23 +1110,19 @@ class API extends EventEmitter {
   getApiCallMessage(method, params = {}) {
     const serializer = new TLSerializer();
 
-    serializer.int(0xda9b0d0d, 'invokeWithLayer');
-    serializer.int(108, 'layer');
-    serializer.int(0x785188b8, 'initConnection');
-    serializer.int(0, 'flags'); // because the proxy is not set
-    serializer.int(this.api_id, 'api_id');
-    serializer.string(
-      navigator.userAgent || 'Unknown UserAgent',
-      'device_model'
-    );
-    serializer.string(
-      navigator.platform || 'Unknown Platform',
-      'system_version'
-    );
-    serializer.string('1.0.0', 'app_version');
-    serializer.string(navigator.language || 'en', 'system_lang_code');
-    serializer.string('', 'lang_pack');
-    serializer.string(navigator.language || 'en', 'lang_code');
+    serializer.method('invokeWithLayer', {
+      layer: 108,
+    });
+
+    serializer.method('initConnection', {
+      flags: 0, // because the proxy is not set
+      api_id: this.api_id,
+      device_model: navigator.userAgent || 'Unknown UserAgent',
+      system_version: navigator.platform || 'Unknown Platform',
+      app_version: '1.0.0',
+      system_lang_code: navigator.language || 'en',
+      lang_code: navigator.language || 'en',
+    });
 
     serializer.method(method, {
       api_hash: this.api_hash,
@@ -1134,7 +1130,6 @@ class API extends EventEmitter {
       ...params,
     });
 
-    let toAck = []; //msgs_ack
     const message = {
       msg_id: this.generateMessageId(),
       seq_no: this.generateSeqNo(),
@@ -1142,8 +1137,6 @@ class API extends EventEmitter {
       isAPI: true,
       method,
     };
-    const messageByteLength =
-      (message.body.byteLength || message.body.length) + 32;
 
     return message;
   }
