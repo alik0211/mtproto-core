@@ -20,6 +20,7 @@ const {
 } = require('leemon');
 const CryptoJS = require('../vendors/crypto-js');
 const { BigInteger, SecureRandom } = require('../vendors/jsbn');
+const { PBKDF2, SHA256 } = require('./crypto');
 
 function bigIntToBytes(bigInt, len) {
   return hexToBytes(bigInt.toString(16), len);
@@ -86,31 +87,6 @@ function concatBytes(...arrays) {
     }
   }
   return merged;
-}
-
-async function SHA256(data) {
-  return new Uint8Array(await crypto.subtle.digest('SHA-256', data));
-}
-
-async function PBKDF2(hash, password, salt, iterations) {
-  return new Uint8Array(
-    await crypto.subtle.deriveBits(
-      {
-        name: 'PBKDF2',
-        hash,
-        salt,
-        iterations,
-      },
-      await crypto.subtle.importKey(
-        'raw',
-        password,
-        { name: 'PBKDF2' },
-        false,
-        ['deriveBits']
-      ),
-      512
-    )
-  );
 }
 
 async function getSRPParams({ g, p, salt1, salt2, gB, password }) {
@@ -938,8 +914,6 @@ module.exports = {
   randomBytes,
   xorBytes,
   concatBytes,
-  SHA256,
-  PBKDF2,
   getSRPParams,
   bigint,
   bigStringInt,
