@@ -30,7 +30,7 @@ class TLSerializer {
   }
 
   getBuffer() {
-    return this.getArray().buffer;
+    return this.getTypedBytes().buffer;
   }
 
   getBytes() {
