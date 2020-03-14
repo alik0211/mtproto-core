@@ -511,17 +511,12 @@ function sha256HashSync(bytes) {
 }
 
 function rsaEncrypt(publicKey, bytes) {
-  bytes = addPadding(bytes, 255);
+  const encryptedBigInt = bytesToBigInt(bytes).modPow(
+    bigInt(publicKey.exponent, 16),
+    bigInt(publicKey.modulus, 16)
+  );
 
-  // console.log('RSA encrypt start')
-  var N = new BigInteger(publicKey.modulus, 16);
-  var E = new BigInteger(publicKey.exponent, 16);
-  var X = new BigInteger(bytes);
-  var encryptedBigInt = X.modPowInt(E, N),
-    encryptedBytes = bytesFromBigInt(encryptedBigInt, 256);
-  // console.log('RSA encrypt finish')
-
-  return encryptedBytes;
+  return bigIntToBytes(encryptedBigInt, 256);
 }
 
 function addPadding(bytes, blockSize, zeroes) {
