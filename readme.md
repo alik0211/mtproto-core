@@ -5,7 +5,7 @@
 
 > Telegram API (MTProto) client library for browser
 
-* **Relevant.** 108 layer in the API scheme
+* **Actual.** 108 layer in the API scheme
 * **Easy.** Cryptography is hidden. Just make requests to the API
 * **Events.** Subscribe to updates via the EventEmitter API
 * **Reliable.** Supports all data centers. Automatically handles `MIGRATE` errors
