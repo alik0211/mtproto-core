@@ -8,6 +8,7 @@ class TLSerializer {
 
     this.maxLength = maxLength;
     this.offset = 0; // in bytes
+    this.padTo = 0;
     this.schema = mtproto ? config.schema.mtproto : config.schema.api;
 
     this.createBuffer();
@@ -241,8 +242,8 @@ class TLSerializer {
   long(value) {
     if (Array.isArray(value)) {
       if (value.length === 2) {
-        this.uint32(value[0]);
         this.uint32(value[1]);
+        this.uint32(value[0]);
 
         return;
       }
@@ -292,7 +293,7 @@ class TLSerializer {
     this.offset += length;
 
     // Padding
-    while (this.offset % 4) {
+    while (this.offset % 4 !== this.padTo) {
       this.byteView[this.offset++] = 0;
     }
   }
