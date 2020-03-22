@@ -65,7 +65,7 @@ mtproto
 ## 2FA (Two-factor authentication)
 
 ```js
-const { getSRPParams } = require('@mtproto/core/utils');
+const { getSRPParams } = require('@mtproto/core/src/utils');
 
 const password = 'YOU_PASSWORD';
 
