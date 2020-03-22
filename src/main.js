@@ -408,7 +408,11 @@ class MTProto {
         }
         waitMessage = this.messagesWaitResponse.get(message.req_msg_id);
 
-        waitMessage.resolve(message.result);
+        if (message.result._ === 'rpc_error') {
+          waitMessage.reject(message.result);
+        } else {
+          waitMessage.resolve(message.result);
+        }
 
         this.messagesWaitResponse.delete(message.req_msg_id);
         return;
