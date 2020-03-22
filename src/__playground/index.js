@@ -1,26 +1,22 @@
 const MTProto = require('../main');
-const { TLSerialization } = require('../tl');
-const TLSerializer = require('../tl/serializer');
+const { getSRPParams } = require('../utils');
 
 const mtproto = new MTProto({
-  // App credentials
   api_id: process.env.API_ID,
   api_hash: process.env.API_HASH,
-
-  // Use test server
   test: true,
-
-  https: location.protocol === 'https:',
 });
+
+window.mtproto = mtproto;
 
 // Ali: +9996621111 -> @test9996621111
 // Pavel: +9996622222 -> @test9996622222
 // Ivan: +9996627777 -> @test9996627777
-const phoneNumber = '+9996621111';
 
 const formCode = document.getElementById('form-code');
 const formPhone = document.getElementById('form-phone');
 const getFullUser = document.getElementById('getFullUser');
+const getNearestDc = document.getElementById('getNearestDc');
 const formPassword = document.getElementById('form-password');
 const servers = document.querySelectorAll('.page__servers .page__server');
 
@@ -36,7 +32,7 @@ formPhone.addEventListener('submit', event => {
 
   console.log(`phone:`, phone);
 
-  mtproto.api
+  mtproto
     .call('auth.sendCode', {
       phone_number: phone,
       settings: {
@@ -54,7 +50,7 @@ formCode.addEventListener('submit', event => {
 
   code = formCode.elements.code.value;
 
-  mtproto.api
+  mtproto
     .call('auth.signIn', {
       phone_code: code,
       phone_number: phone,
@@ -74,11 +70,35 @@ formPassword.addEventListener('submit', event => {
   event.preventDefault();
 
   password = formPassword.elements.password.value;
-  // console.log(`password:`, password);
+  console.log(`password:`, password);
 
-  mtproto.api.checkPassword(password).then(result => {
-    console.log(`auth.checkPassword[result]:`, result);
-  });
+  mtproto
+    .call('account.getPassword')
+    .then(async result => {
+      const { srp_id, current_algo, secure_random, srp_B } = result;
+      const { salt1, salt2, g, p } = current_algo;
+
+      const { A, M1 } = await getSRPParams({
+        g,
+        p,
+        salt1,
+        salt2,
+        gB: srp_B,
+        password,
+      });
+
+      return mtproto.call('auth.checkPassword', {
+        password: {
+          _: 'inputCheckPasswordSRP',
+          srp_id,
+          A,
+          M1,
+        },
+      });
+    })
+    .then(result => {
+      console.log(`auth.checkPassword[result]:`, result);
+    });
 });
 
 servers.forEach(button => {
@@ -86,12 +106,18 @@ servers.forEach(button => {
     const { id } = button.dataset;
 
     console.log(`id:`, id);
-    mtproto.api.setDc(id);
+    mtproto.changeDc(id);
+  });
+});
+
+getNearestDc.addEventListener('click', () => {
+  mtproto.call('help.getNearestDc').then(result => {
+    console.log(`help.getNearestDc[result]:`, result);
   });
 });
 
 getFullUser.addEventListener('click', () => {
-  mtproto.api
+  mtproto
     .call('users.getFullUser', {
       id: {
         _: 'inputUserSelf',
