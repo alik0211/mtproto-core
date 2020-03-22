@@ -1,40 +1,20 @@
 const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
 const EventEmitter = require('events');
-const { SecureRandom } = require('./vendors/jsbn');
 const TLSerializer = require('./tl/serializer');
 const TLDeserializer = require('./tl/deserializer');
 const {
   getRandomBytes,
   concatBytes,
-  getSRPParams,
   bytesToBigInt,
   bigIntToBytes,
-  arrayBufferToBase64,
-  bigStringInt,
-  bytesToHex,
-  bytesFromHex,
-  bytesCmp,
-  bytesXor,
   bytesToArrayBuffer,
-  convertToArrayBuffer,
-  convertToUint8Array,
-  bytesFromArrayBuffer,
-  bufferConcat,
   longToBytes,
   longFromInts,
-  sha1BytesSync,
-  sha256HashSync,
   rsaEncrypt,
-  aesEncryptSync,
-  aesDecryptSync,
   getRandomInt,
   pqPrimeFactorization,
   convertToByteArray,
-  bytesModPow,
-  getNonce,
-  getAesKeyIv,
-  tsNow,
   xorBytes,
   gzipUncompress,
 } = require('./utils');
@@ -147,7 +127,8 @@ class MTProto {
   async handleWSMessage(event) {
     const fileReader = new FileReader();
     fileReader.onload = async event => {
-      const buffer = await this.deobfuscate(event.target.result);
+      const obfuscatedBytes = new Uint8Array(event.target.result);
+      const buffer = await this.deobfuscate(obfuscatedBytes);
 
       this.handleMessage(buffer);
     };
@@ -355,10 +336,10 @@ class MTProto {
   }
 
   async handleDecryptedMessage(message, params = {}) {
-    console.group(`handleDecryptedMessage ${message._}`);
-    console.log(`message:`, message);
-    console.log(`params:`, params);
-    console.groupEnd(`handleDecryptedMessage ${message._}`);
+    // console.group(`handleDecryptedMessage ${message._}`);
+    // console.log(`message:`, message);
+    // console.log(`params:`, params);
+    // console.groupEnd(`handleDecryptedMessage ${message._}`);
 
     const { messageId } = params;
     let waitMessage = null;
@@ -609,28 +590,28 @@ class MTProto {
     }
 
     let encryptKey = new Uint8Array(init1buffer, 8, 32);
-    this.encryptIV = new Uint8Array(16);
-    this.encryptIV.set(new Uint8Array(init1buffer, 40, 16));
+    const encryptIV = new Uint8Array(16);
+    encryptIV.set(new Uint8Array(init1buffer, 40, 16));
 
     let decryptKey = new Uint8Array(init2buffer, 8, 32);
-    this.decryptIV = new Uint8Array(16);
-    this.decryptIV.set(new Uint8Array(init2buffer, 40, 16));
+    const decryptIV = new Uint8Array(16);
+    decryptIV.set(new Uint8Array(init2buffer, 40, 16));
 
-    this.encryptAES = new AES.CTR(encryptKey, this.encryptIV);
-    this.decryptAES = new AES.CTR(decryptKey, this.decryptIV);
+    this.encryptAES = new AES.CTR(encryptKey, encryptIV);
+    this.decryptAES = new AES.CTR(decryptKey, decryptIV);
 
-    const init3buffer = await this.obfuscate(init1buffer);
+    const init3buffer = await this.obfuscate(init1bytes);
     init1bytes.set(new Uint8Array(init3buffer, 56, 8), 56);
 
     return init1bytes;
   }
 
-  async obfuscate(buffer) {
-    return this.encryptAES.encrypt(buffer).buffer;
+  async obfuscate(bytes) {
+    return this.encryptAES.encrypt(bytes).buffer;
   }
 
-  async deobfuscate(buffer) {
-    return this.decryptAES.decrypt(buffer).buffer;
+  async deobfuscate(bytes) {
+    return this.decryptAES.decrypt(bytes).buffer;
   }
 
   getMessageId() {
