@@ -310,7 +310,6 @@ class MTProto {
     const authKey = this.storage.pGetBytes('authKey');
 
     const deserializer = new TLDeserializer(buffer);
-    console.log(`deserializer:`, deserializer);
     const authKeyId = deserializer.long();
     const messageKey = deserializer.int128();
 
