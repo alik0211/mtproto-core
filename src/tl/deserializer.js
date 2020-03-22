@@ -28,18 +28,12 @@ function TLDeserializer(buffer, options = {}) {
 
   if (!isPlain) {
     if (this.byteView[0] >= 1 && this.byteView[0] <= 0x7e) {
-      // this.totalLength = this.byteView[0] * 4;
       this.offset = 1;
       this.paddingTo = 1;
     } else if (this.byteView[0] === 0x7f) {
       if (this.byteView.byteLength < 4) {
         throw Error('Buffer is too small');
       }
-      // this.totalLength =
-      //   (this.byteView[1] +
-      //     (this.byteView[2] << 8) +
-      //     (this.byteView[3] << 16)) *
-      //   4;
       this.offset = 4;
       this.paddingTo = 0;
     } else {
@@ -77,6 +71,14 @@ TLDeserializer.prototype.long = function() {
   return result;
 };
 
+TLDeserializer.prototype.int128 = function() {
+  return this.byteView.slice(this.offset, (this.offset += 16));
+};
+
+TLDeserializer.prototype.int256 = function() {
+  return this.byteView.slice(this.offset, (this.offset += 32));
+};
+
 TLDeserializer.prototype.double = function() {
   const value = this.data.getFloat64(this.offset, true);
   this.offset += 8;
@@ -96,16 +98,18 @@ TLDeserializer.prototype.double = function() {
 // };
 
 // TODO: Rewrite
-TLDeserializer.prototype.fetchBool = function(field) {
-  var i = this.int((field || '') + ':bool');
-  if (i == 0x997275b5) {
+TLDeserializer.prototype.bool = function(field) {
+  const id = this.int();
+  if (id == 0x997275b5) {
     return true;
-  } else if (i == 0xbc799737) {
+  }
+
+  if (id == 0xbc799737) {
     return false;
   }
 
   this.offset -= 4;
-  return this.fetchObject('Object', field);
+  return this.predicate('Object', field);
 };
 
 // TODO: Rewrite
@@ -397,8 +401,7 @@ TLDeserializer.prototype.fetchRawBytes = function(len, typed, field) {
 //   return result;
 // };
 
-TLDeserializer.prototype.predicate = function(type, field) {
-  // console.log(`type:`, type);
+TLDeserializer.prototype.predicate = function(type = 'Object', field) {
   switch (type) {
     case '#':
     case 'int':
@@ -406,9 +409,9 @@ TLDeserializer.prototype.predicate = function(type, field) {
     case 'long':
       return this.long(field);
     case 'int128':
-      return this.fetchIntBytes(128, false, field);
+      return this.int128();
     case 'int256':
-      return this.fetchIntBytes(256, false, field);
+      return this.int256();
     case 'int512':
       return this.fetchIntBytes(512, false, field);
     case 'string':
@@ -418,17 +421,19 @@ TLDeserializer.prototype.predicate = function(type, field) {
     case 'double':
       return this.double(field);
     case 'Bool':
-      return this.fetchBool(field);
+      return this.bool(field);
     case 'true':
       return true;
   }
 
-  if (type.substr(0, 6) === 'Vector') {
-    let constructor = this.int(field + '[id]');
-    let constructorCmp = uintToInt(constructor);
+  if (type.substr(0, 6).toLowerCase() === 'vector') {
+    if (type.charAt(0) === 'V') {
+      let constructor = this.int(field + '[id]');
+      let constructorCmp = uintToInt(constructor);
 
-    if (constructorCmp != 0x1cb5c415) {
-      throw new Error('Invalid vector constructor ' + constructorCmp);
+      if (constructorCmp != 0x1cb5c415) {
+        throw new Error('Invalid vector constructor ' + constructorCmp);
+      }
     }
 
     const length = this.int();
@@ -447,12 +452,18 @@ TLDeserializer.prototype.predicate = function(type, field) {
   }
 
   const { schema } = this;
+  const isContainer = type.charAt(0) === '%';
 
-  const constructorId = this.int();
+  const constructorId = isContainer ? 1538843921 : this.int();
 
-  const constructor = schema.constructors.find(item => {
-    return +item.id === constructorId;
-  });
+  // TODO: Merge schemes
+  const constructor =
+    schema.constructors.find(item => {
+      return +item.id === constructorId;
+    }) ||
+    config.schema.mtproto.constructors.find(item => {
+      return +item.id === constructorId;
+    });
 
   if (!constructor) {
     throw new Error(
@@ -460,14 +471,36 @@ TLDeserializer.prototype.predicate = function(type, field) {
     );
   }
 
-  const result = { _: constructor.predicate };
+  const result = { _: constructor.predicate, pFlags: {} };
 
+  // if (result._ === 'message') {
+  //   result.msg_id = this.long();
+  //   result.seqno = this.int();
+  //   result.bytes = this.int();
+  //   result.body = this.predicate();
+  // } else {
   constructor.params.forEach(param => {
-    // TODO: handle flags
-    const value = this.predicate(param.type);
+    let paramType = param.type;
+    const isFlag = paramType.indexOf('?') !== -1;
 
-    result[param.name] = value;
+    if (isFlag) {
+      const condType = paramType.split('?');
+      const fieldBit = condType[0].split('.');
+      if (!(result[fieldBit[0]] & (1 << fieldBit[1]))) {
+        return;
+      }
+      paramType = condType[1];
+    }
+
+    const value = this.predicate(paramType);
+
+    if (isFlag && paramType === 'true') {
+      result.pFlags[param.name] = value;
+    } else {
+      result[param.name] = value;
+    }
   });
+  // }
 
   return result;
 };

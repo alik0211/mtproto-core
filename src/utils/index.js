@@ -22,8 +22,8 @@ const CryptoJS = require('../vendors/crypto-js');
 const { BigInteger, SecureRandom } = require('../vendors/jsbn');
 const { PBKDF2, SHA256 } = require('./crypto');
 
-function bigIntToBytes(bigInt, len) {
-  return hexToBytes(bigInt.toString(16), len);
+function bigIntToBytes(bigInt, length) {
+  return hexToBytes(bigInt.toString(16), length);
 }
 
 function hexToBytes(str, len) {
@@ -49,8 +49,8 @@ function bytesToBigInt(bytes) {
   return bigInt(digits.join(''), 16);
 }
 
-function randomBytes(len) {
-  const bytes = new Uint8Array(len);
+function getRandomBytes(length) {
+  const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
   return bytes;
 }
@@ -77,7 +77,7 @@ function concatBytes(...arrays) {
   let offset = 0;
   for (let bytes of arrays) {
     if (typeof bytes === 'number') {
-      merged.set(randomBytes(totalLength - offset), offset);
+      merged.set(getRandomBytes(totalLength - offset), offset);
     } else {
       merged.set(
         bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes,
@@ -109,7 +109,7 @@ async function getSRPParams({ g, p, salt1, salt2, gB, password }) {
   const gBigInt = bigInt(g);
   const gBytes = bigIntToBytes(gBigInt, 256);
   const pBigInt = bytesToBigInt(p);
-  const aBigInt = bytesToBigInt(randomBytes(256));
+  const aBigInt = bytesToBigInt(getRandomBytes(256));
   const gABigInt = gBigInt.modPow(aBigInt, pBigInt);
   const gABytes = bigIntToBytes(gABigInt);
   const gBBytes = bytesToBigInt(gB);
@@ -467,9 +467,9 @@ function longToBytes(sLong) {
 }
 
 function longFromInts(high, low) {
-  return bigint(high)
+  return bigInt(high)
     .shiftLeft(32)
-    .add(bigint(low))
+    .add(bigInt(low))
     .toString(10);
 }
 
@@ -590,7 +590,7 @@ function gzipUncompress(bytes) {
   return result;
 }
 
-function nextRandomInt(maxValue) {
+function getRandomInt(maxValue) {
   return Math.floor(Math.random() * maxValue);
 }
 
@@ -634,8 +634,8 @@ function pqPrimeBigInteger(what) {
   var it = 0,
     g;
   for (var i = 0; i < 3; i++) {
-    var q = (nextRandomInt(128) & 15) + 17;
-    var x = bigint(nextRandomInt(1000000000) + 1);
+    var q = (getRandomInt(128) & 15) + 17;
+    var x = bigint(getRandomInt(1000000000) + 1);
     var y = x.clone();
     var lim = 1 << (i + 18);
 
@@ -710,8 +710,8 @@ function pqPrimeLong(what) {
   var it = 0,
     g;
   for (var i = 0; i < 3; i++) {
-    var q = goog.math.Long.fromInt((nextRandomInt(128) & 15) + 17);
-    var x = goog.math.Long.fromInt(nextRandomInt(1000000000) + 1);
+    var q = goog.math.Long.fromInt((getRandomInt(128) & 15) + 17);
+    var x = goog.math.Long.fromInt(getRandomInt(1000000000) + 1);
     var y = x;
     var lim = 1 << (i + 18);
 
@@ -782,8 +782,8 @@ function pqPrimeLeemon(what) {
   var y = new Array(minLen);
 
   for (i = 0; i < 3; i++) {
-    q = (nextRandomInt(128) & 15) + 17;
-    copyInt_(x, nextRandomInt(1000000000) + 1);
+    q = (getRandomInt(128) & 15) + 17;
+    copyInt_(x, getRandomInt(1000000000) + 1);
     copy_(y, x);
     lim = 1 << (i + 18);
 
@@ -864,7 +864,7 @@ function bytesModPow(x, y, m) {
 function getNonce() {
   const nonce = [];
   for (var i = 0; i < 16; i++) {
-    nonce.push(nextRandomInt(0xff));
+    nonce.push(getRandomInt(0xff));
   }
   return nonce;
 }
@@ -906,7 +906,7 @@ module.exports = {
   bigIntToBytes,
   hexToBytes,
   bytesToBigInt,
-  randomBytes,
+  getRandomBytes,
   xorBytes,
   concatBytes,
   getSRPParams,
@@ -947,7 +947,7 @@ module.exports = {
   aesEncryptSync,
   aesDecryptSync,
   gzipUncompress,
-  nextRandomInt,
+  getRandomInt,
   pqPrimeFactorization,
   pqPrimeBigInteger,
   gcdLong,

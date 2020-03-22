@@ -1,12 +1,15 @@
 const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
 const EventEmitter = require('events');
-const http = require('./transport');
 const { SecureRandom } = require('./vendors/jsbn');
-const { TLSerialization, TLDeserialization } = require('./tl');
 const TLSerializer = require('./tl/serializer');
+const TLDeserializer = require('./tl/deserializer');
 const {
+  getRandomBytes,
+  concatBytes,
   getSRPParams,
+  bytesToBigInt,
+  bigIntToBytes,
   arrayBufferToBase64,
   bigStringInt,
   bytesToHex,
@@ -25,1089 +28,449 @@ const {
   rsaEncrypt,
   aesEncryptSync,
   aesDecryptSync,
-  nextRandomInt,
+  getRandomInt,
   pqPrimeFactorization,
+  convertToByteArray,
   bytesModPow,
   getNonce,
   getAesKeyIv,
   tsNow,
+  xorBytes,
+  gzipUncompress,
 } = require('./utils');
-const RsaKeysManager = require('./utils/rsa');
+const { AES, SHA1, SHA256 } = require('./utils/crypto');
+const { getRsaKeyByFingerprints } = require('./utils/rsa');
 
-const secureRandom = new SecureRandom();
+const defaultDC = 2;
 
-function Deferred() {
-  this.resolve = null;
-  this.reject = null;
-  this.promise = new Promise((resolve, reject) => {
-    this.resolve = resolve;
-    this.reject = reject;
-  });
-  Object.freeze(this);
+class Storage {
+  constructor(prefix) {
+    this._prefix = prefix;
+  }
+
+  setPrefix(prefix) {
+    this._prefix = prefix;
+  }
+
+  // Set with prefix
+  pSet(name, value) {
+    const key = `${this._prefix}${name}`;
+    this[key] = value;
+
+    localStorage[key] = JSON.stringify(value);
+  }
+
+  pGetBytes(name) {
+    return new Uint8Array(this.pGet(name));
+  }
+
+  // Get with prefix
+  pGet(name) {
+    const key = `${this._prefix}${name}`;
+
+    if (key in this) {
+      return this[key];
+    }
+
+    if (key in localStorage) {
+      this[key] = JSON.parse(localStorage[key]);
+
+      return this[key];
+    }
+
+    return null;
+  }
+
+  set(key, value) {
+    this[key] = value;
+
+    localStorage[key] = JSON.stringify(value);
+  }
+
+  get(key) {
+    if (key in this) {
+      return this[key];
+    }
+
+    if (key in localStorage) {
+      this[key] = JSON.parse(localStorage[key]);
+
+      return this[key];
+    }
+
+    return null;
+  }
 }
 
-class API extends EventEmitter {
-  constructor({ api_id, api_hash, test, https }) {
-    super();
-
+class MTProto {
+  constructor({ api_id, api_hash, test = false }) {
     this.api_id = api_id;
     this.api_hash = api_hash;
     this.test = test;
-    this.https = https;
 
-    this.localTime = tsNow();
-    this.lastMessageId = [0, 0];
-    this.timeOffset = 0;
-    this._seqNo = 0;
-    this.sessionId = null;
-    this.prevSessionId = null;
-    this.longPollRunning = false;
-
-    // TODO: Use Map()
-    this.sentMessages = {};
+    this.messagesWaitResponse = new Map();
+    this.messagesWaitAuth = [];
     this.pendingAcks = [];
 
-    this.sendAcks = debounce(() => {
-      if (!this.pendingAcks.length) {
-        return;
-      }
-
-      // console.log(`JSON.stringify(pendingAcks):`, JSON.stringify(pendingAcks));
-
-      const waitSerializer = new TLSerializer({ mtproto: true });
-      waitSerializer.method('http_wait', {
-        max_delay: 500,
-        wait_after: 150,
-        max_wait: 1000,
-      });
-      const waitMessage = {
-        msg_id: this.generateMessageId(),
-        seq_no: this.generateSeqNo(),
-        body: waitSerializer.getBytes(),
-      };
-
-      const serializer = new TLSerializer({ mtproto: true });
-      serializer.predicate(
-        {
-          _: 'msgs_ack',
-          msg_ids: this.pendingAcks,
-        },
-        'MsgsAck'
-      );
-
-      const message = {
-        msg_id: this.generateMessageId(),
-        seq_no: this.generateSeqNo(true),
-        body: serializer.getBytes(),
-      };
-
-      this.pendingAcks = [];
-
-      this.sendEncryptedRequest([waitMessage, message]);
-    }, 500);
+    this.storage = new Storage();
+    this.storage.set('timeOffset', 0);
 
     this.updateSession();
     this.setDc();
+
+    this.handleWSError = this.handleWSError.bind(this);
+    this.handleWSOpen = this.handleWSOpen.bind(this);
+    this.handleWSClose = this.handleWSClose.bind(this);
+    this.handleWSMessage = this.handleWSMessage.bind(this);
+
+    this.connect();
+  }
+  async handleWSError(event) {}
+  async handleWSOpen(event) {
+    const initialMessage = await this.generateObfuscationKeys();
+    this.socket.send(initialMessage);
+
+    const authKey = this.storage.pGet('authKey');
+    const serverSalt = this.storage.pGet('serverSalt');
+
+    if (authKey && serverSalt) {
+      this.handleMessage = this.handleEncryptedMessage;
+    } else {
+      this.nonce = getRandomBytes(16);
+      this.handleMessage = this.handlePQResponse;
+      this.sendPlainMessage('req_pq_multi', { nonce: this.nonce });
+    }
+  }
+  async handleWSClose(event) {
+    this.recconect();
+  }
+  async handleWSMessage(event) {
+    const fileReader = new FileReader();
+    fileReader.onload = async event => {
+      const buffer = await this.deobfuscate(event.target.result);
+
+      this.handleMessage(buffer);
+    };
+    fileReader.readAsArrayBuffer(event.data);
   }
 
-  init() {
-    const serverSalt = this.getServerSalt();
-    const authKey = this.getAuthKey();
+  async handlePQResponse(buffer) {
+    const deserializer = new TLDeserializer(buffer, { mtproto: true });
+    const auth_key_id = deserializer.long('auth_key_id');
+    const msg_id = deserializer.long('msg_id');
+    const msg_len = deserializer.int('msg_len');
 
-    if (serverSalt && authKey) {
-      this.setServerSalt(serverSalt);
-      this.setAuthKey(authKey);
+    const responsePQ = deserializer.predicate('ResPQ');
+    const {
+      pq,
+      nonce,
+      server_nonce,
+      server_public_key_fingerprints,
+    } = responsePQ;
 
-      this.runLongPoll();
+    const publicKey = await getRsaKeyByFingerprints(
+      server_public_key_fingerprints
+    );
 
-      return Promise.resolve();
-    }
+    const [p, q] = pqPrimeFactorization(pq);
 
-    const nonce = getNonce();
-    const request = new TLSerializer({ mtproto: true });
-    request.method('req_pq_multi', { nonce });
+    this.newNonce = getRandomBytes(32);
+    this.serverNonce = server_nonce;
 
-    return this.sendPlainRequest(request.getBuffer()).then(deserializer => {
-      const responsePQ = deserializer.fetchObject('ResPQ');
-      console.log('2. response', responsePQ);
-
-      if (responsePQ._ != 'resPQ') {
-        throw new Error('[MT] resPQ response invalid: ' + responsePQ._);
-      }
-
-      if (!bytesCmp(nonce, responsePQ.nonce)) {
-        throw new Error('[MT] resPQ nonce mismatch');
-      }
-
-      const serverNonce = responsePQ.server_nonce;
-      const pq = responsePQ.pq;
-      const publicKey = RsaKeysManager.select(
-        responsePQ.server_public_key_fingerprints
-      );
-
-      // console.log(
-      //   'Got ResPQ',
-      //   bytesToHex(responsePQ.server_nonce),
-      //   bytesToHex(responsePQ.pq),
-      //   responsePQ.server_public_key_fingerprints
-      // );
-
-      if (!publicKey) {
-        throw new Error('[MT] No public key found');
-      }
-
-      const [p, q] = pqPrimeFactorization(pq);
-
-      const newNonce = new Array(32);
-      secureRandom.nextBytes(newNonce);
-
-      const data = new TLSerializer({ mtproto: true });
-      data.predicate(
-        {
-          _: 'p_q_inner_data',
-          pq: pq,
-          p: p,
-          q: q,
-          nonce: nonce,
-          server_nonce: serverNonce,
-          new_nonce: newNonce,
-        },
-        'P_Q_inner_data'
-      );
-
-      const dataWithHash = sha1BytesSync(data.getBuffer()).concat(
-        data.getBytes()
-      );
-
-      const request = new TLSerializer({ mtproto: true });
-      request.method('req_DH_params', {
-        nonce: nonce,
-        server_nonce: serverNonce,
+    const serializer = new TLSerializer({ mtproto: true });
+    serializer.predicate(
+      {
+        _: 'p_q_inner_data',
+        pq: pq,
         p: p,
         q: q,
-        public_key_fingerprint: publicKey.fingerprint,
-        encrypted_data: rsaEncrypt(publicKey, dataWithHash),
-      });
-
-      return this.sendPlainRequest(request.getBuffer()).then(deserializer => {
-        const responseDH = deserializer.fetchObject(
-          'Server_DH_Params',
-          'RESPONSE'
-        );
-        console.log('3. responseDH', responseDH);
-
-        if (
-          responseDH._ != 'server_DH_params_fail' &&
-          responseDH._ != 'server_DH_params_ok'
-        ) {
-          throw new Error(
-            '[MT] Server_DH_Params response invalid: ' + responseDH._
-          );
-        }
-
-        if (!bytesCmp(nonce, responseDH.nonce)) {
-          throw new Error('[MT] Server_DH_Params nonce mismatch');
-        }
-
-        if (!bytesCmp(serverNonce, responseDH.server_nonce)) {
-          throw new Error('[MT] Server_DH_Params server_nonce mismatch');
-        }
-
-        if (responseDH._ == 'server_DH_params_fail') {
-          var newNonceHash = sha1BytesSync(newNonce).slice(-16);
-          if (!bytesCmp(newNonceHash, responseDH.new_nonce_hash)) {
-            throw new Error(
-              '[MT] server_DH_params_fail new_nonce_hash mismatch'
-            );
-          }
-          throw new Error('[MT] server_DH_params_fail');
-        }
-
-        this.localTime = tsNow();
-
-        const tmpAesKey = sha1BytesSync(newNonce.concat(serverNonce)).concat(
-          sha1BytesSync(serverNonce.concat(newNonce)).slice(0, 12)
-        );
-        const tmpAesIv = sha1BytesSync(serverNonce.concat(newNonce))
-          .slice(12)
-          .concat(
-            sha1BytesSync([].concat(newNonce, newNonce)),
-            newNonce.slice(0, 4)
-          );
-
-        const answerWithHash = aesDecryptSync(
-          responseDH.encrypted_answer,
-          tmpAesKey,
-          tmpAesIv
-        );
-
-        var hash = answerWithHash.slice(0, 20);
-        var answerWithPadding = answerWithHash.slice(20);
-        var buffer = bytesToArrayBuffer(answerWithPadding);
-
-        var deserializer = new TLDeserialization(buffer, { mtproto: true });
-        const responseDHInner = deserializer.fetchObject(
-          'Server_DH_inner_data'
-        );
-
-        console.log('4. responseDHInner', responseDHInner);
-
-        if (responseDHInner._ != 'server_DH_inner_data') {
-          throw new Error(
-            '[MT] server_DH_inner_data response invalid: ' + constructor
-          );
-        }
-
-        if (!bytesCmp(nonce, responseDHInner.nonce)) {
-          throw new Error('[MT] server_DH_inner_data nonce mismatch');
-        }
-
-        if (!bytesCmp(serverNonce, responseDHInner.server_nonce)) {
-          throw new Error('[MT] server_DH_inner_data serverNonce mismatch');
-        }
-
-        console.log('5. Done decrypting answer');
-
-        const g = responseDHInner.g;
-        const dhPrime = responseDHInner.dh_prime;
-        const gA = responseDHInner.g_a;
-        const retry = 0;
-
-        console.log('6. verifyDhParams start');
-        this.verifyDhParams(g, dhPrime, gA);
-        console.log('7. verifyDhParams finish');
-
-        var offset = deserializer.getOffset();
-
-        if (
-          !bytesCmp(hash, sha1BytesSync(answerWithPadding.slice(0, offset)))
-        ) {
-          throw new Error('[MT] server_DH_inner_data SHA1-hash mismatch');
-        }
-
-        this.applyServerTime(responseDHInner.server_time);
-
-        return this.sendSetClientDhParams({
-          nonce,
-          serverNonce,
-          newNonce,
-          tmpAesKey,
-          tmpAesIv,
-          g,
-          dhPrime,
-          gA,
-          retry,
-        }).then(() => {
-          this.runLongPoll();
-
-          return Promise.resolve();
-        });
-      });
-    });
-  }
-
-  verifyDhParams(g, dhPrime, gA) {
-    console.log('Verifying DH params');
-    const dhPrimeHex = bytesToHex(dhPrime);
-
-    if (
-      g != 3 ||
-      dhPrimeHex !==
-        'c71caeb9c6b1c9048e6c522f70f13f73980d40238e3e21c14934d037563d930f48198a0aa7c14058229493d22530f4dbfa336f6e0ac925139543aed44cce7c3720fd51f69458705ac68cd4fe6b6b13abdc9746512969328454f18faf8c595f642477fe96bb2a941d5bcd1d4ac8cc49880708fa9b378e3c4f3a9060bee67cf9a4a4a695811051907e162753b56b0f6b410dba74d8a84b2a14b3144e0ef1284754fd17ed950d5965b4b9dd46582db1178d169c6bc465b0d6ff9ca3928fef5b9ae4e418fc15e83ebea0f87fa9ff5eed70050ded2849f47bf959d956850ce929851f0d8115f635b105ee2e4e15d04b2454bf6f4fadf034b10403119cd8e3b92fcc5b'
-    ) {
-      // The verified value is from https://core.telegram.org/mtproto/security_guidelines
-      throw new Error('[MT] DH params are not verified: unknown dhPrime');
-    }
-
-    console.log('dhPrime cmp OK');
-
-    const gABigInt = bigInt(bytesToHex(gA), 16);
-    const dhPrimeBigInt = bigInt(dhPrimeHex, 16);
-
-    if (gABigInt.compareTo(bigInt.one) <= 0) {
-      throw new Error('[MT] DH params are not verified: gA <= 1');
-    }
-
-    if (gABigInt.compareTo(dhPrimeBigInt.subtract(bigInt.one)) >= 0) {
-      throw new Error('[MT] DH params are not verified: gA >= dhPrime - 1');
-    }
-
-    console.log('1 < gA < dhPrime-1 OK');
-
-    const twoPow = bigInt(2).pow(2048 - 64);
-
-    if (gABigInt.compareTo(twoPow) < 0) {
-      throw new Error('[MT] DH params are not verified: gA < 2^{2048-64}');
-    }
-
-    if (gABigInt.compareTo(dhPrimeBigInt.subtract(twoPow)) >= 0) {
-      throw new Error(
-        '[MT] DH params are not verified: gA > dhPrime - 2^{2048-64}'
-      );
-    }
-
-    console.log('2^{2048-64} < gA < dhPrime-2^{2048-64} OK');
-
-    return true;
-  }
-
-  sendSetClientDhParams(auth) {
-    var gBytes = bytesFromHex(auth.g.toString(16));
-
-    auth.b = new Array(256);
-    secureRandom.nextBytes(auth.b);
-
-    const gB = bytesModPow(gBytes, auth.b, auth.dhPrime);
-    const data = new TLSerializer({ mtproto: true });
-    data.predicate(
-      {
-        _: 'client_DH_inner_data',
-        nonce: auth.nonce,
-        server_nonce: auth.serverNonce,
-        retry_id: [0, auth.retry++], // long (:
-        g_b: gB,
+        nonce: this.nonce,
+        server_nonce: this.serverNonce,
+        new_nonce: this.newNonce,
       },
-      'Client_DH_Inner_Data'
+      'P_Q_inner_data'
     );
 
-    var dataWithHash = sha1BytesSync(data.getBuffer()).concat(data.getBytes());
+    const data = serializer.getBytes();
+    const dataHash = await SHA1(data);
 
-    var encryptedData = aesEncryptSync(
-      dataWithHash,
-      auth.tmpAesKey,
-      auth.tmpAesIv
-    );
+    const innerData = getRandomBytes(255);
+    innerData.set(dataHash);
+    innerData.set(data, dataHash.length);
 
-    const request = new TLSerializer({ mtproto: true });
-    request.method('set_client_DH_params', {
-      nonce: auth.nonce,
-      server_nonce: auth.serverNonce,
+    const encryptedData = rsaEncrypt(publicKey, innerData);
+
+    this.sendPlainMessage('req_DH_params', {
+      nonce: this.nonce,
+      server_nonce: this.serverNonce,
+      p: p,
+      q: q,
+      public_key_fingerprint: publicKey.fingerprint,
       encrypted_data: encryptedData,
     });
 
-    console.log('Send set_client_DH_params');
-    return this.sendPlainRequest(request.getBuffer()).then(deserializer => {
-      var response = deserializer.fetchObject('Set_client_DH_params_answer');
-
-      if (
-        response._ != 'dh_gen_ok' &&
-        response._ != 'dh_gen_retry' &&
-        response._ != 'dh_gen_fail'
-      ) {
-        throw new Error(
-          '[MT] Set_client_DH_params_answer response invalid: ' + response._
-        );
-      }
-
-      if (!bytesCmp(auth.nonce, response.nonce)) {
-        throw new Error('[MT] Set_client_DH_params_answer nonce mismatch');
-      }
-
-      if (!bytesCmp(auth.serverNonce, response.server_nonce)) {
-        throw new Error(
-          '[MT] Set_client_DH_params_answer server_nonce mismatch'
-        );
-      }
-
-      const authKey = bytesModPow(auth.gA, auth.b, auth.dhPrime);
-      const authKeyHash = sha1BytesSync(authKey);
-      const authKeyAux = authKeyHash.slice(0, 8);
-      const authKeyId = authKeyHash.slice(-8);
-
-      console.log('Got Set_client_DH_params_answer', response._, response);
-      switch (response._) {
-        case 'dh_gen_ok':
-          var newNonceHash1 = sha1BytesSync(
-            auth.newNonce.concat([1], authKeyAux)
-          ).slice(-16);
-
-          if (!bytesCmp(newNonceHash1, response.new_nonce_hash1)) {
-            throw new Error(
-              '[MT] Set_client_DH_params_answer new_nonce_hash1 mismatch'
-            );
-          }
-
-          var serverSalt = bytesXor(
-            auth.newNonce.slice(0, 8),
-            auth.serverNonce.slice(0, 8)
-          );
-          console.log('Auth successfull!', authKeyId, authKey, serverSalt);
-
-          auth.authKeyId = authKeyId;
-          this.setAuthKey(authKey);
-          this.setServerSalt(serverSalt);
-
-          return auth;
-
-        case 'dh_gen_retry':
-          var newNonceHash2 = sha1BytesSync(
-            auth.newNonce.concat([2], authKeyAux)
-          ).slice(-16);
-          if (!bytesCmp(newNonceHash2, response.new_nonce_hash2)) {
-            throw new Error(
-              '[MT] Set_client_DH_params_answer new_nonce_hash2 mismatch'
-            );
-          }
-
-          return this.sendSetClientDhParams(auth);
-
-        case 'dh_gen_fail':
-          var newNonceHash3 = sha1BytesSync(
-            auth.newNonce.concat([3], authKeyAux)
-          ).slice(-16);
-          if (!bytesCmp(newNonceHash3, response.new_nonce_hash3)) {
-            throw new Error(
-              '[MT] Set_client_DH_params_answer new_nonce_hash3 mismatch'
-            );
-          }
-
-          throw new Error('[MT] Set_client_DH_params_answer fail');
-      }
-    });
+    this.handleMessage = this.handleDHParams;
   }
 
-  sendEncryptedRequest(messages) {
-    // console.log(`sendEncryptedRequest[messages]:`, messages);
+  async handleDHParams(buffer) {
+    const deserializer = new TLDeserializer(buffer, { mtproto: true });
+    const auth_key_id = deserializer.long('auth_key_id');
+    const msg_id = deserializer.long('msg_id');
+    const msg_len = deserializer.int('msg_len');
 
-    let resultMessage = messages;
+    const serverDH = deserializer.predicate('Server_DH_Params');
 
-    if (Array.isArray(messages)) {
-      const messagesByteLength = messages.reduce((accumulator, message) => {
-        const length = message.body.byteLength || message.body.length;
+    this.tmpAesKey = concatBytes(
+      await SHA1(concatBytes(this.newNonce, this.serverNonce)),
+      (await SHA1(concatBytes(this.serverNonce, this.newNonce))).slice(0, 12)
+    );
+    this.tmpAesIV = concatBytes(
+      (await SHA1(concatBytes(this.serverNonce, this.newNonce))).slice(12, 20),
+      await SHA1(concatBytes(this.newNonce, this.newNonce)),
+      this.newNonce.slice(0, 4)
+    );
 
-        return accumulator + length + 32;
-      }, 0);
-
-      const container = new TLSerializer({
+    const decryptedData = new AES.IGE(this.tmpAesKey, this.tmpAesIV).decrypt(
+      serverDH.encrypted_answer
+    );
+    const innerDataHash = decryptedData.slice(0, 20);
+    const innerDeserializer = new TLDeserializer(
+      decryptedData.slice(20).buffer,
+      {
         mtproto: true,
-        maxLength: messagesByteLength + 64,
-      });
+        isPlain: true,
+      }
+    );
 
-      container.int(0x73f1f8dc); // container id
-      container.int(messages.length); // container count
+    const serverDHInnerData = innerDeserializer.predicate(
+      'Server_DH_inner_data'
+    );
 
-      const innerMessages = [];
+    this.storage.set(
+      'timeOffset',
+      Math.floor(Date.now() / 1000) - serverDHInnerData.server_time
+    );
 
-      messages.forEach(message => {
-        container.long(message.msg_id); // 'CONTAINER[i][msg_id]'
-        container.int(message.seq_no); // 'CONTAINER[i][seq_no]'
-        container.int(message.body.length); // 'CONTAINER[i][bytes]'
-        container.bytesRaw(message.body); // 'CONTAINER[i][body]'
+    this.dhPrime = bytesToBigInt(serverDHInnerData.dh_prime);
+    this.g = bigInt(serverDHInnerData.g);
+    this.gA = bytesToBigInt(serverDHInnerData.g_a);
 
-        innerMessages.push(message.msg_id);
-      });
+    this.generateDH();
+  }
 
-      const containerSentMessage = {
-        msg_id: this.generateMessageId(),
-        seq_no: this.generateSeqNo(true),
-        container: true,
-        inner: innerMessages,
-      };
+  async generateDH(retryId = 0) {
+    const b = bytesToBigInt(getRandomBytes(256));
+    const authKey = convertToByteArray(
+      bigIntToBytes(this.gA.modPow(b, this.dhPrime))
+    );
+    const serverSalt = convertToByteArray(
+      xorBytes(this.newNonce.slice(0, 8), this.serverNonce.slice(0, 8))
+    );
 
-      resultMessage = {
-        ...{ body: container.getTypedBytes() },
-        ...containerSentMessage,
-      };
+    this.storage.pSet('authKey', authKey);
+    this.storage.pSet('serverSalt', serverSalt);
 
-      this.sentMessages[resultMessage.msg_id] = containerSentMessage;
+    const innerSerializer = new TLSerializer({ mtproto: true });
+    innerSerializer.predicate(
+      {
+        _: 'client_DH_inner_data',
+        nonce: this.nonce,
+        server_nonce: this.serverNonce,
+        retry_id: retryId,
+        g_b: bigIntToBytes(this.g.modPow(b, this.dhPrime)),
+      },
+      'Client_DH_Inner_Data'
+    );
+    const innerData = innerSerializer.getBytes();
+
+    const encryptedData = new AES.IGE(this.tmpAesKey, this.tmpAesIV).encrypt(
+      concatBytes(await SHA1(innerData), innerData, 16)
+    );
+
+    this.sendPlainMessage('set_client_DH_params', {
+      nonce: this.nonce,
+      server_nonce: this.serverNonce,
+      encrypted_data: encryptedData,
+    });
+
+    this.handleMessage = this.handleDHAnswer;
+  }
+
+  async handleDHAnswer(buffer) {
+    const deserializer = new TLDeserializer(buffer, { mtproto: true });
+    const auth_key_id = deserializer.long('auth_key_id');
+    const msg_id = deserializer.long('msg_id');
+    const msg_len = deserializer.int('msg_len');
+
+    const serverDHAnswer = deserializer.predicate(
+      'Set_client_DH_params_answer'
+    );
+
+    if (serverDHAnswer._ === 'dh_gen_ok') {
+      this.handleMessage = this.handleEncryptedMessage;
+      this.handleAuth();
+    } else {
+      console.error(`Invalid Set_client_DH_params_answer:`, serverDHAnswer);
     }
-
-    return this._sendEncryptedRequest(resultMessage).then(responsePackage => {
-      // console.log(`responsePackage:`, responsePackage);
-      const { response, messageId } = responsePackage;
-      this.processMessage(response, messageId);
-      this.sendAcks();
-      return responsePackage;
-    });
   }
 
-  _sendEncryptedRequest(message) {
-    const authKey = this.getAuthKey();
-    const authKeyUint8 = convertToUint8Array(authKey);
-    const authKeyId = sha1BytesSync(authKey).slice(-8);
-    const serverSalt = this.getServerSalt();
-
-    const data = new TLSerializer({
-      maxLength: message.body.length + 2048,
+  async handleAuth() {
+    this.messagesWaitAuth.forEach(message => {
+      const { method, params, resolve, reject } = message;
+      this.call(method, params)
+        .then(resolve)
+        .catch(reject);
     });
 
-    message.deferred = message.deferred || new Deferred();
-    this.sentMessages[message.msg_id] = message;
+    this.messagesWaitAuth = [];
+  }
 
-    data.bytesRaw(serverSalt, 64, 'salt');
-    data.bytesRaw(this.sessionId, 64, 'session_id');
+  async handleEncryptedMessage(buffer) {
+    const authKey = this.storage.pGetBytes('authKey');
 
-    data.long(message.msg_id, 'message_id');
-    data.int(message.seq_no, 'seq_no');
+    const deserializer = new TLDeserializer(buffer);
+    console.log(`deserializer:`, deserializer);
+    const authKeyId = deserializer.long();
+    const messageKey = deserializer.int128();
 
-    data.int(message.body.length, 'message_data_length');
-    data.bytesRaw(message.body, 'message_data');
+    const encryptedData = deserializer.byteView.slice(deserializer.offset);
 
-    const dataBuffer = data.getBuffer();
+    const plaintextData = (
+      await this.getAESInstance(authKey, messageKey, true)
+    ).decrypt(encryptedData);
 
-    var paddingLength = 16 - (data.offset % 16) + 16 * (1 + nextRandomInt(5));
-    var padding = new Array(paddingLength);
-    secureRandom.nextBytes(padding);
-
-    var dataWithPadding = bufferConcat(dataBuffer, padding);
-
-    const encryptedResult = this.getEncryptedMessage(
-      dataWithPadding,
-      authKeyUint8
-    );
-
-    //console.log('encryptedResult.msgKey', encryptedResult.msgKey, dHexDump(encryptedResult.msgKey));
-
-    const request = new TLSerializer({
-      maxLength: encryptedResult.bytes.byteLength + 256,
+    const plainDeserializer = new TLDeserializer(plaintextData.buffer, {
+      isPlain: true,
     });
-    request.bytesRaw(authKeyId, 64, 'auth_key_id');
-    request.bytesRaw(encryptedResult.msgKey, 128, 'msg_key');
-    request.bytesRaw(encryptedResult.bytes, 'encrypted_data');
 
-    const requestData = request.getArray();
+    const salt = plainDeserializer.long();
+    const sessionId = plainDeserializer.long();
+    const messageId = plainDeserializer.long();
+    const seqNo = plainDeserializer.uint32();
+    const length = plainDeserializer.uint32();
 
-    return http
-      .post(this.url, requestData, {
-        responseType: 'arraybuffer',
-        transformRequest: null,
-      })
-      .then(result => {
-        if (!result.data || !result.data.byteLength) {
-          throw new Error('No data');
-        }
+    const result = plainDeserializer.predicate();
 
-        const self = this;
-
-        const responseBuffer = result.data;
-
-        var responseDeserializer = new TLDeserialization(responseBuffer);
-
-        const serverAuthKeyId = responseDeserializer.fetchIntBytes(
-          64,
-          false,
-          'auth_key_id'
-        );
-        if (!bytesCmp(serverAuthKeyId, authKeyId)) {
-          throw new Error(
-            '[MT] Invalid server auth_key_id: ' + bytesToHex(serverAuthKeyId)
-          );
-        }
-        var msgKey = responseDeserializer.fetchIntBytes(128, true, 'msg_key');
-        var encryptedData = responseDeserializer.fetchRawBytes(
-          responseBuffer.byteLength - responseDeserializer.getOffset(),
-          true,
-          'encrypted_data'
-        );
-
-        const dataWithPadding = this.getDecryptedMessage(
-          authKeyUint8,
-          msgKey,
-          encryptedData
-        );
-        const calcMsgKey = this.getMsgKey(authKeyUint8, dataWithPadding, false);
-
-        //console.log(msgKey, calcMsgKey, dHexDump(msgKey), dHexDump(calcMsgKey));
-
-        if (!bytesCmp(msgKey, calcMsgKey)) {
-          console.warn(
-            '[MT] msg_keys',
-            msgKey,
-            bytesFromArrayBuffer(calcMsgKey)
-          );
-          throw new Error('[MT] server msgKey mismatch');
-        }
-
-        var dataDeserializer = new TLDeserialization(dataWithPadding, {
-          mtproto: true,
-        });
-
-        var salt = dataDeserializer.fetchIntBytes(64, false, 'salt');
-        var serverSessionId = dataDeserializer.fetchIntBytes(
-          64,
-          false,
-          'session_id'
-        );
-        var messageId = dataDeserializer.fetchLong('message_id');
-
-        if (
-          !bytesCmp(serverSessionId, this.sessionId) &&
-          (!this.prevSessionId || !bytesCmp(this.sessionId, this.prevSessionId))
-        ) {
-          console.warn(
-            'Sessions',
-            serverSessionId,
-            this.sessionId,
-            this.prevSessionId
-          );
-          throw new Error(
-            '[MT] Invalid server session_id: ' + bytesToHex(serverSessionId)
-          );
-        }
-
-        var seqNo = dataDeserializer.fetchInt('seq_no');
-
-        var totalLength = dataWithPadding.byteLength;
-
-        var messageBodyLength = dataDeserializer.fetchInt(
-          'message_data[length]'
-        );
-
-        if (
-          messageBodyLength % 4 ||
-          messageBodyLength > totalLength - dataDeserializer.getOffset()
-        ) {
-          throw new Error('[MT] Invalid body length: ' + messageBodyLength);
-        }
-        var messageBody = dataDeserializer.fetchRawBytes(
-          messageBodyLength,
-          true,
-          'message_data'
-        );
-
-        var paddingLength = totalLength - dataDeserializer.getOffset();
-        if (paddingLength < 12 || paddingLength > 1024) {
-          throw new Error('[MT] Invalid padding length: ' + paddingLength);
-        }
-
-        var buffer = bytesToArrayBuffer(messageBody);
-        var deserializerOptions = {
-          mtproto: true,
-          override: {
-            mt_message: function(result, field) {
-              result.msg_id = this.fetchLong(field + '[msg_id]');
-              result.seqno = this.fetchInt(field + '[seqno]');
-              result.bytes = this.fetchInt(field + '[bytes]');
-
-              var offset = this.getOffset();
-
-              try {
-                result.body = this.fetchObject('Object', field + '[body]');
-              } catch (e) {
-                console.error('parse error', e.message, e.stack);
-                result.body = { _: 'parse_error', error: e };
-              }
-              if (this.offset != offset + result.bytes) {
-                this.offset = offset + result.bytes;
-              }
-            },
-            mt_rpc_result: function(result, field) {
-              result.req_msg_id = this.fetchLong(field + '[req_msg_id]');
-
-              var sentMessage = self.sentMessages[result.req_msg_id];
-              var type = (sentMessage && sentMessage.resultType) || 'Object';
-
-              if (result.req_msg_id && !sentMessage) {
-                return;
-              }
-              result.result = this.fetchObject(type, field + '[result]');
-            },
-          },
-        };
-        var finalDeserializer = new TLDeserialization(
-          buffer,
-          deserializerOptions
-        );
-        var response = finalDeserializer.fetchObject('', 'INPUT');
-
-        return {
-          response,
-          messageId,
-          sessionId: this.sessionId,
-          seqNo,
-          messageDeferred: message.deferred.promise,
-        };
-      });
+    this.handleDecryptedMessage(result, { messageId, seqNo });
   }
 
-  sendPlainRequest(requestBuffer) {
-    const requestLength = requestBuffer.byteLength;
-    const requestArray = new Int32Array(requestBuffer);
+  async handleDecryptedMessage(message, params = {}) {
+    console.group(`handleDecryptedMessage ${message._}`);
+    console.log(`message:`, message);
+    console.log(`params:`, params);
+    console.groupEnd(`handleDecryptedMessage ${message._}`);
 
-    const header = new TLSerializer();
-    header.long([0, 0]); // auth_key_id
-    header.long(this.generateMessageId()); // msg_id
-    header.int(requestLength); // request_length
-
-    const headerBuffer = header.getBuffer();
-    const headerArray = new Int32Array(headerBuffer);
-    const headerLength = headerBuffer.byteLength;
-
-    const resultBuffer = new ArrayBuffer(headerLength + requestLength);
-    const resultArray = new Int32Array(resultBuffer);
-
-    resultArray.set(headerArray);
-    resultArray.set(requestArray, headerArray.length);
-
-    const requestData = resultArray;
-
-    return http
-      .post(this.url, requestData, {
-        responseType: 'arraybuffer',
-        transformRequest: null,
-      })
-      .then(function(result) {
-        if (!result.data || !result.data.byteLength) {
-          throw new Error('no data');
-        }
-
-        var deserializer = new TLDeserialization(result.data, {
-          mtproto: true,
-        });
-        var auth_key_id = deserializer.fetchLong('auth_key_id');
-        var msg_id = deserializer.fetchLong('msg_id');
-        var msg_len = deserializer.fetchInt('msg_len');
-
-        return deserializer;
-      });
-  }
-
-  getEncryptedMessage(dataWithPadding, authKeyUint8) {
-    const msgKey = this.getMsgKey(authKeyUint8, dataWithPadding, true);
-    const keyIv = getAesKeyIv(authKeyUint8, msgKey, true);
-    // console.log('after msg key iv')
-    //convertToArrayBuffer(aesEncryptSync(dataWithPadding, msgKey, keyIv)) ?
-    const encryptedBytes = convertToArrayBuffer(
-      aesEncryptSync(dataWithPadding, keyIv[0], keyIv[1])
-    );
-    return {
-      bytes: encryptedBytes,
-      msgKey: msgKey,
-    };
-  }
-
-  getDecryptedMessage(authKeyUint8, msgKey, encryptedData) {
-    const keyIv = getAesKeyIv(authKeyUint8, msgKey, false);
-    return convertToArrayBuffer(
-      aesDecryptSync(encryptedData, keyIv[0], keyIv[1])
-    );
-  }
-
-  processMessage(message, messageId) {
-    // console.log('processMessage', message, messageId);
-    let sentMessage;
+    const { messageId } = params;
+    let waitMessage = null;
 
     switch (message._) {
       case 'msg_container':
-        var len = message.messages.length;
-        for (var i = 0; i < len; i++) {
-          this.processMessage(message.messages[i], message.messages[i].msg_id);
-        }
-        break;
+        message.messages.forEach(message => {
+          this.handleDecryptedMessage(message.body, {
+            messageId: message.msg_id,
+          });
+        });
+        return;
 
       case 'bad_server_salt':
-        console.log('Bad server salt');
-        sentMessage = this.sentMessages[message.bad_msg_id];
-        if (!sentMessage || sentMessage.seq_no != message.bad_msg_seqno) {
-          console.log(message.bad_msg_id, message.bad_msg_seqno);
-          throw new Error('[MT] Bad server salt for invalid message');
+        waitMessage = this.messagesWaitResponse.get(message.bad_msg_id);
+
+        if (!waitMessage) {
+          throw new Error(
+            `bad_server_salt. Not found message width id ${message.bad_msg_id}`
+          );
         }
 
-        this.setServerSalt(longToBytes(message.new_server_salt));
-        this.sendEncryptedRequest(this.sentMessages[message.bad_msg_id]);
+        this.storage.pSet('serverSalt', longToBytes(message.new_server_salt));
+        this.call(waitMessage.method, waitMessage.params)
+          .then(waitMessage.resolve)
+          .catch(waitMessage.reject);
+        this.messagesWaitResponse.delete(message.bad_msg_id);
         this.ackMessage(messageId);
-        break;
+        return;
 
       case 'bad_msg_notification':
-        console.log('Bad msg notification', message);
-        sentMessage = this.sentMessages[message.bad_msg_id];
-        if (!sentMessage || sentMessage.seq_no != message.bad_msg_seqno) {
-          console.log(message.bad_msg_id, message.bad_msg_seqno);
-          throw new Error('[MT] Bad msg notification for invalid message');
-        }
-
-        if (message.error_code == 16 || message.error_code == 17) {
-          if (
-            this.applyServerTime(
-              bigStringInt(messageId)
-                .shiftRight(32)
-                .toString(10)
-            )
-          ) {
-            console.log('Update session');
-            this.updateSession();
-          }
-          this.sendEncryptedRequest(this.sentMessages[message.bad_msg_id]);
-          this.ackMessage(messageId);
-        }
-        break;
-
-      case 'message':
-        this.ackMessage(messageId);
-        this.processMessage(message.body, message.msg_id);
-        break;
+        return;
 
       case 'new_session_created':
         this.ackMessage(messageId);
 
-        this.processMessageAck(message.first_msg_id);
-        this.setServerSalt(longToBytes(message.server_salt));
+        // this.messagesWaitResponse.delete(message.first_msg_id);
+        this.storage.pSet('serverSalt', longToBytes(message.server_salt));
 
-        break;
+        return;
 
       case 'msgs_ack':
-        for (var i = 0; i < message.msg_ids.length; i++) {
-          this.processMessageAck(message.msg_ids[i]);
-        }
-        break;
-
-      case 'msg_detailed_info':
-        //console.log('msg_detailed_info', message);
-        break;
-      /* if (!this.sentMessages[message.msg_id]) {
-       *   this.ackMessage(message.answer_msg_id)
-       *   break
-       * } */
-      case 'msg_new_detailed_info':
-        //console.log('msg_detailed_info', message);
-        break;
-      /* if (this.pendingAcks.indexOf(message.answer_msg_id)) {
-       *   break
-       * }
-       * this.reqResendMessage(message.answer_msg_id)
-       * break */
-
-      case 'msgs_state_info':
-        this.ackMessage(message.answer_msg_id);
-        console.log('msgs_state_info', message);
-        /* if (this.lastResendReq && this.lastResendReq.req_msg_id == message.req_msg_id && this.pendingResends.length) {
-         *   var i, badMsgId, pos
-         *   for (i = 0; i < this.lastResendReq.resend_msg_ids.length; i++) {
-         *     badMsgId = this.lastResendReq.resend_msg_ids[i]
-         *     pos = this.pendingResends.indexOf(badMsgId)
-         *     if (pos != -1) {
-         *       this.pendingResends.splice(pos, 1)
-         *     }
-         *   }
-         * } */
-        break;
+        // console.log(`msgs_ack:`, message.msg_ids);
+        // console.log(`this.messagesWaitResponse:`, this.messagesWaitResponse);
+        // message.msg_ids.forEach(msgId => {
+        //   this.pendingAcks.forEach((pendingAckMsgId, index) => {
+        //     if (msgId === pendingAckMsgId) {
+        //       this.pendingAcks.splice(index, 1);
+        //     }
+        //   });
+        // });
+        return;
 
       case 'rpc_result':
-        const sentMessageId = message.req_msg_id;
-
         this.ackMessage(messageId);
 
-        this.processMessageAck(sentMessageId);
-        if (this.sentMessages[sentMessageId]) {
-          const { deferred } = this.sentMessages[sentMessageId];
+        if (message.result._ === 'gzip_packed') {
+          const uncompressed = bytesToArrayBuffer(
+            gzipUncompress(message.result.packed_data)
+          );
 
-          deferred.resolve(message);
+          const deserializer = new TLDeserializer(uncompressed, {
+            isPlain: true,
+          });
 
-          delete this.sentMessages[sentMessageId];
+          message.result = deserializer.predicate();
         }
-        break;
+        waitMessage = this.messagesWaitResponse.get(message.req_msg_id);
+
+        waitMessage.resolve(message.result);
+
+        this.messagesWaitResponse.delete(message.req_msg_id);
+        return;
 
       default:
-        console.log('default', message);
-        this.ackMessage(messageId);
-        this.emit(message._, message);
-        // console.log('processMessage', message, messageId);
-        break;
+        return;
     }
+  }
+
+  // TODO: Use debounce
+  sendAcks() {
+    if (!this.pendingAcks.length) {
+      return;
+    }
+
+    const serializer = new TLSerializer({ mtproto: true });
+    serializer.predicate(
+      {
+        _: 'msgs_ack',
+        msg_ids: this.pendingAcks,
+      },
+      'MsgsAck'
+    );
+
+    this.pendingAcks = [];
+
+    this.sendEncryptedMessage(serializer, { isContentRelated: false });
   }
 
   ackMessage(messageId) {
-    // console.log('ackMessage[messageId]:', messageId);
-
     this.pendingAcks.push(messageId);
+
+    this.sendAcks();
   }
 
-  processMessageAck(messageId) {
-    const sentMessage = this.sentMessages[messageId];
-    if (sentMessage && !sentMessage.acked) {
-      delete sentMessage.body;
-      sentMessage.acked = true;
-
-      return true;
-    }
-
-    return false;
-  }
-
-  applyServerTime(serverTime) {
-    const newTimeOffset = serverTime - Math.floor(this.localTime / 1000);
-    const changed = Math.abs(this.timeOffset - newTimeOffset) > 10;
-
-    this.lastMessageId = [0, 0];
-    this.timeOffset = newTimeOffset;
-
-    console.log(
-      'Apply server time',
-      serverTime,
-      this.localTime,
-      newTimeOffset,
-      changed
-    );
-
-    return changed;
-  }
-
-  updateSession() {
-    this.prevSessionId = this.sessionId;
-    this.sessionId = new Array(8);
-    secureRandom.nextBytes(this.sessionId);
-    this._seqNo = 0;
-  }
-
-  getMsgKey(authKeyUint8, dataWithPadding, isOut) {
-    var authKey = authKeyUint8;
-    var x = isOut ? 0 : 8;
-    var msgKeyLargePlain = bufferConcat(
-      authKey.subarray(88 + x, 88 + x + 32),
-      dataWithPadding
-    );
-    const msgKeyLarge = sha256HashSync(msgKeyLargePlain);
-    return new Uint8Array(msgKeyLarge).subarray(8, 24);
-  }
-
-  generateSeqNo(notContentRelated) {
-    var seqNo = this._seqNo * 2;
-
-    if (!notContentRelated) {
-      seqNo += 1;
-      this._seqNo += 1;
-    }
-
-    return seqNo;
-  }
-
-  generateMessageId() {
-    const timeTicks = tsNow();
-    const timeSec = Math.floor(timeTicks / 1000) + this.timeOffset;
-    const timeMSec = timeTicks % 1000;
-    const random = nextRandomInt(0xffff);
-
-    const { lastMessageId } = this;
-
-    let messageId = [timeSec, (timeMSec << 21) | (random << 3) | 4];
-
-    if (
-      lastMessageId[0] > messageId[0] ||
-      (lastMessageId[0] == messageId[0] && lastMessageId[1] >= messageId[1])
-    ) {
-      messageId = [lastMessageId[0], lastMessageId[1] + 4];
-    }
-
-    this.lastMessageId = messageId;
-
-    return longFromInts(messageId[0], messageId[1]);
-  }
-
-  getServerSalt() {
-    const key = `dc${this.dcId}ServerSalt`;
-
-    const fromThis = this[key];
-
-    if (fromThis) {
-      return fromThis;
-    }
-
-    const fromStorage = localStorage.getItem(key);
-
-    if (fromStorage) {
-      return JSON.parse(fromStorage);
-    }
-
-    return null;
-  }
-
-  setServerSalt(serverSalt) {
-    const key = `dc${this.dcId}ServerSalt`;
-    this[key] = serverSalt;
-
-    localStorage.setItem(key, JSON.stringify(serverSalt));
-  }
-
-  getAuthKey() {
-    const key = `dc${this.dcId}AuthKey`;
-
-    const fromThis = this[key];
-
-    if (fromThis) {
-      return fromThis;
-    }
-
-    const fromStorage = localStorage.getItem(key);
-
-    if (fromStorage) {
-      return JSON.parse(fromStorage);
-    }
-
-    return null;
-  }
-
-  setAuthKey(authKey) {
-    const key = `dc${this.dcId}AuthKey`;
-    this[key] = authKey;
-
-    localStorage.setItem(key, JSON.stringify(authKey));
-  }
-
-  setDc(dcId) {
-    const fromStorage = localStorage.getItem('dcId', dcId);
-    this.dcId = dcId || fromStorage || 2;
-    localStorage.setItem('dcId', this.dcId);
-
-    const subdomainsMap = {
-      1: 'pluto',
-      2: 'venus',
-      3: 'aurora',
-      4: 'vesta',
-      5: 'flora',
-    };
-
-    const ipMap = this.test
-      ? {
-          1: '149.154.175.10',
-          2: '149.154.167.40',
-          3: '149.154.175.117',
-        }
-      : {
-          1: '149.154.175.50',
-          2: '149.154.167.51',
-          3: '149.154.175.100',
-          4: '149.154.167.91',
-          5: '149.154.171.5',
-        };
-
-    const urlPath = this.test ? '/apiw_test1' : '/apiw1';
-
-    if (this.https) {
-      this.url = `https://${
-        subdomainsMap[this.dcId]
-      }.web.telegram.org${urlPath}`;
-    } else {
-      this.url = `http://${ipMap[this.dcId]}${urlPath}`;
-    }
-  }
-
-  runLongPoll() {
-    if (this.longPollRunning) {
-      return;
-    }
-    this.longPollRunning = true;
-
-    const longPollInner = () => {
-      const serializer = new TLSerializer({ mtproto: true });
-      serializer.method('http_wait', {
-        max_delay: 500,
-        wait_after: 150,
-        max_wait: 15000,
+  call(method, params = {}) {
+    if (!this.storage.pGet('authKey')) {
+      return new Promise((resolve, reject) => {
+        this.messagesWaitAuth.push({ method, params, resolve, reject });
       });
+    }
 
-      const message = {
-        msg_id: this.generateMessageId(),
-        seq_no: this.generateSeqNo(),
-        body: serializer.getBytes(),
-      };
-
-      this.sendEncryptedRequest(message).finally(longPollInner);
-    };
-
-    longPollInner();
-  }
-
-  getApiCallMessage(method, params = {}) {
     const serializer = new TLSerializer();
 
     serializer.method('invokeWithLayer', {
@@ -1125,101 +488,259 @@ class API extends EventEmitter {
     });
 
     serializer.method(method, {
-      api_hash: this.api_hash,
-      api_id: this.api_id,
+      api_hash: this.api_hash, // TODO: not found in scheme
+      api_id: this.api_id, // TODO: not found in scheme
       ...params,
     });
 
-    const message = {
-      msg_id: this.generateMessageId(),
-      seq_no: this.generateSeqNo(),
-      body: serializer.getTypedBytes(),
-      isAPI: true,
-      method,
+    return new Promise(async (resolve, reject) => {
+      const messageId = await this.sendEncryptedMessage(serializer);
+      const messageIdAsKey = longFromInts(messageId[0], messageId[1]);
+
+      this.messagesWaitResponse.set(messageIdAsKey, {
+        method,
+        params,
+        resolve,
+        reject,
+      });
+    });
+  }
+
+  // https://core.telegram.org/mtproto/description#schematic-presentation-of-messages
+  // Encrypted Message:
+  // 1. auth_key_id (int64)
+  // 2. msg_key (int128)
+  // 3. encrypted_data
+  // encrypted_data:
+  // 4. salt (int64)
+  // 5. session_id (int64)
+  // 6. message_id (int64)
+  // 7. seq_no (int32)
+  // 8. message_data_length (int32)
+  // 9. message_data
+  // 10. padding 12..1024
+  async sendEncryptedMessage(messageSerializer, options = {}) {
+    const { isContentRelated = true } = options;
+
+    const messageData = messageSerializer.getBytes();
+    const authKey = this.storage.pGetBytes('authKey');
+    const serverSalt = this.storage.pGetBytes('serverSalt');
+    const messageId = this.getMessageId();
+    const seqNo = this.getSeqNo(isContentRelated);
+    const minPadding = 12;
+    const unpadded = (32 + messageData.length + minPadding) % 16;
+    const padding = minPadding + (unpadded ? 16 - unpadded : 0);
+
+    const plainDataSerializer = new TLSerializer();
+    plainDataSerializer.bytesRaw(serverSalt);
+    plainDataSerializer.bytesRaw(this.sessionId);
+    plainDataSerializer.long(messageId);
+    plainDataSerializer.int(seqNo);
+    plainDataSerializer.uint32(messageData.length);
+    plainDataSerializer.bytesRaw(messageData);
+    plainDataSerializer.bytesRaw(getRandomBytes(padding));
+
+    const plainData = plainDataSerializer.getBytes();
+
+    const messageKeyLarge = await SHA256(
+      concatBytes(authKey.slice(88, 120), plainData)
+    );
+    const messageKey = messageKeyLarge.slice(8, 24);
+    const encryptedData = (
+      await this.getAESInstance(authKey, messageKey, false)
+    ).encrypt(plainData);
+
+    const authKeyId = (await SHA1(authKey)).slice(12, 20);
+    const serializer = new TLSerializer();
+    serializer.setAbridgedHeader(
+      authKeyId.length + messageKey.length + encryptedData.length
+    );
+    serializer.bytesRaw(authKeyId);
+    serializer.bytesRaw(messageKey);
+    serializer.bytesRaw(encryptedData);
+
+    this.sendMessage(serializer.getBytes());
+
+    return messageId;
+  }
+
+  sendPlainMessage(method, params) {
+    const serializer = new TLSerializer({ mtproto: true });
+    serializer.method(method, params);
+
+    const requestBuffer = serializer.getBuffer();
+    const requestLength = requestBuffer.byteLength;
+    const requestBytes = new Uint8Array(requestBuffer);
+
+    const header = new TLSerializer();
+    header.bytesRaw(new Uint8Array([(requestLength + 20) / 4]));
+    header.long([0, 0]); // auth_key_id (8)
+    header.long(this.getMessageId()); // msg_id (8)
+    header.uint32(requestLength); // request_length (4)
+
+    const headerBuffer = header.getBuffer();
+    const headerArray = new Uint8Array(headerBuffer);
+    const headerLength = headerBuffer.byteLength;
+
+    const resultBuffer = new ArrayBuffer(headerLength + requestLength);
+    const resultBytes = new Uint8Array(resultBuffer);
+
+    resultBytes.set(headerArray);
+    resultBytes.set(requestBytes, headerArray.length);
+
+    this.sendMessage(resultBytes);
+  }
+
+  async sendMessage(bytes) {
+    this.socket.send(await this.obfuscate(bytes));
+  }
+
+  async generateObfuscationKeys() {
+    const protocolId = 0xefefefef;
+    const init1bytes = getRandomBytes(64);
+    const init1buffer = init1bytes.buffer;
+    const init1data = new DataView(init1buffer);
+    init1data.setUint32(56, protocolId, true);
+
+    const init2buffer = new ArrayBuffer(init1buffer.byteLength);
+    const init2bytes = new Uint8Array(init2buffer);
+    for (let i = 0; i < init2buffer.byteLength; i++) {
+      init2bytes[init2buffer.byteLength - i - 1] = init1bytes[i];
+    }
+
+    let encryptKey = new Uint8Array(init1buffer, 8, 32);
+    this.encryptIV = new Uint8Array(16);
+    this.encryptIV.set(new Uint8Array(init1buffer, 40, 16));
+
+    let decryptKey = new Uint8Array(init2buffer, 8, 32);
+    this.decryptIV = new Uint8Array(16);
+    this.decryptIV.set(new Uint8Array(init2buffer, 40, 16));
+
+    this.encryptAES = new AES.CTR(encryptKey, this.encryptIV);
+    this.decryptAES = new AES.CTR(decryptKey, this.decryptIV);
+
+    const init3buffer = await this.obfuscate(init1buffer);
+    init1bytes.set(new Uint8Array(init3buffer, 56, 8), 56);
+
+    return init1bytes;
+  }
+
+  async obfuscate(buffer) {
+    return this.encryptAES.encrypt(buffer).buffer;
+  }
+
+  async deobfuscate(buffer) {
+    return this.decryptAES.decrypt(buffer).buffer;
+  }
+
+  getMessageId() {
+    const timeOffset = this.storage.get('timeOffset');
+
+    const timeTicks = Date.now();
+    const timeSec = Math.floor(timeTicks / 1000) + timeOffset;
+    const timeMSec = timeTicks % 1000;
+    const random = getRandomInt(0xffff);
+
+    const { lastMessageId } = this;
+
+    let messageId = [timeSec, (timeMSec << 21) | (random << 3) | 4];
+
+    if (
+      lastMessageId[0] > messageId[0] ||
+      (lastMessageId[0] == messageId[0] && lastMessageId[1] >= messageId[1])
+    ) {
+      messageId = [lastMessageId[0], lastMessageId[1] + 4];
+    }
+
+    this.lastMessageId = messageId;
+
+    return messageId;
+  }
+
+  getSeqNo(isContentRelated = true) {
+    let seqNo = this.seqNo * 2;
+
+    if (isContentRelated) {
+      seqNo += 1;
+      this.seqNo += 1;
+    }
+
+    return seqNo;
+  }
+
+  updateSession() {
+    this.seqNo = 0;
+    this.sessionId = getRandomBytes(8);
+    this.lastMessageId = [0, 0];
+  }
+
+  async getAESInstance(authKey, messageKey, isServer) {
+    const x = isServer ? 8 : 0;
+    const sha256a = await SHA256(
+      concatBytes(messageKey, authKey.slice(x, 36 + x))
+    );
+    const sha256b = await SHA256(
+      concatBytes(authKey.slice(40 + x, 76 + x), messageKey)
+    );
+    const aesKey = concatBytes(
+      sha256a.slice(0, 8),
+      sha256b.slice(8, 24),
+      sha256a.slice(24, 32)
+    );
+    const aesIV = concatBytes(
+      sha256b.slice(0, 8),
+      sha256a.slice(8, 24),
+      sha256b.slice(24, 32)
+    );
+    return new AES.IGE(aesKey, aesIV);
+  }
+
+  changeDc(dcId) {
+    // TODO: Add import/export auth
+    this.setDc(dcId);
+    this.recconect();
+  }
+
+  setDc(dcId) {
+    // TODO: Use this.storage for save dcId
+    const fromStorage = localStorage.getItem('dcId', dcId);
+    this.dcId = dcId || fromStorage || defaultDC;
+    this.storage.setPrefix(this.dcId);
+    localStorage.setItem('dcId', this.dcId);
+
+    const subdomainsMap = {
+      1: 'pluto',
+      2: 'venus',
+      3: 'aurora',
+      4: 'vesta',
+      5: 'flora',
     };
 
-    return message;
+    const urlPath = this.test ? '/apiws_test' : '/apiws';
+
+    this.url = `wss://${subdomainsMap[this.dcId]}.web.telegram.org${urlPath}`;
   }
 
-  innerCall(method, params) {
-    return this.init().then(() => {
-      const message = this.getApiCallMessage(method, params);
-      this.sendAcks();
+  connect() {
+    this.socket = new WebSocket(this.url, 'binary');
 
-      return new Promise((resolve, reject) => {
-        this.sendEncryptedRequest(message)
-          .then(response => {
-            const { messageDeferred } = response;
-            messageDeferred.then(message => {
-              if (message.result._ === 'rpc_error') {
-                reject(message.result);
-              } else {
-                resolve(message.result);
-              }
-            });
-          })
-          .catch(reject);
-      });
-    });
+    this.socket.addEventListener('error', this.handleWSError);
+    this.socket.addEventListener('open', this.handleWSOpen);
+    this.socket.addEventListener('close', this.handleWSClose);
+    this.socket.addEventListener('message', this.handleWSMessage);
   }
 
-  call(method, params) {
-    return this.innerCall(method, params).catch(error => {
-      console.log(`error:`, error);
-      const { error_message } = error;
+  recconect() {
+    this.socket.removeEventListener('error', this.handleWSError);
+    this.socket.removeEventListener('open', this.handleWSOpen);
+    this.socket.removeEventListener('close', this.handleWSClose);
+    this.socket.removeEventListener('message', this.handleWSMessage);
 
-      if (error_message.includes('_MIGRATE_')) {
-        const [_type, dcId] = error_message.split('_MIGRATE_');
+    if (this.socket.readyState === 1) {
+      this.socket.close();
+    }
 
-        this.setDc(dcId);
-
-        return this.call(method, params);
-      }
-
-      throw error;
-    });
-  }
-
-  checkPassword(password) {
-    return this.call('account.getPassword').then(async result => {
-      const { srp_id, current_algo, secure_random, srp_B } = result;
-      const { salt1, salt2, g, p } = current_algo;
-
-      const { A, M1 } = await getSRPParams({
-        g,
-        p,
-        salt1,
-        salt2,
-        gB: srp_B,
-        password,
-      });
-
-      return this.call('auth.checkPassword', {
-        password: {
-          _: 'inputCheckPasswordSRP',
-          srp_id,
-          A,
-          M1,
-        },
-      });
-    });
-  }
-
-  getFileInBase64({ location, offset = 0, limit = 1024 * 1024 }) {
-    return this.call('upload.getFile', {
-      flags: 0,
-      offset,
-      limit,
-      location,
-    }).then(response => {
-      return arrayBufferToBase64(response.bytes);
-    });
-  }
-}
-
-class MTProto {
-  constructor({ api_id, api_hash, test = false, https = false }) {
-    this.api = new API({ api_id, api_hash, test, https });
+    this.connect();
   }
 }
 

@@ -17,24 +17,30 @@ class TLSerializer {
   createBuffer() {
     this.buffer = new ArrayBuffer(this.maxLength);
     this.dataView = new DataView(this.buffer);
-    this.intView = new Int32Array(this.buffer);
     this.byteView = new Uint8Array(this.buffer);
   }
 
-  getArray() {
-    const resultBuffer = new ArrayBuffer(this.offset);
-    const resultArray = new Int32Array(resultBuffer);
+  setAbridgedHeader(length) {
+    const wordCount = length / 4;
 
-    resultArray.set(this.intView.subarray(0, this.offset / 4));
-
-    return resultArray;
+    if (wordCount < 0x7f) {
+      this.byteView[0] = wordCount;
+      this.offset = 1;
+      this.padTo = 1;
+    } else {
+      this.byteView[0] = 0x7f;
+      this.byteView[1] = wordCount & 0xff;
+      this.byteView[2] = (wordCount >> 8) & 0xff;
+      this.byteView[3] = (wordCount >> 16) & 0xff;
+      this.offset = 4;
+    }
   }
 
   getBuffer() {
-    return this.getTypedBytes().buffer;
+    return this.getBytes().buffer;
   }
 
-  getBytes() {
+  getBytesRaw() {
     const bytes = [];
     for (let i = 0; i < this.offset; i++) {
       bytes.push(this.byteView[i]);
@@ -42,7 +48,7 @@ class TLSerializer {
     return bytes;
   }
 
-  getTypedBytes() {
+  getBytes() {
     const resultBuffer = new ArrayBuffer(this.offset);
     const resultArray = new Uint8Array(resultBuffer);
 
