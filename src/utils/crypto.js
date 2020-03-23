@@ -1,4 +1,12 @@
 const aesjs = require('aes-js');
+const bigInt = require('big-integer');
+const {
+  bigIntToBytes,
+  bytesToBigInt,
+  getRandomBytes,
+  concatBytes,
+  xorBytes,
+} = require('../utils/common');
 
 const AES = aesjs.AES;
 AES.Counter = aesjs.Counter;
@@ -112,4 +120,62 @@ async function PBKDF2(hash, password, salt, iterations) {
   );
 }
 
-module.exports = { AES, SHA1, SHA256, PBKDF2 };
+async function getSRPParams({ g, p, salt1, salt2, gB, password }) {
+  const H = SHA256;
+  const SH = (data, salt) => {
+    return SHA256(concatBytes(salt, data, salt));
+  };
+  const PH1 = async (password, salt1, salt2) => {
+    return await SH(await SH(password, salt1), salt2);
+  };
+  const PH2 = async (password, salt1, salt2) => {
+    return await SH(
+      await PBKDF2('SHA-512', await PH1(password, salt1, salt2), salt1, 100000),
+      salt2
+    );
+  };
+
+  const encoder = new TextEncoder();
+
+  const gBigInt = bigInt(g);
+  const gBytes = bigIntToBytes(gBigInt, 256);
+  const pBigInt = bytesToBigInt(p);
+  const aBigInt = bytesToBigInt(getRandomBytes(256));
+  const gABigInt = gBigInt.modPow(aBigInt, pBigInt);
+  const gABytes = bigIntToBytes(gABigInt);
+  const gBBytes = bytesToBigInt(gB);
+  const [k, u, x] = await Promise.all([
+    H(concatBytes(p, gBytes)),
+    H(concatBytes(gABytes, gB)),
+    PH2(encoder.encode(password), salt1, salt2),
+  ]);
+  const kBigInt = bytesToBigInt(k);
+  const uBigInt = bytesToBigInt(u);
+  const xBigInt = bytesToBigInt(x);
+  const vBigInt = gBigInt.modPow(xBigInt, pBigInt);
+  const kVBigInt = kBigInt.multiply(vBigInt).mod(pBigInt);
+  let tBigInt = gBBytes.subtract(kVBigInt).mod(pBigInt);
+  if (tBigInt.isNegative()) {
+    tBigInt = tBigInt.add(pBigInt);
+  }
+  const sABigInt = tBigInt.modPow(
+    aBigInt.add(uBigInt.multiply(xBigInt)),
+    pBigInt
+  );
+  const sABytes = bigIntToBytes(sABigInt);
+  const kA = await H(sABytes);
+  const M1 = await H(
+    concatBytes(
+      xorBytes(await H(p), await H(gBytes)),
+      await H(salt1),
+      await H(salt2),
+      gABytes,
+      gB,
+      kA
+    )
+  );
+
+  return { A: gABytes, M1 };
+}
+
+module.exports = { AES, SHA1, SHA256, PBKDF2, getSRPParams };

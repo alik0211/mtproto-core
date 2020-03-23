@@ -1,6 +1,6 @@
 const bigInt = require('big-integer');
 const config = require('../config');
-const { intToUint, bigIntToBytes } = require('../utils');
+const { intToUint, bigIntToBytes } = require('../utils/common');
 
 class TLSerializer {
   constructor(options = {}) {

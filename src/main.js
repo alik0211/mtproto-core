@@ -17,7 +17,7 @@ const {
   convertToByteArray,
   xorBytes,
   gzipUncompress,
-} = require('./utils');
+} = require('./utils/common');
 const { AES, SHA1, SHA256 } = require('./utils/crypto');
 const { getRsaKeyByFingerprints } = require('./utils/rsa');
 

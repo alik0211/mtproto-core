@@ -38,9 +38,9 @@
     "aes-js": "3.1.2",
     "big-integer": "1.6.48",
     "events": "3.1.0",
+    "jsbn": "1.1.0",
     "leemon": "6.2.0",
     "lodash.debounce": "4.0.8",
-    "rusha": "0.8.13",
     "zlibjs": "0.3.1"
   },
   "devDependencies": {

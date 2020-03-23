@@ -1,5 +1,5 @@
 const MTProto = require('../main');
-const { getSRPParams } = require('../utils');
+const { getSRPParams } = require('../utils/crypto');
 
 const mtproto = new MTProto({
   api_id: process.env.API_ID,
