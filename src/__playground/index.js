@@ -9,6 +9,19 @@ const mtproto = new MTProto({
 
 window.mtproto = mtproto;
 
+mtproto
+  .call('users.getFullUser', {
+    id: {
+      _: 'inputUserSelf',
+    },
+  })
+  .then(response => {
+    console.log(`response:`, response);
+  })
+  .catch(error => {
+    console.log(`error:`, error);
+  });
+
 // Ali: +9996621111 -> @test9996621111
 // Pavel: +9996622222 -> @test9996622222
 // Ivan: +9996627777 -> @test9996627777

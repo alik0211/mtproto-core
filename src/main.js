@@ -91,6 +91,7 @@ class MTProto {
     this.messagesWaitResponse = new Map();
     this.messagesWaitAuth = [];
     this.pendingAcks = [];
+    this.isReady = false;
 
     this.storage = new Storage();
     this.storage.set('timeOffset', 0);
@@ -115,6 +116,8 @@ class MTProto {
 
     if (authKey && serverSalt) {
       this.handleMessage = this.handleEncryptedMessage;
+      this.isReady = true;
+      this.sendWaitMessages();
     } else {
       this.nonce = getRandomBytes(16);
       this.handleMessage = this.handlePQResponse;
@@ -289,13 +292,14 @@ class MTProto {
 
     if (serverDHAnswer._ === 'dh_gen_ok') {
       this.handleMessage = this.handleEncryptedMessage;
-      this.handleAuth();
+      this.isReady = true;
+      this.sendWaitMessages();
     } else {
       console.error(`Invalid Set_client_DH_params_answer:`, serverDHAnswer);
     }
   }
 
-  async handleAuth() {
+  async sendWaitMessages() {
     this.messagesWaitAuth.forEach(message => {
       const { method, params, resolve, reject } = message;
       this.call(method, params)
@@ -449,7 +453,7 @@ class MTProto {
   }
 
   call(method, params = {}) {
-    if (!this.storage.pGet('authKey')) {
+    if (!this.isReady) {
       return new Promise((resolve, reject) => {
         this.messagesWaitAuth.push({ method, params, resolve, reject });
       });
