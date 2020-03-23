@@ -23,12 +23,15 @@ You need **api_id** and **api_hash**. If you do not have them yet, then get them
 ```js
 const MTProto = require('@mtproto/core');
 
+const api_id = 'YOU_API_ID';
+const api_hash = 'YOU_API_HASH';
+
 // 1. Create an instance
 const mtproto = new MTProto({
-  api_id: YOU_API_ID,
-  api_hash: YOU_API_HASH,
+  api_id,
+  api_hash,
 
-  // Use test server
+  // Use test servers
   test: true,
 });
 
