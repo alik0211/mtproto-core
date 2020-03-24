@@ -687,8 +687,9 @@ class MTProto {
   }
 
   setDc(dcId) {
-    dcId = this.storage.get('dcId') || 2;
+    dcId = dcId || this.storage.get('dcId') || 2;
     this.storage.setPrefix(dcId);
+    this.storage.set('dcId', dcId);
 
     const subdomainsMap = {
       1: 'pluto',
