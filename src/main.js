@@ -714,6 +714,8 @@ class MTProto {
   }
 
   recconect() {
+    this.isReady = false;
+
     this.socket.removeEventListener('error', this.handleWSError);
     this.socket.removeEventListener('open', this.handleWSOpen);
     this.socket.removeEventListener('close', this.handleWSClose);
