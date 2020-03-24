@@ -516,14 +516,6 @@ function pqPrimeLeemon(what) {
   return [bytesFromLeemonBigInt(P), bytesFromLeemonBigInt(Q), it];
 }
 
-function getNonce() {
-  const nonce = [];
-  for (var i = 0; i < 16; i++) {
-    nonce.push(getRandomInt(0xff));
-  }
-  return nonce;
-}
-
 module.exports = {
   bigIntToBytes,
   hexToBytes,
@@ -555,5 +547,4 @@ module.exports = {
   gcdLong,
   pqPrimeLong,
   pqPrimeLeemon,
-  getNonce,
 };
