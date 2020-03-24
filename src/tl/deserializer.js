@@ -1,10 +1,10 @@
 const bigInt = require('big-integer');
-const config = require('../config');
+const schema = require('../../scheme/full.json');
 const { uintToInt } = require('../utils/common');
 
 class TLDeserializer {
   constructor(buffer, options = {}) {
-    const { isPlain = false, mtproto = false } = options;
+    const { isPlain = false } = options;
 
     this.buffer = buffer;
     this.byteView = new Uint8Array(this.buffer);
@@ -13,8 +13,6 @@ class TLDeserializer {
       this.byteView.byteOffset,
       this.byteView.byteLength
     );
-
-    this.schema = mtproto ? config.schema.mtproto : config.schema.api;
 
     if (!isPlain) {
       if (this.byteView[0] >= 1 && this.byteView[0] <= 0x7e) {
@@ -164,19 +162,11 @@ class TLDeserializer {
       return result;
     }
 
-    const { schema } = this;
     const isContainer = type.charAt(0) === '%';
 
-    const constructorId = isContainer ? 1538843921 : this.int();
+    const constructorId = isContainer ? 1538843921 : this.uint32();
 
-    // TODO: Merge schemes
-    const constructor =
-      schema.constructors.find(item => {
-        return +item.id === constructorId;
-      }) ||
-      config.schema.mtproto.constructors.find(item => {
-        return +item.id === constructorId;
-      });
+    const constructor = schema.constructorsById[constructorId];
 
     if (!constructor) {
       throw new Error(

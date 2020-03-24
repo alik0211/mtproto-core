@@ -109,7 +109,7 @@ class MTProto {
         return;
       }
 
-      const serializer = new TLSerializer({ mtproto: true });
+      const serializer = new TLSerializer();
       serializer.predicate(
         {
           _: 'msgs_ack',
@@ -156,7 +156,7 @@ class MTProto {
   }
 
   async handlePQResponse(buffer) {
-    const deserializer = new TLDeserializer(buffer, { mtproto: true });
+    const deserializer = new TLDeserializer(buffer);
     const auth_key_id = deserializer.long('auth_key_id');
     const msg_id = deserializer.long('msg_id');
     const msg_len = deserializer.int('msg_len');
@@ -178,7 +178,7 @@ class MTProto {
     this.newNonce = getRandomBytes(32);
     this.serverNonce = server_nonce;
 
-    const serializer = new TLSerializer({ mtproto: true });
+    const serializer = new TLSerializer();
     serializer.predicate(
       {
         _: 'p_q_inner_data',
@@ -214,7 +214,7 @@ class MTProto {
   }
 
   async handleDHParams(buffer) {
-    const deserializer = new TLDeserializer(buffer, { mtproto: true });
+    const deserializer = new TLDeserializer(buffer);
     const auth_key_id = deserializer.long('auth_key_id');
     const msg_id = deserializer.long('msg_id');
     const msg_len = deserializer.int('msg_len');
@@ -238,7 +238,6 @@ class MTProto {
     const innerDeserializer = new TLDeserializer(
       decryptedData.slice(20).buffer,
       {
-        mtproto: true,
         isPlain: true,
       }
     );
@@ -271,7 +270,7 @@ class MTProto {
     this.storage.pSet('authKey', authKey);
     this.storage.pSet('serverSalt', serverSalt);
 
-    const innerSerializer = new TLSerializer({ mtproto: true });
+    const innerSerializer = new TLSerializer();
     innerSerializer.predicate(
       {
         _: 'client_DH_inner_data',
@@ -298,7 +297,7 @@ class MTProto {
   }
 
   async handleDHAnswer(buffer) {
-    const deserializer = new TLDeserializer(buffer, { mtproto: true });
+    const deserializer = new TLDeserializer(buffer);
     const auth_key_id = deserializer.long('auth_key_id');
     const msg_id = deserializer.long('msg_id');
     const msg_len = deserializer.int('msg_len');
@@ -550,7 +549,7 @@ class MTProto {
   }
 
   sendPlainMessage(method, params) {
-    const serializer = new TLSerializer({ mtproto: true });
+    const serializer = new TLSerializer();
     serializer.method(method, params);
 
     const requestBuffer = serializer.getBuffer();

@@ -1,15 +1,14 @@
 const bigInt = require('big-integer');
-const config = require('../config');
+const schema = require('../../scheme/full.json');
 const { intToUint, bigIntToBytes } = require('../utils/common');
 
 class TLSerializer {
   constructor(options = {}) {
-    const { mtproto = false, maxLength = 2048 } = options;
+    const { maxLength = 2048 } = options;
 
     this.maxLength = maxLength;
     this.offset = 0; // in bytes
     this.padTo = 0;
-    this.schema = mtproto ? config.schema.mtproto : config.schema.api;
 
     this.createBuffer();
   }
@@ -75,21 +74,13 @@ class TLSerializer {
   }
 
   method(methodName, params) {
-    let methodData = null;
-    const { methods } = this.schema;
-
-    for (let i = 0; i < methods.length; i++) {
-      if (methods[i].method === methodName) {
-        methodData = methods[i];
-        break;
-      }
-    }
+    const methodData = schema.methodsByName[methodName];
 
     if (!methodData) {
       throw new Error(`Method ${methodName} not found in schema`);
     }
 
-    this.uint32(intToUint(methodData.id));
+    this.uint32(methodData.id);
 
     methodData.params.forEach(paramData => {
       const param = params[paramData.name];
@@ -153,15 +144,8 @@ class TLSerializer {
       return;
     }
 
-    const { constructors } = this.schema;
-    let constructorData = null;
-
-    for (let i = 0; i < constructors.length; i++) {
-      if (constructors[i].predicate === predicate._) {
-        constructorData = constructors[i];
-        break;
-      }
-    }
+    const constructorId = schema.constructorsIdsByPredicate[predicate._];
+    const constructorData = schema.constructorsById[constructorId];
 
     if (!constructorData) {
       throw new Error(`Constructor ${predicate._} not found in schema`);
@@ -178,7 +162,7 @@ class TLSerializer {
     }
 
     if (!isBare) {
-      this.int(intToUint(constructorData.id));
+      this.int(constructorData.id);
     }
 
     constructorData.params.forEach(paramData => {
