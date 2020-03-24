@@ -21,8 +21,6 @@ const {
 const { AES, SHA1, SHA256 } = require('./utils/crypto');
 const { getRsaKeyByFingerprints } = require('./utils/rsa');
 
-const defaultDC = 2;
-
 class Storage {
   constructor(prefix) {
     this._prefix = prefix;
@@ -105,6 +103,25 @@ class MTProto {
     this.handleWSMessage = this.handleWSMessage.bind(this);
 
     this.connect();
+
+    this.sendAcks = debounce(() => {
+      if (!this.pendingAcks.length) {
+        return;
+      }
+
+      const serializer = new TLSerializer({ mtproto: true });
+      serializer.predicate(
+        {
+          _: 'msgs_ack',
+          msg_ids: this.pendingAcks,
+        },
+        'MsgsAck'
+      );
+
+      this.pendingAcks = [];
+
+      this.sendEncryptedMessage(serializer, { isContentRelated: false });
+    }, 500);
   }
   async handleWSError(event) {}
   async handleWSOpen(event) {
@@ -424,26 +441,6 @@ class MTProto {
       default:
         return;
     }
-  }
-
-  // TODO: Use debounce
-  sendAcks() {
-    if (!this.pendingAcks.length) {
-      return;
-    }
-
-    const serializer = new TLSerializer({ mtproto: true });
-    serializer.predicate(
-      {
-        _: 'msgs_ack',
-        msg_ids: this.pendingAcks,
-      },
-      'MsgsAck'
-    );
-
-    this.pendingAcks = [];
-
-    this.sendEncryptedMessage(serializer, { isContentRelated: false });
   }
 
   ackMessage(messageId) {
