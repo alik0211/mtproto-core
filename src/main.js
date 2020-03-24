@@ -690,11 +690,8 @@ class MTProto {
   }
 
   setDc(dcId) {
-    // TODO: Use this.storage for save dcId
-    const fromStorage = localStorage.getItem('dcId', dcId);
-    this.dcId = dcId || fromStorage || defaultDC;
-    this.storage.setPrefix(this.dcId);
-    localStorage.setItem('dcId', this.dcId);
+    dcId = this.storage.get('dcId') || 2;
+    this.storage.setPrefix(dcId);
 
     const subdomainsMap = {
       1: 'pluto',
@@ -706,7 +703,7 @@ class MTProto {
 
     const urlPath = this.test ? '/apiws_test' : '/apiws';
 
-    this.url = `wss://${subdomainsMap[this.dcId]}.web.telegram.org${urlPath}`;
+    this.url = `wss://${subdomainsMap[dcId]}.web.telegram.org${urlPath}`;
   }
 
   connect() {
