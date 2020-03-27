@@ -7,9 +7,5 @@ yarn
 ```
 
 ```
-node scripts/merge-scheme.js
-```
-
-```
 yarn start
 ```
