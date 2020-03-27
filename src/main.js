@@ -1,3 +1,4 @@
+const pako = require('pako');
 const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
 const EventEmitter = require('events');
@@ -10,7 +11,6 @@ const {
   concatBytes,
   bytesToBigInt,
   bigIntToBytes,
-  bytesToArrayBuffer,
   longToBytes,
   longFromInts,
   rsaEncrypt,
@@ -18,7 +18,6 @@ const {
   pqPrimeFactorization,
   convertToByteArray,
   xorBytes,
-  gzipUncompress,
 } = require('./utils/common');
 const { AES, SHA1, SHA256, getSRPParams } = require('./utils/crypto');
 const { getRsaKeyByFingerprints } = require('./utils/rsa');
@@ -372,11 +371,8 @@ class MTProto {
         this.ackMessage(messageId);
 
         if (message.result._ === 'gzip_packed') {
-          const uncompressed = bytesToArrayBuffer(
-            gzipUncompress(message.result.packed_data)
-          );
-
-          const deserializer = new TLDeserializer(uncompressed, {
+          const uncompressed = pako.inflate(message.result.packed_data);
+          const deserializer = new TLDeserializer(uncompressed.buffer, {
             isPlain: true,
           });
 

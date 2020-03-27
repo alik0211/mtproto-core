@@ -1,5 +1,4 @@
 const bigInt = require('big-integer');
-const { Zlib } = require('zlibjs/bin/gunzip.min.js');
 const BigInteger = require('jsbn').BigInteger;
 const {
   eGCD_,
@@ -176,10 +175,6 @@ function bytesFromLeemonBigInt(bigInt, len) {
   return bytesFromHex(str);
 }
 
-function bytesToArrayBuffer(b) {
-  return new Uint8Array(b).buffer;
-}
-
 function convertToUint8Array(bytes) {
   if (bytes.buffer !== undefined) {
     return bytes;
@@ -254,13 +249,6 @@ function rsaEncrypt(publicKey, bytes) {
   );
 
   return bigIntToBytes(encryptedBigInt, 256);
-}
-
-function gzipUncompress(bytes) {
-  // console.log('Gzip uncompress start')
-  var result = new Zlib.Gunzip(bytes).decompress();
-  // console.log('Gzip uncompress finish')
-  return result;
 }
 
 function getRandomInt(maxValue) {
@@ -530,7 +518,6 @@ module.exports = {
   bytesFromWords,
   bytesFromBigInt,
   bytesFromLeemonBigInt,
-  bytesToArrayBuffer,
   convertToUint8Array,
   convertToByteArray,
   bufferConcat,
@@ -540,7 +527,6 @@ module.exports = {
   intToUint,
   uintToInt,
   rsaEncrypt,
-  gzipUncompress,
   getRandomInt,
   pqPrimeFactorization,
   pqPrimeBigInteger,
