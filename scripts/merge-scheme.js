@@ -40,4 +40,6 @@ function handleMethods(method) {
   result.methodsByName[method.method] = method;
 }
 
-fs.writeFileSync('scheme/full.json', JSON.stringify(result, null, 2));
+const fileContent = `module.exports = ${JSON.stringify(result, null, 2)};`;
+
+fs.writeFileSync('scheme/full.js', fileContent);

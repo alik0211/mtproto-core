@@ -1,5 +1,5 @@
 const bigInt = require('big-integer');
-const schema = require('../../scheme/full.json');
+const schema = require('../../scheme/full');
 const { uintToInt } = require('../utils/common');
 
 class TLDeserializer {

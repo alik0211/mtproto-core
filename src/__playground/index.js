@@ -1,5 +1,4 @@
 const MTProto = require('../main');
-const { getSRPParams } = require('../utils/crypto');
 
 const mtproto = new MTProto({
   api_id: process.env.API_ID,
@@ -91,7 +90,7 @@ formPassword.addEventListener('submit', event => {
       const { srp_id, current_algo, secure_random, srp_B } = result;
       const { salt1, salt2, g, p } = current_algo;
 
-      const { A, M1 } = await getSRPParams({
+      const { A, M1 } = await MTProto.getSRPParams({
         g,
         p,
         salt1,

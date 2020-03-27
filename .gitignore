@@ -13,6 +13,7 @@
 /dist
 /package
 /scheme/*.json
+/scheme/full.js
 
 # misc
 .DS_Store

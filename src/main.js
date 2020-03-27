@@ -1,6 +1,8 @@
 const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
 const EventEmitter = require('events');
+const Storage = require('./storage');
+const Transport = require('./transport');
 const TLSerializer = require('./tl/serializer');
 const TLDeserializer = require('./tl/deserializer');
 const {
@@ -18,67 +20,8 @@ const {
   xorBytes,
   gzipUncompress,
 } = require('./utils/common');
-const { AES, SHA1, SHA256 } = require('./utils/crypto');
+const { AES, SHA1, SHA256, getSRPParams } = require('./utils/crypto');
 const { getRsaKeyByFingerprints } = require('./utils/rsa');
-
-class Storage {
-  constructor(prefix) {
-    this._prefix = prefix;
-  }
-
-  setPrefix(prefix) {
-    this._prefix = prefix;
-  }
-
-  // Set with prefix
-  pSet(name, value) {
-    const key = `${this._prefix}${name}`;
-    this[key] = value;
-
-    localStorage[key] = JSON.stringify(value);
-  }
-
-  pGetBytes(name) {
-    return new Uint8Array(this.pGet(name));
-  }
-
-  // Get with prefix
-  pGet(name) {
-    const key = `${this._prefix}${name}`;
-
-    if (key in this) {
-      return this[key];
-    }
-
-    if (key in localStorage) {
-      this[key] = JSON.parse(localStorage[key]);
-
-      return this[key];
-    }
-
-    return null;
-  }
-
-  set(key, value) {
-    this[key] = value;
-
-    localStorage[key] = JSON.stringify(value);
-  }
-
-  get(key) {
-    if (key in this) {
-      return this[key];
-    }
-
-    if (key in localStorage) {
-      this[key] = JSON.parse(localStorage[key]);
-
-      return this[key];
-    }
-
-    return null;
-  }
-}
 
 class MTProto {
   constructor({ api_id, api_hash, test = false }) {
@@ -98,9 +41,11 @@ class MTProto {
     this.setDc();
 
     this.handleWSError = this.handleWSError.bind(this);
-    this.handleWSOpen = this.handleWSOpen.bind(this);
-    this.handleWSClose = this.handleWSClose.bind(this);
-    this.handleWSMessage = this.handleWSMessage.bind(this);
+
+    this.handleTransportError = this.handleTransportError.bind(this);
+    this.handleTransportOpen = this.handleTransportOpen.bind(this);
+    this.handleTransportClose = this.handleTransportClose.bind(this);
+    this.handleTransportMessage = this.handleTransportMessage.bind(this);
 
     this.connect();
 
@@ -123,11 +68,8 @@ class MTProto {
       this.sendEncryptedMessage(serializer, { isContentRelated: false });
     }, 500);
   }
-  async handleWSError(event) {}
-  async handleWSOpen(event) {
-    const initialMessage = await this.generateObfuscationKeys();
-    this.socket.send(initialMessage);
-
+  async handleTransportError(event) {}
+  async handleTransportOpen(event) {
     const authKey = this.storage.pGet('authKey');
     const serverSalt = this.storage.pGet('serverSalt');
 
@@ -141,18 +83,11 @@ class MTProto {
       this.sendPlainMessage('req_pq_multi', { nonce: this.nonce });
     }
   }
-  async handleWSClose(event) {
+  async handleTransportClose(event) {
     this.recconect();
   }
-  async handleWSMessage(event) {
-    const fileReader = new FileReader();
-    fileReader.onload = async event => {
-      const obfuscatedBytes = new Uint8Array(event.target.result);
-      const buffer = await this.deobfuscate(obfuscatedBytes);
-
-      this.handleMessage(buffer);
-    };
-    fileReader.readAsArrayBuffer(event.data);
+  async handleTransportMessage(buffer) {
+    this.handleMessage(buffer);
   }
 
   async handlePQResponse(buffer) {
@@ -543,7 +478,7 @@ class MTProto {
     serializer.bytesRaw(messageKey);
     serializer.bytesRaw(encryptedData);
 
-    this.sendMessage(serializer.getBytes());
+    this.transport.send(serializer.getBytes());
 
     return messageId;
   }
@@ -572,49 +507,7 @@ class MTProto {
     resultBytes.set(headerArray);
     resultBytes.set(requestBytes, headerArray.length);
 
-    this.sendMessage(resultBytes);
-  }
-
-  async sendMessage(bytes) {
-    this.socket.send(await this.obfuscate(bytes));
-  }
-
-  async generateObfuscationKeys() {
-    const protocolId = 0xefefefef;
-    const init1bytes = getRandomBytes(64);
-    const init1buffer = init1bytes.buffer;
-    const init1data = new DataView(init1buffer);
-    init1data.setUint32(56, protocolId, true);
-
-    const init2buffer = new ArrayBuffer(init1buffer.byteLength);
-    const init2bytes = new Uint8Array(init2buffer);
-    for (let i = 0; i < init2buffer.byteLength; i++) {
-      init2bytes[init2buffer.byteLength - i - 1] = init1bytes[i];
-    }
-
-    let encryptKey = new Uint8Array(init1buffer, 8, 32);
-    const encryptIV = new Uint8Array(16);
-    encryptIV.set(new Uint8Array(init1buffer, 40, 16));
-
-    let decryptKey = new Uint8Array(init2buffer, 8, 32);
-    const decryptIV = new Uint8Array(16);
-    decryptIV.set(new Uint8Array(init2buffer, 40, 16));
-
-    this.encryptAES = new AES.CTR(encryptKey, encryptIV);
-    this.decryptAES = new AES.CTR(decryptKey, decryptIV);
-
-    const init3buffer = await this.obfuscate(init1bytes);
-    init1bytes.set(new Uint8Array(init3buffer, 56, 8), 56);
-
-    return init1bytes;
-  }
-
-  async obfuscate(bytes) {
-    return this.encryptAES.encrypt(bytes).buffer;
-  }
-
-  async deobfuscate(bytes) {
-    return this.decryptAES.decrypt(bytes).buffer;
+    this.transport.send(resultBytes);
   }
 
   getMessageId() {
@@ -704,28 +597,23 @@ class MTProto {
   }
 
   connect() {
-    this.socket = new WebSocket(this.url, 'binary');
+    this.transport = new Transport(this.url);
 
-    this.socket.addEventListener('error', this.handleWSError);
-    this.socket.addEventListener('open', this.handleWSOpen);
-    this.socket.addEventListener('close', this.handleWSClose);
-    this.socket.addEventListener('message', this.handleWSMessage);
+    this.transport.on('error', this.handleTransportError);
+    this.transport.on('open', this.handleTransportOpen);
+    this.transport.on('close', this.handleTransportClose);
+    this.transport.on('message', this.handleTransportMessage);
   }
 
   recconect() {
     this.isReady = false;
 
-    this.socket.removeEventListener('error', this.handleWSError);
-    this.socket.removeEventListener('open', this.handleWSOpen);
-    this.socket.removeEventListener('close', this.handleWSClose);
-    this.socket.removeEventListener('message', this.handleWSMessage);
-
-    if (this.socket.readyState === 1) {
-      this.socket.close();
-    }
+    this.transport.destroy();
 
     this.connect();
   }
 }
+
+MTProto.getSRPParams = getSRPParams;
 
 module.exports = MTProto;
