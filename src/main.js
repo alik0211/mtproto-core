@@ -40,7 +40,7 @@ class MTProto {
     this.updateSession();
     this.setDc();
 
-    this.handleWSError = this.handleWSError.bind(this);
+    this.updates = new EventEmitter();
 
     this.handleTransportError = this.handleTransportError.bind(this);
     this.handleTransportOpen = this.handleTransportOpen.bind(this);
@@ -96,6 +96,8 @@ class MTProto {
       this.handleMessage = this.handleEncryptedMessage;
       this.isReady = true;
       this.sendWaitMessages();
+      // This call will cause the server to send us updates if there were no more calls on this connection
+      this.call('updates.getState');
     } else {
       this.nonce = getRandomBytes(16);
       this.handleMessage = this.handlePQResponse;
@@ -392,6 +394,8 @@ class MTProto {
         return;
 
       default:
+        this.ackMessage(messageId);
+        this.updates.emit(message._, message);
         return;
     }
   }
@@ -415,6 +419,7 @@ class MTProto {
       layer: 108,
     });
 
+    // TODO: Optimize meta info
     serializer.method('initConnection', {
       flags: 0, // because the proxy is not set
       api_id: this.api_id,

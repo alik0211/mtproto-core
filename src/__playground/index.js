@@ -8,6 +8,17 @@ const mtproto = new MTProto({
 
 window.mtproto = mtproto;
 
+// mtproto.updates.on('updateShort', message => {
+//   console.log(`message:`, message);
+// });
+
+// updatesTooLong
+// updateShortMessage
+// updateShortChatMessage
+// updateShort
+// updates
+// updateShortSentMessage
+
 mtproto
   .call('users.getFullUser', {
     id: {
