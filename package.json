@@ -25,7 +25,8 @@
   "module": "dist/mtproto.esm.js",
   "repository": "github:alik0211/mtproto-core",
   "files": [
-    "/dist"
+    "/dist",
+    "/scheme/full.js"
   ],
   "scripts": {
     "start": "run-s merge-scheme && webpack-dev-server --color",
