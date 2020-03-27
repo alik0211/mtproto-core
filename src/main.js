@@ -68,7 +68,26 @@ class MTProto {
       this.sendEncryptedMessage(serializer, { isContentRelated: false });
     }, 500);
   }
-  async handleTransportError(event) {}
+  async handleTransportError(payload) {
+    const { type } = payload;
+
+    // https://core.telegram.org/mtproto/mtproto-transports#transport-errors
+    if (type === 'transport') {
+      console.warn('Transport error:', payload.code);
+      // Auth key not found
+      if (payload.code === 404) {
+        this.storage.pSet('authKey', null);
+        this.storage.pSet('serverSalt', null);
+
+        return this.recconect();
+      }
+
+      // transport flood
+      if (payload.code === 429) {
+        return this.recconect();
+      }
+    }
+  }
   async handleTransportOpen(event) {
     const authKey = this.storage.pGet('authKey');
     const serverSalt = this.storage.pGet('serverSalt');

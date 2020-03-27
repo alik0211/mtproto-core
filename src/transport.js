@@ -19,7 +19,9 @@ class Transport extends EventEmitter {
     this.socket.addEventListener('message', this.handleMessage);
   }
   async handleError(event) {
-    this.emit('error', event);
+    this.emit('error', {
+      type: 'socket',
+    });
   }
   async handleOpen(event) {
     const initialMessage = await this.generateObfuscationKeys();
@@ -35,6 +37,15 @@ class Transport extends EventEmitter {
     fileReader.onload = async event => {
       const obfuscatedBytes = new Uint8Array(event.target.result);
       const buffer = await this.deobfuscate(obfuscatedBytes);
+
+      if (buffer.byteLength === 5) {
+        const code = new DataView(buffer).getInt32(1, true) * -1;
+
+        return this.emit('error', {
+          type: 'transport',
+          code,
+        });
+      }
 
       this.emit('message', buffer);
     };
