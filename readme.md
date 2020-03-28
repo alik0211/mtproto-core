@@ -22,7 +22,7 @@ npm i @mtproto/core -E
 ### Browser
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@mtproto/core@1.1.1/dist/mtproto.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mtproto/core@1.2.0/dist/mtproto.min.js"></script>
 ```
 
 ## Quick start
