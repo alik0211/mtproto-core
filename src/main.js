@@ -64,7 +64,9 @@ class MTProto {
 
       this.pendingAcks = [];
 
-      this.sendEncryptedMessage(serializer, { isContentRelated: false });
+      this.sendEncryptedMessage(serializer.getBytes(), {
+        isContentRelated: false,
+      });
     }, 500);
   }
   async handleTransportError(payload) {
@@ -95,8 +97,6 @@ class MTProto {
       this.handleMessage = this.handleEncryptedMessage;
       this.isReady = true;
       this.sendWaitMessages();
-      // This call will cause the server to send us updates if there were no more calls on this connection
-      this.call('updates.getState');
     } else {
       this.nonce = getRandomBytes(16);
       this.handleMessage = this.handlePQResponse;
@@ -431,7 +431,7 @@ class MTProto {
     });
 
     return new Promise(async (resolve, reject) => {
-      const messageId = await this.sendEncryptedMessage(serializer);
+      const messageId = await this.sendEncryptedMessage(serializer.getBytes());
       const messageIdAsKey = longFromInts(messageId[0], messageId[1]);
 
       this.messagesWaitResponse.set(messageIdAsKey, {
@@ -456,16 +456,15 @@ class MTProto {
   // 8. message_data_length (int32)
   // 9. message_data
   // 10. padding 12..1024
-  async sendEncryptedMessage(messageSerializer, options = {}) {
+  async sendEncryptedMessage(data, options = {}) {
     const { isContentRelated = true } = options;
 
-    const messageData = messageSerializer.getBytes();
     const authKey = this.storage.pGetBytes('authKey');
     const serverSalt = this.storage.pGetBytes('serverSalt');
     const messageId = this.getMessageId();
     const seqNo = this.getSeqNo(isContentRelated);
     const minPadding = 12;
-    const unpadded = (32 + messageData.length + minPadding) % 16;
+    const unpadded = (32 + data.length + minPadding) % 16;
     const padding = minPadding + (unpadded ? 16 - unpadded : 0);
 
     const plainDataSerializer = new TLSerializer();
@@ -473,8 +472,8 @@ class MTProto {
     plainDataSerializer.bytesRaw(this.sessionId);
     plainDataSerializer.long(messageId);
     plainDataSerializer.int(seqNo);
-    plainDataSerializer.uint32(messageData.length);
-    plainDataSerializer.bytesRaw(messageData);
+    plainDataSerializer.uint32(data.length);
+    plainDataSerializer.bytesRaw(data);
     plainDataSerializer.bytesRaw(getRandomBytes(padding));
 
     const plainData = plainDataSerializer.getBytes();
@@ -487,7 +486,7 @@ class MTProto {
       await this.getAESInstance(authKey, messageKey, false)
     ).encrypt(plainData);
 
-    const authKeyId = (await SHA1(authKey)).slice(12, 20);
+    const authKeyId = (await SHA1(authKey)).slice(-8);
     const serializer = new TLSerializer();
     serializer.setAbridgedHeader(
       authKeyId.length + messageKey.length + encryptedData.length
