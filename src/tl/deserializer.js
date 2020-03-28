@@ -3,9 +3,7 @@ const schema = require('../../scheme/full');
 const { uintToInt } = require('../utils/common');
 
 class TLDeserializer {
-  constructor(buffer, options = {}) {
-    const { isPlain = false } = options;
-
+  constructor(buffer) {
     this.buffer = buffer;
     this.byteView = new Uint8Array(this.buffer);
     this.dataView = new DataView(
@@ -14,22 +12,19 @@ class TLDeserializer {
       this.byteView.byteLength
     );
 
-    if (!isPlain) {
-      if (this.byteView[0] >= 1 && this.byteView[0] <= 0x7e) {
-        this.offset = 1;
-        this.paddingTo = 1;
-      } else if (this.byteView[0] === 0x7f) {
-        if (this.byteView.byteLength < 4) {
-          throw Error('Buffer is too small');
-        }
-        this.offset = 4;
-        this.paddingTo = 0;
-      } else {
-        throw Error(`Unexpected first byte: ${this.byteView[0]}`);
-      }
-    } else {
-      this.offset = 0;
+    this.offset = 0;
+    this.paddingTo = 0;
+  }
+
+  readAbridgedHeader() {
+    if (this.byteView[0] >= 1 && this.byteView[0] <= 0x7e) {
+      this.offset = 1;
+      this.paddingTo = 1;
+    } else if (this.byteView[0] === 0x7f) {
+      this.offset = 4;
       this.paddingTo = 0;
+    } else {
+      throw new Error(`Invalid first byte: ${this.byteView[0]}`);
     }
   }
 

@@ -112,6 +112,8 @@ class MTProto {
 
   async handlePQResponse(buffer) {
     const deserializer = new TLDeserializer(buffer);
+    deserializer.readAbridgedHeader();
+
     const auth_key_id = deserializer.long('auth_key_id');
     const msg_id = deserializer.long('msg_id');
     const msg_len = deserializer.int('msg_len');
@@ -170,6 +172,7 @@ class MTProto {
 
   async handleDHParams(buffer) {
     const deserializer = new TLDeserializer(buffer);
+    deserializer.readAbridgedHeader();
     const auth_key_id = deserializer.long('auth_key_id');
     const msg_id = deserializer.long('msg_id');
     const msg_len = deserializer.int('msg_len');
@@ -191,10 +194,7 @@ class MTProto {
     );
     const innerDataHash = decryptedData.slice(0, 20);
     const innerDeserializer = new TLDeserializer(
-      decryptedData.slice(20).buffer,
-      {
-        isPlain: true,
-      }
+      decryptedData.slice(20).buffer
     );
 
     const serverDHInnerData = innerDeserializer.predicate(
@@ -253,6 +253,7 @@ class MTProto {
 
   async handleDHAnswer(buffer) {
     const deserializer = new TLDeserializer(buffer);
+    deserializer.readAbridgedHeader();
     const auth_key_id = deserializer.long('auth_key_id');
     const msg_id = deserializer.long('msg_id');
     const msg_len = deserializer.int('msg_len');
@@ -285,6 +286,7 @@ class MTProto {
     const authKey = this.storage.pGetBytes('authKey');
 
     const deserializer = new TLDeserializer(buffer);
+    deserializer.readAbridgedHeader();
     const authKeyId = deserializer.long();
     const messageKey = deserializer.int128();
 
@@ -294,9 +296,7 @@ class MTProto {
       await this.getAESInstance(authKey, messageKey, true)
     ).decrypt(encryptedData);
 
-    const plainDeserializer = new TLDeserializer(plaintextData.buffer, {
-      isPlain: true,
-    });
+    const plainDeserializer = new TLDeserializer(plaintextData.buffer);
 
     const salt = plainDeserializer.long();
     const sessionId = plainDeserializer.long();
@@ -372,9 +372,7 @@ class MTProto {
 
         if (message.result._ === 'gzip_packed') {
           const uncompressed = pako.inflate(message.result.packed_data);
-          const deserializer = new TLDeserializer(uncompressed.buffer, {
-            isPlain: true,
-          });
+          const deserializer = new TLDeserializer(uncompressed.buffer);
 
           message.result = deserializer.predicate();
         }
