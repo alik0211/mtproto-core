@@ -3,7 +3,7 @@
 [![NPM](https://img.shields.io/npm/v/@mtproto/core.svg?style=flat-square)](https://www.npmjs.com/package/@mtproto/core)
 [![Travis](https://img.shields.io/travis/com/alik0211/mtproto-core/master.svg?style=flat-square)](https://travis-ci.com/alik0211/mtproto-core)
 
-> Telegram API (MTProto) client library for browser
+Telegram API (MTProto) client library for browser
 
 * **Actual.** 108 layer in the API scheme
 * **Fast.** Uses WebSocket to work with the network
@@ -20,6 +20,8 @@ npm i @mtproto/core -E
 ```
 
 ### Browser
+
+It is **not recommended** to use it in production.
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/@mtproto/core@1.2.0/dist/mtproto.min.js"></script>
