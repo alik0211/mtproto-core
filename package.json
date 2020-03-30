@@ -22,11 +22,9 @@
   },
   "author": "Ali Gasymov <alik0211alik@gmail.com> (https://gasymov.com/)",
   "main": "dist/mtproto.cjs.js",
-  "module": "dist/mtproto.esm.js",
   "repository": "github:alik0211/mtproto-core",
   "files": [
-    "/dist",
-    "/scheme/full.js"
+    "/dist"
   ],
   "scripts": {
     "start": "run-s merge-scheme && webpack-dev-server --color",

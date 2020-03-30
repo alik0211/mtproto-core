@@ -18,14 +18,6 @@ export default [
   {
     input: SOURCE,
     output: {
-      file: pkg.module,
-      format: 'esm',
-    },
-    plugins: [commonjs()],
-  },
-  {
-    input: SOURCE,
-    output: {
       file: 'dist/mtproto.min.js',
       format: 'umd',
       name: 'MTProto',
