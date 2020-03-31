@@ -24,15 +24,15 @@
   "main": "dist/mtproto.cjs.js",
   "repository": "github:alik0211/mtproto-core",
   "files": [
-    "/dist"
+    "/src",
+    "/scheme/full.js"
   ],
   "scripts": {
     "start": "run-s merge-scheme && webpack-dev-server --color",
-    "build": "rollup -c",
     "watch": "karma start --browsers Chrome",
     "test": "karma start --browsers ChromeCI --single-run",
     "merge-scheme": "node scripts/merge-scheme.js",
-    "prepublishOnly": "run-s merge-scheme build"
+    "prepublishOnly": "run-s merge-scheme"
   },
   "license": "GPL-3.0",
   "dependencies": {
@@ -47,8 +47,6 @@
   "devDependencies": {
     "@babel/core": "7.9.0",
     "@babel/preset-env": "7.9.0",
-    "@rollup/plugin-commonjs": "11.0.2",
-    "@rollup/plugin-node-resolve": "7.1.1",
     "dotenv-webpack": "1.7.0",
     "html-webpack-plugin": "3.2.0",
     "jasmine-core": "3.5.0",
@@ -58,9 +56,6 @@
     "karma-mocha-reporter": "2.2.5",
     "karma-webpack": "4.0.2",
     "npm-run-all": "4.1.5",
-    "rollup": "2.2.0",
-    "rollup-plugin-babel": "4.4.0",
-    "rollup-plugin-uglify": "6.0.4",
     "webpack": "4.41.2",
     "webpack-cli": "3.3.10",
     "webpack-dev-server": "3.10.3"

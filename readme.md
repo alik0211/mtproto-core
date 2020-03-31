@@ -12,19 +12,10 @@ Telegram API (MTProto) client library for browser
 * **2FA.** Use the library's built-in function to calculate 2FA parameters
 
 ## Install
-### Module
 ```sh
 yarn add @mtproto/core -E
 # or
 npm i @mtproto/core -E
-```
-
-### Browser
-
-It is **not recommended** to use it in production.
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/@mtproto/core@1.2.0/dist/mtproto.min.js"></script>
 ```
 
 ## Quick start
@@ -32,7 +23,7 @@ It is **not recommended** to use it in production.
 You need **api_id** and **api_hash**. If you do not have them yet, then get them according to the official instructions: [creating your Telegram application](https://core.telegram.org/api/obtaining_api_id).
 
 ```js
-const MTProto = require('@mtproto/core');
+const { MTProto } = require('@mtproto/core');
 
 const api_id = 'YOU_API_ID';
 const api_hash = 'YOU_API_HASH';
@@ -148,7 +139,7 @@ mtproto.updates.on('updateShort', message => {
 });
 ```
 
-### `MTProto.getSRPParams({ g, p, salt1, salt2, gB, password }) => { A, M1 }`
+### `getSRPParams({ g, p, salt1, salt2, gB, password }) => { A, M1 }`
 
 For more information about parameters, see the [article on the Telegram website](https://core.telegram.org/api/srp).
 

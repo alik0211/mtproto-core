@@ -631,6 +631,4 @@ class MTProto {
   }
 }
 
-MTProto.getSRPParams = getSRPParams;
-
-module.exports = MTProto;
+module.exports = { MTProto, getSRPParams };
