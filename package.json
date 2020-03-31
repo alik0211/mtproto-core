@@ -21,7 +21,7 @@
     "url": "https://github.com/alik0211/mtproto-core/issues"
   },
   "author": "Ali Gasymov <alik0211alik@gmail.com> (https://gasymov.com/)",
-  "main": "dist/mtproto.cjs.js",
+  "main": "src/main.js",
   "repository": "github:alik0211/mtproto-core",
   "files": [
     "/src",
