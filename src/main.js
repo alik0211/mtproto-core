@@ -97,6 +97,15 @@ class MTProto {
       this.handleMessage = this.handleEncryptedMessage;
       this.isReady = true;
       this.sendWaitMessages();
+
+      // This request is necessary to ensure that you start interacting with the server. If we have not made any request, the server will not send us updates.
+      this.call('help.getConfig')
+        .then(result => {
+          // TODO: Handle config
+        })
+        .catch(error => {
+          console.log(`Error when calling the method help.getConfig:`, error);
+        });
     } else {
       this.nonce = getRandomBytes(16);
       this.handleMessage = this.handlePQResponse;
