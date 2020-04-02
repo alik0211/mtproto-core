@@ -15,12 +15,6 @@ AES.CTR = aesjs.ModeOfOperation.ctr;
 const createArray = aesjs._arrayTest.createArray;
 const copyArray = aesjs._arrayTest.copyArray;
 
-function xor(bytes, block, offset = 0) {
-  for (var i = 0; i < 16; i++) {
-    bytes[offset + i] ^= block[i];
-  }
-}
-
 class ModeOfOperationIGE {
   constructor(key, iv) {
     this.description = 'Infinite Garble Extension';
@@ -48,9 +42,9 @@ class ModeOfOperationIGE {
       const nextIv2p = plaintext.slice(i, i + 16);
 
       copyArray(plaintext, block, 0, i, i + 16);
-      xor(block, this._ivp);
+      block = xorBytes(block, this._ivp);
       block = this._aes.encrypt(block);
-      xor(block, this._iv2p);
+      block = xorBytes(block, this._iv2p);
       copyArray(block, ciphertext, i);
 
       this._ivp = ciphertext.slice(i, i + 16);
@@ -77,9 +71,9 @@ class ModeOfOperationIGE {
       const nextIvp = ciphertext.slice(i, i + 16);
 
       copyArray(ciphertext, block, 0, i, i + 16);
-      xor(block, this._iv2p);
+      block = xorBytes(block, this._iv2p);
       block = this._aes.decrypt(block);
-      xor(block, this._ivp);
+      block = xorBytes(block, this._ivp);
       copyArray(block, plaintext, i);
 
       this._ivp = nextIvp;
