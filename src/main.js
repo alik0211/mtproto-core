@@ -15,10 +15,10 @@ const {
   longFromInts,
   rsaEncrypt,
   getRandomInt,
-  pqPrimeFactorization,
   convertToByteArray,
   xorBytes,
 } = require('./utils/common');
+const { pqPrimeFactorization } = require('./utils/pq');
 const { AES, SHA1, SHA256, getSRPParams } = require('./utils/crypto');
 const { getRsaKeyByFingerprints } = require('./utils/rsa');
 
