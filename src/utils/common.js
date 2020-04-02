@@ -1,5 +1,4 @@
 const bigInt = require('big-integer');
-const BigInteger = require('jsbn').BigInteger;
 const {
   eGCD_,
   greater,
@@ -211,11 +210,9 @@ function bufferConcat(buffer1, buffer2) {
 }
 
 function longToInts(sLong) {
-  var divRem = new BigInteger(sLong, 10).divideAndRemainder(
-    new BigInteger((0x100000000).toString(16), 16)
-  );
+  const { quotient, remainder } = bigInt(sLong).divmod(bigInt(0x100000000));
 
-  return [divRem[0].intValue(), divRem[1].intValue()];
+  return [uintToInt(quotient.toJSNumber()), uintToInt(remainder.toJSNumber())];
 }
 
 function longToBytes(sLong) {
@@ -256,15 +253,15 @@ function getRandomInt(maxValue) {
 }
 
 function pqPrimeFactorization(pqBytes) {
-  var what = new BigInteger(pqBytes);
-  var result = false;
+  const pq = bytesToBigInt(pqBytes);
+  let result = null;
 
   try {
     result = pqPrimeLeemon(
-      str2bigInt(what.toString(16), 16, Math.ceil(64 / bpe) + 1)
+      str2bigInt(pq.toString(16), 16, Math.ceil(64 / bpe) + 1)
     );
-  } catch (e) {
-    console.error('Pq leemon Exception', e);
+  } catch (error) {
+    console.error(`PQ leemon factorization: ${error}`);
   }
 
   return result;
