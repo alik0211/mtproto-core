@@ -259,8 +259,6 @@ function pqPrimeFactorization(pqBytes) {
   var what = new BigInteger(pqBytes);
   var result = false;
 
-  // console.log(dT(), 'PQ start', pqBytes, what.toString(16), what.bitLength())
-
   try {
     result = pqPrimeLeemon(
       str2bigInt(what.toString(16), 16, Math.ceil(64 / bpe) + 1)
@@ -269,161 +267,7 @@ function pqPrimeFactorization(pqBytes) {
     console.error('Pq leemon Exception', e);
   }
 
-  if (result === false && what.bitLength() <= 64) {
-    // console.time('PQ long')
-    try {
-      result = pqPrimeLong(goog.math.Long.fromString(what.toString(16), 16));
-    } catch (e) {
-      console.error('Pq long Exception', e);
-    }
-    // console.timeEnd('PQ long')
-  }
-  // console.log(result)
-
-  if (result === false) {
-    // console.time('pq BigInt')
-    result = pqPrimeBigInteger(what);
-    // console.timeEnd('pq BigInt')
-  }
-
-  // console.log(dT(), 'PQ finish')
-
   return result;
-}
-
-function pqPrimeBigInteger(what) {
-  var it = 0,
-    g;
-  for (var i = 0; i < 3; i++) {
-    var q = (getRandomInt(128) & 15) + 17;
-    var x = new BigInteger((getRandomInt(1000000000) + 1).toString(16), 16);
-    var y = x.clone();
-    var lim = 1 << (i + 18);
-
-    for (var j = 1; j < lim; j++) {
-      ++it;
-      var a = x.clone();
-      var b = x.clone();
-      var c = new BigInteger(q.toString(16), 16);
-
-      while (!b.equals(BigInteger.ZERO)) {
-        if (!b.and(BigInteger.ONE).equals(BigInteger.ZERO)) {
-          c = c.add(a);
-          if (c.compareTo(what) > 0) {
-            c = c.subtract(what);
-          }
-        }
-        a = a.add(a);
-        if (a.compareTo(what) > 0) {
-          a = a.subtract(what);
-        }
-        b = b.shiftRight(1);
-      }
-
-      x = c.clone();
-      var z = x.compareTo(y) < 0 ? y.subtract(x) : x.subtract(y);
-      g = z.gcd(what);
-      if (!g.equals(BigInteger.ONE)) {
-        break;
-      }
-      if ((j & (j - 1)) == 0) {
-        y = x.clone();
-      }
-    }
-    if (g.compareTo(BigInteger.ONE) > 0) {
-      break;
-    }
-  }
-
-  var f = what.divide(g),
-    P,
-    Q;
-
-  if (g.compareTo(f) > 0) {
-    P = f;
-    Q = g;
-  } else {
-    P = g;
-    Q = f;
-  }
-
-  return [bytesFromBigInt(P), bytesFromBigInt(Q), it];
-}
-
-function gcdLong(a, b) {
-  while (a.notEquals(goog.math.Long.ZERO) && b.notEquals(goog.math.Long.ZERO)) {
-    while (b.and(goog.math.Long.ONE).equals(goog.math.Long.ZERO)) {
-      b = b.shiftRight(1);
-    }
-    while (a.and(goog.math.Long.ONE).equals(goog.math.Long.ZERO)) {
-      a = a.shiftRight(1);
-    }
-    if (a.compare(b) > 0) {
-      a = a.subtract(b);
-    } else {
-      b = b.subtract(a);
-    }
-  }
-  return b.equals(goog.math.Long.ZERO) ? a : b;
-}
-
-function pqPrimeLong(what) {
-  var it = 0,
-    g;
-  for (var i = 0; i < 3; i++) {
-    var q = goog.math.Long.fromInt((getRandomInt(128) & 15) + 17);
-    var x = goog.math.Long.fromInt(getRandomInt(1000000000) + 1);
-    var y = x;
-    var lim = 1 << (i + 18);
-
-    for (var j = 1; j < lim; j++) {
-      ++it;
-      var a = x;
-      var b = x;
-      var c = q;
-
-      while (b.notEquals(goog.math.Long.ZERO)) {
-        if (b.and(goog.math.Long.ONE).notEquals(goog.math.Long.ZERO)) {
-          c = c.add(a);
-          if (c.compare(what) > 0) {
-            c = c.subtract(what);
-          }
-        }
-        a = a.add(a);
-        if (a.compare(what) > 0) {
-          a = a.subtract(what);
-        }
-        b = b.shiftRight(1);
-      }
-
-      x = c;
-      var z = x.compare(y) < 0 ? y.subtract(x) : x.subtract(y);
-      g = gcdLong(z, what);
-      if (g.notEquals(goog.math.Long.ONE)) {
-        break;
-      }
-      if ((j & (j - 1)) == 0) {
-        y = x;
-      }
-    }
-    if (g.compare(goog.math.Long.ONE) > 0) {
-      break;
-    }
-  }
-
-  var f = what.div(g),
-    P,
-    Q;
-
-  if (g.compare(f) > 0) {
-    P = f;
-    Q = g;
-  } else {
-    P = g;
-    Q = f;
-  }
-
-  return [bytesFromHex(P.toString(16)), bytesFromHex(Q.toString(16)), it];
 }
 
 function pqPrimeLeemon(what) {
@@ -529,8 +373,4 @@ module.exports = {
   rsaEncrypt,
   getRandomInt,
   pqPrimeFactorization,
-  pqPrimeBigInteger,
-  gcdLong,
-  pqPrimeLong,
-  pqPrimeLeemon,
 };
