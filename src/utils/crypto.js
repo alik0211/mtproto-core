@@ -85,6 +85,22 @@ class ModeOfOperationIGE {
 
 AES.IGE = ModeOfOperationIGE;
 
+class RSA {
+  constructor(publicKey) {
+    this.exponent = publicKey.exponent;
+    this.modulus = publicKey.modulus;
+  }
+
+  encrypt(bytes) {
+    const encryptedBigInt = bytesToBigInt(bytes).modPow(
+      bigInt(this.exponent, 16),
+      bigInt(this.modulus, 16)
+    );
+
+    return bigIntToBytes(encryptedBigInt, 256);
+  }
+}
+
 async function SHA1(data) {
   return new Uint8Array(await crypto.subtle.digest('SHA-1', data));
 }
@@ -172,4 +188,4 @@ async function getSRPParams({ g, p, salt1, salt2, gB, password }) {
   return { A: gABytes, M1 };
 }
 
-module.exports = { AES, SHA1, SHA256, PBKDF2, getSRPParams };
+module.exports = { AES, RSA, SHA1, SHA256, PBKDF2, getSRPParams };

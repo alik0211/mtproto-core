@@ -7,6 +7,7 @@ const Transport = require('./transport');
 const TLSerializer = require('./tl/serializer');
 const TLDeserializer = require('./tl/deserializer');
 const {
+  bytesIsEqual,
   bytesToHex,
   getRandomBytes,
   concatBytes,
@@ -14,13 +15,12 @@ const {
   bigIntToBytes,
   longToBytes,
   longFromInts,
-  rsaEncrypt,
   getRandomInt,
   convertToByteArray,
   xorBytes,
 } = require('./utils/common');
 const { pqPrimeFactorization } = require('./utils/pq');
-const { AES, SHA1, SHA256, getSRPParams } = require('./utils/crypto');
+const { AES, RSA, SHA1, SHA256, getSRPParams } = require('./utils/crypto');
 const { getRsaKeyByFingerprints } = require('./utils/rsa');
 
 class MTProto {
@@ -166,7 +166,7 @@ class MTProto {
     innerData.set(dataHash);
     innerData.set(data, dataHash.length);
 
-    const encryptedData = rsaEncrypt(publicKey, innerData);
+    const encryptedData = new RSA(publicKey).encrypt(innerData);
 
     this.sendPlainMessage('req_DH_params', {
       nonce: this.nonce,

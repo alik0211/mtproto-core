@@ -1,5 +1,19 @@
 const bigInt = require('big-integer');
 
+function bytesIsEqual(bytes1, bytes2) {
+  if (bytes1.length !== bytes2.length) {
+    return false;
+  }
+
+  for (let i = 0; i < bytes1.length; i++) {
+    if (bytes1[i] !== bytes2[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function bigIntToBytes(bigInt, length) {
   return hexToBytes(bigInt.toString(16), length);
 }
@@ -68,12 +82,11 @@ function concatBytes(...arrays) {
 }
 
 function bytesToHex(bytes) {
-  bytes = bytes || [];
-  var arr = [];
-  for (var i = 0; i < bytes.length; i++) {
-    arr.push((bytes[i] < 16 ? '0' : '') + (bytes[i] || 0).toString(16));
+  const result = [];
+  for (let i = 0; i < bytes.length; i++) {
+    result.push((bytes[i] < 16 ? '0' : '') + bytes[i].toString(16));
   }
-  return arr.join('');
+  return result.join('');
 }
 
 function bytesFromHex(hexString) {
@@ -92,20 +105,6 @@ function bytesFromHex(hexString) {
   }
 
   return bytes;
-}
-
-function bytesCmp(bytes1, bytes2) {
-  var len = bytes1.length;
-  if (len != bytes2.length) {
-    return false;
-  }
-
-  for (var i = 0; i < len; i++) {
-    if (bytes1[i] != bytes2[i]) {
-      return false;
-    }
-  }
-  return true;
 }
 
 function bytesXor(bytes1, bytes2) {
@@ -218,20 +217,12 @@ function uintToInt(val) {
   return val;
 }
 
-function rsaEncrypt(publicKey, bytes) {
-  const encryptedBigInt = bytesToBigInt(bytes).modPow(
-    bigInt(publicKey.exponent, 16),
-    bigInt(publicKey.modulus, 16)
-  );
-
-  return bigIntToBytes(encryptedBigInt, 256);
-}
-
 function getRandomInt(maxValue) {
   return Math.floor(Math.random() * maxValue);
 }
 
 module.exports = {
+  bytesIsEqual,
   bigIntToBytes,
   hexToBytes,
   bytesToBigInt,
@@ -240,7 +231,6 @@ module.exports = {
   concatBytes,
   bytesToHex,
   bytesFromHex,
-  bytesCmp,
   bytesXor,
   bytesFromWords,
   bytesFromBigInt,
@@ -252,6 +242,5 @@ module.exports = {
   longFromInts,
   intToUint,
   uintToInt,
-  rsaEncrypt,
   getRandomInt,
 };
