@@ -285,8 +285,11 @@ class MTProto {
     );
     const innerData = innerSerializer.getBytes();
 
+    const innerDataHash = await SHA1(innerData);
+    const paddingLength = 16 - ((innerDataHash.length + innerData.length) % 16);
+
     const encryptedData = new AES.IGE(this.tmpAesKey, this.tmpAesIV).encrypt(
-      concatBytes(await SHA1(innerData), innerData, 16)
+      concatBytes(innerDataHash, innerData, getRandomBytes(paddingLength))
     );
 
     this.sendPlainMessage('set_client_DH_params', {
@@ -321,9 +324,7 @@ class MTProto {
   async sendWaitMessages() {
     this.messagesWaitAuth.forEach(message => {
       const { method, params, resolve, reject } = message;
-      this.call(method, params)
-        .then(resolve)
-        .catch(reject);
+      this.call(method, params).then(resolve).catch(reject);
     });
 
     this.messagesWaitAuth = [];

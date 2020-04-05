@@ -56,29 +56,21 @@ function xorBytes(bytes1, bytes2) {
 }
 
 function concatBytes(...arrays) {
-  let totalLength = 0;
+  let length = 0;
+
   for (let bytes of arrays) {
-    if (typeof bytes === 'number') {
-      // padding
-      totalLength = Math.ceil(totalLength / bytes) * bytes;
-    } else {
-      totalLength += bytes.byteLength;
-    }
+    length += bytes.length;
   }
-  let merged = new Uint8Array(totalLength);
+
+  let result = new Uint8Array(length);
   let offset = 0;
+
   for (let bytes of arrays) {
-    if (typeof bytes === 'number') {
-      merged.set(getRandomBytes(totalLength - offset), offset);
-    } else {
-      merged.set(
-        bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes,
-        offset
-      );
-      offset += bytes.byteLength;
-    }
+    result.set(bytes, offset);
+    offset += bytes.length;
   }
-  return merged;
+
+  return result;
 }
 
 function bytesToHex(bytes) {
@@ -198,10 +190,7 @@ function longToBytes(sLong) {
 }
 
 function longFromInts(high, low) {
-  return bigInt(high)
-    .shiftLeft(32)
-    .add(bigInt(low))
-    .toString(10);
+  return bigInt(high).shiftLeft(32).add(bigInt(low)).toString(10);
 }
 
 function intToUint(value) {
