@@ -7,9 +7,9 @@ Telegram API (MTProto) client library for browser
 
 * **Actual.** 108 layer in the API scheme
 * **Fast.** Uses WebSocket to work with the network
-* **Easy.** Cryptography is hidden. Just make requests to the API
-* **Events.** Subscribe to updates via the EventEmitter API
-* **2FA.** Use the library's built-in function to calculate 2FA parameters
+* **Easy.** Cryptography is hidden. [Just make requests](#mtprotocallmethod-options--promise) to the API
+* **Events.** [Subscribe to updates](#mtprotoupdatesonupdatesname-handler) via the EventEmitter API
+* **2FA.** Use the [library's built-in function](#getsrpparams-g-p-salt1-salt2-gb-password----a-m1-) to calculate 2FA parameters
 
 ## Install
 ```sh
@@ -69,14 +69,70 @@ mtproto
       .catch(error => {
         if (error.error_message === 'SESSION_PASSWORD_NEEDED') {
           // Need use 2FA
-          // https://github.com/alik0211/mtproto-core#2fa-two-factor-authentication
         }
       });
   });
 ```
 
-## 2FA (Two-factor authentication)
+## API
 
+### `mtproto.call(method, options) => Promise`
+Select method and options from [methods list](https://core.telegram.org/methods). `Promise.then` contain result. `Promise.catch` contain error with the `error_code` and `error_message` properties.
+
+Example:
+```js
+mtproto.call('help.getNearestDc').then(result => {
+  console.log(`result:`, result);
+}).catch(error => {
+  console.log(`error:`, error);
+});
+```
+
+### `mtproto.updates.on(UpdatesName, handler)`
+Authorized users are being [Updates](https://core.telegram.org/type/Updates). They can be handled using `mtproto.updates.on`. Example of handling a [updateShort](https://core.telegram.org/constructor/updateShort) with [updateUserStatus](https://core.telegram.org/constructor/updateUserStatus):
+```js
+mtproto.updates.on('updateShort', message => {
+  const { update } = message;
+
+  if (update._ === 'updateUserStatus') {
+    const { user_id, status } = update;
+
+    console.log(`User with id ${user_id} change status to ${status}`);
+  }
+});
+```
+
+### `mtproto.changeDc(dcId)`
+If a [migration error](https://core.telegram.org/api/errors#303-see-other) occurs, you can use this function to change the [data center](https://core.telegram.org/api/datacenter).
+
+Example:
+```js
+mtproto
+  .call('auth.sendCode', {
+    phone_number: '+9996621111',
+    settings: {
+      _: 'codeSettings',
+    },
+  })
+  .then(result => {
+    // Handle result
+  })
+  .catch(error => {
+    if (error.error_message.includes('_MIGRATE_')) {
+      const [item, dcId] = error.error_message.split('_MIGRATE_');
+
+      mtproto.changeDc(dcId);
+
+      // Repeat call this
+    }
+  });
+```
+
+### `getSRPParams({ g, p, salt1, salt2, gB, password }) => { A, M1 }`
+
+For more information about parameters, see the [article on the Telegram website](https://core.telegram.org/api/srp).
+
+Example 2FA (Two-factor authentication):
 ```js
 const { getSRPParams } = require('@mtproto/core');
 
@@ -110,40 +166,6 @@ mtproto
     console.log(`auth.checkPassword[result]:`, result);
   });
 ```
-
-## API
-
-### `mtproto.call(method, options) => Promise`
-Select method and options from [methods list](https://core.telegram.org/methods). `Promise.then` contain result. `Promise.catch` contain error with the `error_code` and `error_message` properties.
-
-Example:
-```js
-mtproto.call('help.getNearestDc').then(result => {
-  console.log(`result:`, result);
-}).catch(error => {
-  console.log(`error:`, error);
-});
-```
-
-### `mtproto.updates.on(UpdatesName, handler)`
-Authorized users are being [Updates](https://core.telegram.org/type/Updates). They can be handled using `mtproto.updates.on`. Example of handling a [updateShort](https://core.telegram.org/constructor/updateShort) with [updateUserStatus](https://core.telegram.org/constructor/updateUserStatus):
-```js
-mtproto.updates.on('updateShort', message => {
-  const { update } = message;
-
-  if (update._ === 'updateUserStatus') {
-    const { user_id, status } = update;
-
-    console.log(`User with id ${user_id} change status to ${status}`);
-  }
-});
-```
-
-### `getSRPParams({ g, p, salt1, salt2, gB, password }) => { A, M1 }`
-
-For more information about parameters, see the [article on the Telegram website](https://core.telegram.org/api/srp).
-
-Example in [2FA (Two-factor authentication)](https://github.com/alik0211/mtproto-core#2fa-two-factor-authentication)
 
 ## Useful references
 
