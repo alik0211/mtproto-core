@@ -65,6 +65,17 @@ formPhone.addEventListener('submit', event => {
     .then(result => {
       phoneCodeHash = result.phone_code_hash;
       console.log(`phoneCodeHash:`, phoneCodeHash);
+    })
+    .catch(error => {
+      // error.error_message === 'PHONE_MIGRATE_2'
+
+      if (error.error_message.includes('_MIGRATE_')) {
+        const [item, dcId] = error.error_message.split('_MIGRATE_');
+
+        mtproto.changeDc(dcId);
+
+        // Repeat call this
+      }
     });
 });
 
