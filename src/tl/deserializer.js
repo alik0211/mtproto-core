@@ -1,3 +1,4 @@
+const pako = require('pako');
 const bigInt = require('big-integer');
 const schema = require('../../scheme/full');
 const { uintToInt } = require('../utils/common');
@@ -44,10 +45,7 @@ class TLDeserializer {
     const iLow = this.uint32();
     const iHigh = this.uint32();
 
-    const result = bigInt(iHigh)
-      .shiftLeft(32)
-      .add(bigInt(iLow))
-      .toString();
+    const result = bigInt(iHigh).shiftLeft(32).add(bigInt(iLow)).toString();
 
     return result;
   }
@@ -160,6 +158,14 @@ class TLDeserializer {
     const isContainer = type.charAt(0) === '%';
 
     const constructorId = isContainer ? 1538843921 : this.uint32();
+
+    if (constructorId === 812830625) {
+      const gzipBytes = this.bytes();
+      const uncompressed = pako.inflate(gzipBytes);
+      const deserializer = new TLDeserializer(uncompressed.buffer);
+
+      return deserializer.predicate(type);
+    }
 
     const constructor = schema.constructorsById[constructorId];
 

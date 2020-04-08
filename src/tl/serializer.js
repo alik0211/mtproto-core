@@ -8,7 +8,7 @@ class TLSerializer {
 
     this.maxLength = maxLength;
     this.offset = 0; // in bytes
-    this.padTo = 0;
+    this.paddingTo = 0;
 
     this.createBuffer();
   }
@@ -25,7 +25,7 @@ class TLSerializer {
     if (wordCount < 0x7f) {
       this.byteView[0] = wordCount;
       this.offset = 1;
-      this.padTo = 1;
+      this.paddingTo = 1;
     } else {
       this.byteView[0] = 0x7f;
       this.byteView[1] = wordCount & 0xff;
@@ -283,7 +283,7 @@ class TLSerializer {
     this.offset += length;
 
     // Padding
-    while (this.offset % 4 !== this.padTo) {
+    while (this.offset % 4 !== this.paddingTo) {
       this.byteView[this.offset++] = 0;
     }
   }

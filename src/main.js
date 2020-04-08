@@ -1,4 +1,3 @@
-const pako = require('pako');
 const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
 const EventEmitter = require('events');
@@ -418,12 +417,6 @@ class MTProto {
       case 'rpc_result':
         this.ackMessage(messageId);
 
-        if (message.result._ === 'gzip_packed') {
-          const uncompressed = pako.inflate(message.result.packed_data);
-          const deserializer = new TLDeserializer(uncompressed.buffer);
-
-          message.result = deserializer.predicate();
-        }
         waitMessage = this.messagesWaitResponse.get(message.req_msg_id);
 
         if (message.result._ === 'rpc_error') {
