@@ -1,8 +1,8 @@
 const fs = require('fs');
 
 const { intToUint } = require('../src/utils/common');
-const mtprotoSchema = require('../scheme/mtproto');
-const apiSchema = require('../scheme/api');
+const mtprotoSchema = require('../scheme/mtproto.json');
+const apiSchema = require('../scheme/api.json');
 
 const result = {
   constructorsById: {},
@@ -42,4 +42,4 @@ function handleMethods(method) {
 
 const fileContent = `module.exports = ${JSON.stringify(result, null, 2)};`;
 
-fs.writeFileSync('scheme/full.js', fileContent);
+fs.writeFileSync('scheme/index.js', fileContent);

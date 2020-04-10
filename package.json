@@ -24,8 +24,8 @@
   "main": "src/main.js",
   "repository": "github:alik0211/mtproto-core",
   "files": [
-    "/src",
-    "/scheme/full.js"
+    "src/**/*.js",
+    "scheme/index.js"
   ],
   "scripts": {
     "start": "run-s merge-scheme && webpack-dev-server --color",

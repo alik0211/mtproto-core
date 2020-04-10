@@ -12,8 +12,8 @@
 /build
 /dist
 /package
-/scheme/*.json
-/scheme/full.js
+/scheme/index.js
+/dual-publish-tmp
 
 # misc
 .DS_Store
