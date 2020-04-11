@@ -1,6 +1,6 @@
 const pako = require('pako');
 const bigInt = require('big-integer');
-const schema = require('../../scheme/full');
+const { schema } = require('../../scheme');
 const { uintToInt } = require('../utils/common');
 
 class TLDeserializer {

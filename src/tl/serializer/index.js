@@ -1,5 +1,5 @@
 const bigInt = require('big-integer');
-const schema = require('../../scheme/full');
+const { schema } = require('../../scheme');
 const { intToUint, bigIntToBytes } = require('../utils/common');
 
 class TLSerializer {

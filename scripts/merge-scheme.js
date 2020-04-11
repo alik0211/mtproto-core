@@ -40,6 +40,8 @@ function handleMethods(method) {
   result.methodsByName[method.method] = method;
 }
 
-const fileContent = `module.exports = ${JSON.stringify(result, null, 2)};`;
+const fileContent = `const schema = ${JSON.stringify(result, null, 2)};
+
+module.exports = { schema };`;
 
 fs.writeFileSync('scheme/index.js', fileContent);
