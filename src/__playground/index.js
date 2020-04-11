@@ -1,4 +1,4 @@
-const { MTProto, getSRPParams } = require('../main');
+const { MTProto, getSRPParams } = require('../../');
 
 const mtproto = new MTProto({
   api_id: process.env.API_ID,

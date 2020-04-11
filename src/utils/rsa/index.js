@@ -1,7 +1,7 @@
 const bigInt = require('big-integer');
-const TLSerializer = require('../tl/serializer');
-const { bytesToHex, bytesFromHex } = require('../utils/common');
-const { SHA1 } = require('../utils/crypto');
+const TLSerializer = require('../../tl/serializer');
+const { bytesToHex, bytesFromHex } = require('../../utils/common');
+const { SHA1 } = require('../../utils/crypto');
 
 const publisKeys = [
   {

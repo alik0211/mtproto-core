@@ -6,7 +6,7 @@ const {
   getRandomBytes,
   concatBytes,
   xorBytes,
-} = require('../utils/common');
+} = require('../../utils/common');
 
 const AES = aesjs.AES;
 AES.Counter = aesjs.Counter;

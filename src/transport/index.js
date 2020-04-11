@@ -1,6 +1,6 @@
 const EventEmitter = require('events');
-const { AES } = require('./utils/crypto');
-const { getRandomBytes } = require('./utils/common');
+const { AES } = require('../utils/crypto');
+const { getRandomBytes } = require('../utils/common');
 
 class Transport extends EventEmitter {
   constructor(url) {

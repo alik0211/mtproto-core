@@ -14,7 +14,7 @@ const {
   one,
   bpe,
 } = require('leemon');
-const { bytesFromHex, bytesToBigInt, getRandomInt } = require('./common');
+const { bytesFromHex, bytesToBigInt, getRandomInt } = require('../common');
 
 function bytesFromLeemonBigInt(bigInt, len) {
   var str = bigInt2str(bigInt, 16);
