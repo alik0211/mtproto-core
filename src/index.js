@@ -19,7 +19,7 @@ const {
   xorBytes,
 } = require('./utils/common');
 const { pqPrimeFactorization } = require('./utils/pq');
-const { AES, RSA, SHA1, SHA256, getSRPParams } = require('./utils/crypto');
+const { AES, RSA, SHA1, SHA256 } = require('./utils/crypto');
 const { getRsaKeyByFingerprints } = require('./utils/rsa');
 
 class MTProto {
@@ -672,4 +672,4 @@ class MTProto {
   }
 }
 
-module.exports = { MTProto, getSRPParams };
+module.exports = { MTProto };
