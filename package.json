@@ -29,6 +29,7 @@
   ],
   "scripts": {
     "start": "run-s merge-scheme && webpack-dev-server --color",
+    "start:node": "run-s merge-scheme && node src/__playground/node.js",
     "watch": "karma start --browsers Chrome",
     "test": "karma start --browsers ChromeCI --single-run",
     "merge-scheme": "node scripts/merge-scheme.js",

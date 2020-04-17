@@ -10,7 +10,7 @@ module.exports = {
   devtool: 'inline-source-map',
 
   entry: {
-    index: './src/__playground/index.js',
+    browser: './src/__playground/browser.js',
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
