@@ -645,7 +645,11 @@ class MTProto {
   }
 
   connect() {
-    this.transport = new Transport(this.storage.get('dcId'));
+    const dcId = this.storage.get('dcId');
+
+    this.transport = new Transport(dcId, {
+      test: this.test,
+    });
 
     this.transport.on('error', this.handleTransportError);
     this.transport.on('open', this.handleTransportOpen);

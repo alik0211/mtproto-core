@@ -4,10 +4,13 @@ const { AES } = require('../../utils/crypto');
 const { getRandomBytes } = require('../../utils/common');
 
 class TCP extends EventEmitter {
-  constructor(dcId) {
+  constructor(dcId, options = {}) {
     super();
 
+    const { test = false } = options;
+
     this.dcId = dcId;
+    this.test = test;
 
     this.connect();
   }
@@ -15,7 +18,9 @@ class TCP extends EventEmitter {
   connect() {
     this.socket = new Socket();
 
-    this.socket.connect(443, '149.154.167.40', async () => {
+    const ip = this.test ? '149.154.167.40' : '149.154.167.50';
+
+    this.socket.connect(443, ip, async () => {
       this.socket.on('data', async data => {
         const bytes = new Uint8Array(data);
 

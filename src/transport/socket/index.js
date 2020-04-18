@@ -3,8 +3,12 @@ const { AES } = require('../../utils/crypto');
 const { getRandomBytes } = require('../../utils/common');
 
 class Socket extends EventEmitter {
-  constructor(dcId) {
+  constructor(dcId, options = {}) {
     super();
+
+    const { test = false } = options;
+
+    this.test = test;
 
     this.setUrl(dcId);
 
