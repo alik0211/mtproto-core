@@ -7,6 +7,8 @@ const {
   concatBytes,
   xorBytes,
 } = require('../../utils/common');
+const { SHA1 } = require('./sha1');
+const { SHA256 } = require('./sha256');
 
 const AES = aesjs.AES;
 AES.Counter = aesjs.Counter;
@@ -99,14 +101,6 @@ class RSA {
 
     return bigIntToBytes(encryptedBigInt, 256);
   }
-}
-
-async function SHA1(data) {
-  return new Uint8Array(await crypto.subtle.digest('SHA-1', data));
-}
-
-async function SHA256(data) {
-  return new Uint8Array(await crypto.subtle.digest('SHA-256', data));
 }
 
 async function PBKDF2(hash, password, salt, iterations) {

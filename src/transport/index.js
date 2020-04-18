@@ -1,5 +1,5 @@
-const { Socket } = require('./socket');
+const { TCP } = require('./tcp');
 
-const Transport = Socket;
+const Transport = TCP;
 
 module.exports = { Transport };

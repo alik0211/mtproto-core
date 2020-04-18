@@ -1,3 +1,7 @@
+const { localStorage } = require('./local');
+
+const cache = {};
+
 class Storage {
   constructor(prefix) {
     this._prefix = prefix;
@@ -10,7 +14,7 @@ class Storage {
   // Set with prefix
   pSet(name, value) {
     const key = `${this._prefix}${name}`;
-    this[key] = value;
+    cache[key] = value;
 
     localStorage[key] = JSON.stringify(value);
   }
@@ -24,33 +28,33 @@ class Storage {
     const key = `${this._prefix}${name}`;
 
     if (key in this) {
-      return this[key];
+      return cache[key];
     }
 
     if (key in localStorage) {
-      this[key] = JSON.parse(localStorage[key]);
+      cache[key] = JSON.parse(localStorage[key]);
 
-      return this[key];
+      return cache[key];
     }
 
     return null;
   }
 
   set(key, value) {
-    this[key] = value;
+    cache[key] = value;
 
     localStorage[key] = JSON.stringify(value);
   }
 
   get(key) {
     if (key in this) {
-      return this[key];
+      return cache[key];
     }
 
     if (key in localStorage) {
-      this[key] = JSON.parse(localStorage[key]);
+      cache[key] = JSON.parse(localStorage[key]);
 
-      return this[key];
+      return cache[key];
     }
 
     return null;

@@ -1,4 +1,5 @@
 const bigInt = require('big-integer');
+const { getRandomBytes } = require('./random');
 
 function bytesIsEqual(bytes1, bytes2) {
   if (bytes1.length !== bytes2.length) {
@@ -41,11 +42,11 @@ function bytesToBigInt(bytes) {
   return bigInt(digits.join(''), 16);
 }
 
-function getRandomBytes(length) {
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  return bytes;
-}
+// function getRandomBytes(length) {
+//   const bytes = new Uint8Array(length);
+//   crypto.getRandomValues(bytes);
+//   return bytes;
+// }
 
 function xorBytes(bytes1, bytes2) {
   let bytes = new Uint8Array(bytes1.byteLength);

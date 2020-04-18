@@ -459,11 +459,11 @@ class MTProto {
     serializer.method('initConnection', {
       flags: 0, // because the proxy is not set
       api_id: this.api_id,
-      device_model: navigator.userAgent || 'Unknown UserAgent',
-      system_version: navigator.platform || 'Unknown Platform',
+      device_model: 'Unknown UserAgent',
+      system_version: 'Unknown Platform',
       app_version: '1.0.0',
-      system_lang_code: navigator.language || 'en',
-      lang_code: navigator.language || 'en',
+      system_lang_code: 'en',
+      lang_code: 'en',
     });
 
     serializer.method(method, {

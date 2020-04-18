@@ -27,9 +27,16 @@
     "src/**/*.js",
     "scheme/index.js"
   ],
+  "browser": {
+    "./src/transport/index.js": "./src/transport/index.browser.js",
+    "./src/storage/local/index.js": "./src/storage/local/index.browser.js",
+    "./src/utils/crypto/sha1/index.js": "./src/utils/crypto/sha1/index.browser.js",
+    "./src/utils/crypto/sha256/index.js": "./src/utils/crypto/sha256/index.browser.js",
+    "./src/utils/common/random/index.js": "./src/utils/common/random/index.browser.js"
+  },
   "scripts": {
     "start": "run-s merge-scheme && webpack-dev-server --color",
-    "start:node": "run-s merge-scheme && node src/__playground/node.js",
+    "start:node": "run-s merge-scheme && node -r dotenv/config src/__playground/node.js",
     "watch": "karma start --browsers Chrome",
     "test": "karma start --browsers ChromeCI --single-run",
     "merge-scheme": "node scripts/merge-scheme.js",
