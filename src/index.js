@@ -2,7 +2,7 @@ const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
 const EventEmitter = require('events');
 const Storage = require('./storage');
-const Transport = require('./transport');
+const { Transport } = require('./transport');
 const TLSerializer = require('./tl/serializer');
 const TLDeserializer = require('./tl/deserializer');
 const {
@@ -101,6 +101,7 @@ class MTProto {
       // This request is necessary to ensure that you start interacting with the server. If we have not made any request, the server will not send us updates.
       this.call('help.getConfig')
         .then(result => {
+          console.log(`help.getConfig[result]:`, result);
           // TODO: Handle config
         })
         .catch(error => {
@@ -529,6 +530,7 @@ class MTProto {
 
     const authKeyId = (await SHA1(authKey)).slice(-8);
     const serializer = new TLSerializer();
+    // TODO: Set header in transport
     serializer.setAbridgedHeader(
       authKeyId.length + messageKey.length + encryptedData.length
     );
@@ -630,32 +632,20 @@ class MTProto {
     return new AES.IGE(aesKey, aesIV);
   }
 
-  changeDc(dcId) {
-    // TODO: Add import/export auth
-    this.setDc(dcId);
-    this.recconect();
-  }
+  // changeDc(dcId) {
+  //   // TODO: Add import/export auth
+  //   this.setDc(dcId);
+  //   this.recconect();
+  // }
 
   setDc(dcId) {
     dcId = dcId || this.storage.get('dcId') || 2;
     this.storage.setPrefix(dcId);
     this.storage.set('dcId', dcId);
-
-    const subdomainsMap = {
-      1: 'pluto',
-      2: 'venus',
-      3: 'aurora',
-      4: 'vesta',
-      5: 'flora',
-    };
-
-    const urlPath = this.test ? '/apiws_test' : '/apiws';
-
-    this.url = `wss://${subdomainsMap[dcId]}.web.telegram.org${urlPath}`;
   }
 
   connect() {
-    this.transport = new Transport(this.url);
+    this.transport = new Transport(this.storage.get('dcId'));
 
     this.transport.on('error', this.handleTransportError);
     this.transport.on('open', this.handleTransportOpen);
