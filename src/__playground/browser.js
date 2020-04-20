@@ -4,6 +4,7 @@ const {
   checkPassword,
   getFullUser,
   getNearestDc,
+  getConfig,
   handleUpdates,
 } = require('./common');
 
@@ -36,5 +37,7 @@ getNearestDcButton.addEventListener('click', () => {
 });
 
 getFullUserButton.addEventListener('click', () => {
-  getFullUser();
+  getFullUser().then(result => {
+    console.log(`getFullUser[result]:`, result);
+  });
 });

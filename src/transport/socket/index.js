@@ -3,14 +3,12 @@ const { AES } = require('../../utils/crypto');
 const { getRandomBytes } = require('../../utils/common');
 
 class Socket extends EventEmitter {
-  constructor(dcId, options = {}) {
+  constructor(dc) {
     super();
 
-    const { test = false } = options;
+    this.dc = dc;
 
-    this.test = test;
-
-    this.setUrl(dcId);
+    this.setUrl();
 
     this.socket = new WebSocket(this.url, 'binary');
 
@@ -112,7 +110,7 @@ class Socket extends EventEmitter {
     }
   }
 
-  setUrl(dcId) {
+  setUrl() {
     const subdomainsMap = {
       1: 'pluto',
       2: 'venus',
@@ -121,7 +119,8 @@ class Socket extends EventEmitter {
       5: 'flora',
     };
 
-    const urlPath = this.test ? '/apiws_test' : '/apiws';
+    const dcId = this.dc.id;
+    const urlPath = this.dc.test ? '/apiws_test' : '/apiws';
 
     this.url = `wss://${subdomainsMap[dcId]}.web.telegram.org${urlPath}`;
   }

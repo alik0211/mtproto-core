@@ -32,6 +32,7 @@
     "./src/storage/local/index.js": "./src/storage/local/index.browser.js",
     "./src/utils/crypto/sha1/index.js": "./src/utils/crypto/sha1/index.browser.js",
     "./src/utils/crypto/sha256/index.js": "./src/utils/crypto/sha256/index.browser.js",
+    "./src/utils/crypto/pbkdf2/index.js": "./src/utils/crypto/pbkdf2/index.browser.js",
     "./src/utils/common/random/index.js": "./src/utils/common/random/index.browser.js"
   },
   "scripts": {

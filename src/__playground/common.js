@@ -23,7 +23,7 @@ function sendCode(phone) {
 
   state.phone = phone;
 
-  mtproto
+  return mtproto
     .call('auth.sendCode', {
       phone_number: state.phone,
       settings: {
@@ -50,67 +50,58 @@ function sendCode(phone) {
 function signIn(code) {
   state.code = code;
 
-  mtproto
-    .call('auth.signIn', {
+  return mtproto.call(
+    'auth.signIn',
+    {
       phone_code: state.code,
       phone_number: state.phone,
       phone_code_hash: state.phoneCodeHash,
-    })
-    .then(result => {
-      console.log(`auth.signIn[result]:`, result);
-    })
-    .catch(error => {
-      if (error.error_message === 'SESSION_PASSWORD_NEEDED') {
-        console.log(`Need password!`);
-      }
-    });
+    },
+    { syncAuth: true }
+  );
 }
 
 function checkPassword(password) {
   state.password = password;
 
-  mtproto
-    .call('account.getPassword')
-    .then(async result => {
-      const { srp_id, current_algo, secure_random, srp_B } = result;
-      const { salt1, salt2, g, p } = current_algo;
+  return mtproto.call('account.getPassword').then(async result => {
+    const { srp_id, current_algo, secure_random, srp_B } = result;
+    const { salt1, salt2, g, p } = current_algo;
 
-      const { A, M1 } = await getSRPParams({
-        g,
-        p,
-        salt1,
-        salt2,
-        gB: srp_B,
-        password,
-      });
+    const { A, M1 } = await getSRPParams({
+      g,
+      p,
+      salt1,
+      salt2,
+      gB: srp_B,
+      password,
+    });
 
-      return mtproto.call('auth.checkPassword', {
+    return mtproto.call(
+      'auth.checkPassword',
+      {
         password: {
           _: 'inputCheckPasswordSRP',
           srp_id,
           A,
           M1,
         },
-      });
-    })
-    .then(result => {
-      console.log(`auth.checkPassword[result]:`, result);
-    });
+      },
+      { syncAuth: true }
+    );
+  });
 }
 
-function getFullUser() {
-  mtproto
-    .call('users.getFullUser', {
+function getFullUser(options) {
+  return mtproto.call(
+    'users.getFullUser',
+    {
       id: {
         _: 'inputUserSelf',
       },
-    })
-    .then(response => {
-      console.log(`response:`, response);
-    })
-    .catch(error => {
-      console.log(`error:`, error);
-    });
+    },
+    options
+  );
 }
 
 function handleUpdates() {
@@ -126,9 +117,13 @@ function handleUpdates() {
   });
 }
 
-function getNearestDc() {
-  mtproto.call('help.getNearestDc').then(result => {
-    console.log(`help.getNearestDc[result]:`, result);
+function getNearestDc(options) {
+  return mtproto.call('help.getNearestDc', {}, options);
+}
+
+function getConfig() {
+  mtproto.call('help.getConfig').then(result => {
+    console.log(`help.getConfig[result]:`, result);
   });
 }
 
@@ -138,5 +133,6 @@ module.exports = {
   checkPassword,
   getFullUser,
   getNearestDc,
+  getConfig,
   handleUpdates,
 };

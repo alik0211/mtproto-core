@@ -9,6 +9,7 @@ const {
 } = require('../../utils/common');
 const { SHA1 } = require('./sha1');
 const { SHA256 } = require('./sha256');
+const { PBKDF2 } = require('./pbkdf2');
 
 const AES = aesjs.AES;
 AES.Counter = aesjs.Counter;
@@ -103,27 +104,6 @@ class RSA {
   }
 }
 
-async function PBKDF2(hash, password, salt, iterations) {
-  return new Uint8Array(
-    await crypto.subtle.deriveBits(
-      {
-        name: 'PBKDF2',
-        hash,
-        salt,
-        iterations,
-      },
-      await crypto.subtle.importKey(
-        'raw',
-        password,
-        { name: 'PBKDF2' },
-        false,
-        ['deriveBits']
-      ),
-      512
-    )
-  );
-}
-
 async function getSRPParams({ g, p, salt1, salt2, gB, password }) {
   const H = SHA256;
   const SH = (data, salt) => {
@@ -134,7 +114,7 @@ async function getSRPParams({ g, p, salt1, salt2, gB, password }) {
   };
   const PH2 = async (password, salt1, salt2) => {
     return await SH(
-      await PBKDF2('SHA-512', await PH1(password, salt1, salt2), salt1, 100000),
+      await PBKDF2(await PH1(password, salt1, salt2), salt1, 100000),
       salt2
     );
   };
@@ -182,4 +162,4 @@ async function getSRPParams({ g, p, salt1, salt2, gB, password }) {
   return { A: gABytes, M1 };
 }
 
-module.exports = { AES, RSA, SHA1, SHA256, PBKDF2, getSRPParams };
+module.exports = { AES, RSA, SHA1, SHA256, getSRPParams };
