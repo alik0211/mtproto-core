@@ -18,36 +18,30 @@ const state = {
   password: null,
 };
 
-function sendCode(phone) {
+function sendCode(phone, options) {
   console.log(`phone:`, phone);
 
   state.phone = phone;
 
   return mtproto
-    .call('auth.sendCode', {
-      phone_number: state.phone,
-      settings: {
-        _: 'codeSettings',
+    .call(
+      'auth.sendCode',
+      {
+        phone_number: state.phone,
+        settings: {
+          _: 'codeSettings',
+        },
       },
-    })
+      options
+    )
     .then(result => {
       console.log(`result.phone_code_hash:`, result.phone_code_hash);
       state.phoneCodeHash = result.phone_code_hash;
-    })
-    .catch(error => {
-      // error.error_message === 'PHONE_MIGRATE_2'
-
-      if (error.error_message.includes('_MIGRATE_')) {
-        const [item, dcId] = error.error_message.split('_MIGRATE_');
-
-        mtproto.changeDc(dcId);
-
-        // Repeat call this
-      }
+      return result;
     });
 }
 
-function signIn(code) {
+function signIn(code, options) {
   state.code = code;
 
   return mtproto.call(
@@ -57,14 +51,14 @@ function signIn(code) {
       phone_number: state.phone,
       phone_code_hash: state.phoneCodeHash,
     },
-    { syncAuth: true }
+    options
   );
 }
 
-function checkPassword(password) {
+function checkPassword(password, options) {
   state.password = password;
 
-  return mtproto.call('account.getPassword').then(async result => {
+  return mtproto.call('account.getPassword', {}, options).then(async result => {
     const { srp_id, current_algo, secure_random, srp_B } = result;
     const { salt1, salt2, g, p } = current_algo;
 
@@ -87,7 +81,7 @@ function checkPassword(password) {
           M1,
         },
       },
-      { syncAuth: true }
+      options
     );
   });
 }

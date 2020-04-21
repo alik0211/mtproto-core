@@ -33,7 +33,9 @@ formPassword.addEventListener('submit', event => {
 });
 
 getNearestDcButton.addEventListener('click', () => {
-  getNearestDc();
+  getNearestDc().then(result => {
+    console.log(`result:`, result);
+  });
 });
 
 getFullUserButton.addEventListener('click', () => {
