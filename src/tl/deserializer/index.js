@@ -14,19 +14,6 @@ class TLDeserializer {
     );
 
     this.offset = 0;
-    this.paddingTo = 0;
-  }
-
-  readAbridgedHeader() {
-    if (this.byteView[0] >= 1 && this.byteView[0] <= 0x7e) {
-      this.offset = 1;
-      this.paddingTo = 1;
-    } else if (this.byteView[0] === 0x7f) {
-      this.offset = 4;
-      this.paddingTo = 0;
-    } else {
-      throw new Error(`Invalid first byte: ${this.byteView[0]}`);
-    }
   }
 
   int() {
@@ -99,7 +86,7 @@ class TLDeserializer {
     }
     const bytes = this.byteView.slice(this.offset, (this.offset += length));
 
-    while (this.offset % 4 !== this.paddingTo) {
+    while (this.offset % 4 !== 0) {
       this.offset++;
     }
 

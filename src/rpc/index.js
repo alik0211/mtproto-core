@@ -120,7 +120,6 @@ class RPC {
 
   async handlePQResponse(buffer) {
     const deserializer = new TLDeserializer(buffer);
-    deserializer.readAbridgedHeader();
 
     const auth_key_id = deserializer.long('auth_key_id');
     const msg_id = deserializer.long('msg_id');
@@ -180,7 +179,6 @@ class RPC {
 
   async handleDHParams(buffer) {
     const deserializer = new TLDeserializer(buffer);
-    deserializer.readAbridgedHeader();
     const auth_key_id = deserializer.long('auth_key_id');
     const msg_id = deserializer.long('msg_id');
     const msg_len = deserializer.int('msg_len');
@@ -301,7 +299,6 @@ class RPC {
 
   async handleDHAnswer(buffer) {
     const deserializer = new TLDeserializer(buffer);
-    deserializer.readAbridgedHeader();
     const auth_key_id = deserializer.long('auth_key_id');
     const msg_id = deserializer.long('msg_id');
     const msg_len = deserializer.int('msg_len');
@@ -332,7 +329,6 @@ class RPC {
     const authKey = this.storage.pGetBytes('authKey');
 
     const deserializer = new TLDeserializer(buffer);
-    deserializer.readAbridgedHeader();
     const authKeyId = deserializer.long();
     const messageKey = deserializer.int128();
 
@@ -528,10 +524,6 @@ class RPC {
 
     const authKeyId = (await SHA1(authKey)).slice(-8);
     const serializer = new TLSerializer();
-    // TODO: Set header in transport
-    serializer.setAbridgedHeader(
-      authKeyId.length + messageKey.length + encryptedData.length
-    );
     serializer.bytesRaw(authKeyId);
     serializer.bytesRaw(messageKey);
     serializer.bytesRaw(encryptedData);
@@ -550,7 +542,6 @@ class RPC {
     const requestBytes = new Uint8Array(requestBuffer);
 
     const header = new TLSerializer();
-    header.bytesRaw(new Uint8Array([(requestLength + 20) / 4]));
     header.long([0, 0]); // auth_key_id (8)
     header.long(this.getMessageId()); // msg_id (8)
     header.uint32(requestLength); // request_length (4)

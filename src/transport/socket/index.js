@@ -1,8 +1,6 @@
-const EventEmitter = require('events');
-const { AES } = require('../../utils/crypto');
-const { getRandomBytes } = require('../../utils/common');
+const { Obfuscated } = require('../obfuscated');
 
-class Socket extends EventEmitter {
+class Socket extends Obfuscated {
   constructor(dc) {
     super();
 
@@ -44,62 +42,21 @@ class Socket extends EventEmitter {
     const fileReader = new FileReader();
     fileReader.onload = async event => {
       const obfuscatedBytes = new Uint8Array(event.target.result);
-      const buffer = await this.deobfuscate(obfuscatedBytes);
+      const bytes = await this.deobfuscate(obfuscatedBytes);
 
-      if (buffer.byteLength === 5) {
-        const code = new DataView(buffer).getInt32(1, true) * -1;
+      const payload = this.getIntermediatePayload(bytes);
 
-        return this.emit('error', {
-          type: 'transport',
-          code,
-        });
-      }
-
-      this.emit('message', buffer);
+      this.emit('message', payload.buffer);
     };
     fileReader.readAsArrayBuffer(event.data);
   }
 
-  async generateObfuscationKeys() {
-    const protocolId = 0xefefefef;
-    const init1bytes = getRandomBytes(64);
-    const init1buffer = init1bytes.buffer;
-    const init1data = new DataView(init1buffer);
-    init1data.setUint32(56, protocolId, true);
-
-    const init2buffer = new ArrayBuffer(init1buffer.byteLength);
-    const init2bytes = new Uint8Array(init2buffer);
-    for (let i = 0; i < init2buffer.byteLength; i++) {
-      init2bytes[init2buffer.byteLength - i - 1] = init1bytes[i];
-    }
-
-    let encryptKey = new Uint8Array(init1buffer, 8, 32);
-    const encryptIV = new Uint8Array(16);
-    encryptIV.set(new Uint8Array(init1buffer, 40, 16));
-
-    let decryptKey = new Uint8Array(init2buffer, 8, 32);
-    const decryptIV = new Uint8Array(16);
-    decryptIV.set(new Uint8Array(init2buffer, 40, 16));
-
-    this.encryptAES = new AES.CTR(encryptKey, encryptIV);
-    this.decryptAES = new AES.CTR(decryptKey, decryptIV);
-
-    const init3buffer = await this.obfuscate(init1bytes);
-    init1bytes.set(new Uint8Array(init3buffer, 56, 8), 56);
-
-    return init1bytes;
-  }
-
-  async obfuscate(bytes) {
-    return this.encryptAES.encrypt(bytes).buffer;
-  }
-
-  async deobfuscate(bytes) {
-    return this.decryptAES.decrypt(bytes).buffer;
-  }
-
   async send(bytes) {
-    this.socket.send(await this.obfuscate(bytes));
+    const intermediateBytes = this.getIntermediateBytes(bytes);
+
+    const buffer = (await this.obfuscate(intermediateBytes)).buffer;
+
+    this.socket.send(buffer);
   }
 
   destroy() {

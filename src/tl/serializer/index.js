@@ -8,7 +8,6 @@ class TLSerializer {
 
     this.maxLength = maxLength;
     this.offset = 0; // in bytes
-    this.paddingTo = 0;
 
     this.createBuffer();
   }
@@ -17,22 +16,6 @@ class TLSerializer {
     this.buffer = new ArrayBuffer(this.maxLength);
     this.dataView = new DataView(this.buffer);
     this.byteView = new Uint8Array(this.buffer);
-  }
-
-  setAbridgedHeader(length) {
-    const wordCount = length / 4;
-
-    if (wordCount < 0x7f) {
-      this.byteView[0] = wordCount;
-      this.offset = 1;
-      this.paddingTo = 1;
-    } else {
-      this.byteView[0] = 0x7f;
-      this.byteView[1] = wordCount & 0xff;
-      this.byteView[2] = (wordCount >> 8) & 0xff;
-      this.byteView[3] = (wordCount >> 16) & 0xff;
-      this.offset = 4;
-    }
   }
 
   getBuffer() {
@@ -283,7 +266,7 @@ class TLSerializer {
     this.offset += length;
 
     // Padding
-    while (this.offset % 4 !== this.paddingTo) {
+    while (this.offset % 4 !== 0) {
       this.byteView[this.offset++] = 0;
     }
   }
