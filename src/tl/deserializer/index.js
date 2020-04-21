@@ -69,12 +69,13 @@ class TLDeserializer {
   }
 
   bool() {
-    const id = this.int();
-    if (id == 0x997275b5) {
+    const id = this.uint32();
+
+    if (id === schema.constructorsIdsByPredicate.boolTrue) {
       return true;
     }
 
-    if (id == 0xbc799737) {
+    if (id === schema.constructorsIdsByPredicate.boolFalse) {
       return false;
     }
 
