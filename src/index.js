@@ -1,26 +1,3 @@
-const bigInt = require('big-integer');
-const debounce = require('lodash.debounce');
-const EventEmitter = require('events');
-const Storage = require('./storage');
-const { Transport } = require('./transport');
-const TLSerializer = require('./tl/serializer');
-const TLDeserializer = require('./tl/deserializer');
-const {
-  bytesIsEqual,
-  bytesToHex,
-  getRandomBytes,
-  concatBytes,
-  bytesToBigInt,
-  bigIntToBytes,
-  longToBytes,
-  longFromInts,
-  getRandomInt,
-  convertToByteArray,
-  xorBytes,
-} = require('./utils/common');
-const { pqPrimeFactorization } = require('./utils/pq');
-const { AES, RSA, SHA1, SHA256 } = require('./utils/crypto');
-const { getRsaKeyByFingerprints } = require('./utils/rsa');
 const { RPC } = require('./rpc');
 
 const TEST_DC_LIST = [
@@ -74,6 +51,8 @@ const PRODUCTION_DC_LIST = [
 
 const DEFAULT_DC_ID = 2;
 
+// TODO: Handle updates
+
 class MTProto {
   constructor({ api_id, api_hash, test = false }) {
     this.api_id = api_id;
@@ -100,9 +79,7 @@ class MTProto {
 
     return this.rpcs[dcId].call(method, params).then(result => {
       if (syncAuth && result._ === 'auth.authorization') {
-        return this.syncAuth(dcId).then(syncResult => {
-          return result;
-        });
+        return this.syncAuth(dcId).then(() => result);
       }
 
       return result;
@@ -118,9 +95,13 @@ class MTProto {
         return;
       }
 
-      const promise = this.call('auth.exportAuthorization', {
-        dc_id: dc.id,
-      }).then(result => {
+      const promise = this.call(
+        'auth.exportAuthorization',
+        {
+          dc_id: dc.id,
+        },
+        { dcId }
+      ).then(result => {
         return this.call(
           'auth.importAuthorization',
           {
