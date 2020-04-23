@@ -71,9 +71,10 @@ class RPC {
   async handleTransportError(payload) {
     const { type } = payload;
 
+    console.warn('Transport error:', payload);
+
     // https://core.telegram.org/mtproto/mtproto-transports#transport-errors
     if (type === 'transport') {
-      console.warn('Transport error:', payload.code);
       // Auth key not found
       if (payload.code === 404) {
         this.storage.pSet('authKey', null);
@@ -84,7 +85,7 @@ class RPC {
 
       // transport flood
       if (payload.code === 429) {
-        return this.recconect();
+        console.warn('Transport flood');
       }
     }
   }
