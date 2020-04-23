@@ -1,6 +1,7 @@
 const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
 const EventEmitter = require('events');
+const { meta } = require('../meta');
 const Storage = require('../storage');
 const { Transport } = require('../transport');
 const TLSerializer = require('../tl/serializer');
@@ -450,12 +451,11 @@ class RPC {
       layer: 108,
     });
 
-    // TODO: Optimize meta info
     serializer.method('initConnection', {
       flags: 0, // because the proxy is not set
       api_id: this.api_id,
-      device_model: 'Unknown UserAgent',
-      system_version: 'Unknown Platform',
+      device_model: meta.device_model,
+      system_version: meta.system_version,
       app_version: '1.0.0',
       system_lang_code: 'en',
       lang_code: 'en',

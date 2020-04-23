@@ -7,6 +7,10 @@ const {
   getConfig,
 } = require('./common');
 
-getNearestDc().then(result => {
-  console.log(`result:`, result);
-});
+getNearestDc()
+  .then(result => {
+    console.log(`result:`, result);
+  })
+  .catch(error => {
+    console.log(`error:`, error);
+  });
