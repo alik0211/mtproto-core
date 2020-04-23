@@ -7,36 +7,49 @@ class TCP extends Obfuscated {
 
     this.dc = dc;
 
+    this.handleConnect = this.handleConnect.bind(this);
+    this.handleData = this.handleData.bind(this);
+    this.handleError = this.handleError.bind(this);
+    this.handleClose = this.handleClose.bind(this);
+
     this.connect();
   }
 
   connect() {
     this.socket = new Socket();
 
-    this.socket.connect(this.dc.port, this.dc.ip, async () => {
-      this.socket.on('data', async data => {
-        const bytes = new Uint8Array(data);
+    this.socket.on('data', this.handleData);
+    this.socket.on('error', this.handleError);
+    this.socket.on('close', this.handleClose);
 
-        const deobfuscatedBytes = await this.deobfuscate(bytes);
+    this.socket.connect(this.dc.port, this.dc.ip, this.handleConnect);
+  }
 
-        const payload = this.getIntermediatePayload(deobfuscatedBytes);
+  async handleData(data) {
+    const bytes = new Uint8Array(data);
 
-        this.emit('message', payload.buffer);
-      });
+    const deobfuscatedBytes = await this.deobfuscate(bytes);
 
-      this.socket.on('error', error => {
-        console.log(`error:`, error);
-      });
+    const payload = this.getIntermediatePayload(deobfuscatedBytes);
 
-      this.socket.on('close', () => {
-        console.log(`close`);
-      });
+    this.emit('message', payload.buffer);
+  }
 
-      const initialMessage = await this.generateObfuscationKeys();
-      this.socket.write(initialMessage);
-
-      this.emit('open');
+  async handleError(error) {
+    this.emit('error', {
+      type: 'socket',
     });
+  }
+
+  async handleClose() {
+    this.emit('close');
+  }
+
+  async handleConnect() {
+    const initialMessage = await this.generateObfuscationKeys();
+    this.socket.write(initialMessage);
+
+    this.emit('open');
   }
 
   async send(bytes) {
@@ -45,6 +58,14 @@ class TCP extends Obfuscated {
     const obfuscatedBytes = await this.obfuscate(intermediateBytes);
 
     this.socket.write(obfuscatedBytes);
+  }
+
+  destroy() {
+    this.removeAllListeners();
+
+    if (!this.socket.destroyed) {
+      this.socket.destroy();
+    }
   }
 }
 
