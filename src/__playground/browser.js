@@ -1,45 +1,26 @@
-const {
-  sendCode,
-  signIn,
-  checkPassword,
-  getFullUser,
-  getNearestDc,
-  getConfig,
-  handleUpdates,
-} = require('./common');
+const { mtproto } = require('./common');
 
-const formCode = document.getElementById('form-code');
-const formPhone = document.getElementById('form-phone');
-const getFullUserButton = document.getElementById('getFullUser');
-const getNearestDcButton = document.getElementById('getNearestDc');
-const formPassword = document.getElementById('form-password');
+const forms = document.querySelectorAll('.form');
 
-formPhone.addEventListener('submit', event => {
-  event.preventDefault();
+forms.forEach(form => {
+  form.addEventListener('submit', event => {
+    event.preventDefault();
 
-  sendCode(formPhone.elements.phone.value);
-});
+    const method = form.elements.method.value;
+    const params = JSON.parse(form.elements.params.value);
+    const options = JSON.parse(form.elements.options.value);
 
-formCode.addEventListener('submit', event => {
-  event.preventDefault();
+    console.log(`method:`, method);
+    console.log(`params:`, params);
+    console.log(`options:`, options);
 
-  signIn(formCode.elements.code.value);
-});
-
-formPassword.addEventListener('submit', event => {
-  event.preventDefault();
-
-  checkPassword(formPassword.elements.password.value);
-});
-
-getNearestDcButton.addEventListener('click', () => {
-  getNearestDc().then(result => {
-    console.log(`result:`, result);
-  });
-});
-
-getFullUserButton.addEventListener('click', () => {
-  getFullUser().then(result => {
-    console.log(`getFullUser[result]:`, result);
+    mtproto
+      .call(method, params, options)
+      .then(result => {
+        console.log(`result:`, result);
+      })
+      .catch(error => {
+        console.error(`Error for ${method}:`, error);
+      });
   });
 });

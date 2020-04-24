@@ -4,37 +4,40 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <title>@mtproto/core</title>
+    <title>@mtproto/core playground</title>
     <style>
       .page {
         margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
       }
 
-      .page__login, .page__servers, .page__utils {
-        padding: 8px;
+      .form {
         border-bottom: 1px solid #ccc;
       }
 
-      .login__form {
-        display: flex;
-        margin-bottom: 8px;
-      }
-
-      .login__form:last-child {
-        margin-bottom: 0;
-      }
-
-      .login__field {
-        display: block;
-      }
-
-      .login__button {
-        margin-left: 8px;
+      .form__inner {
+        padding: 8px;
       }
     </style>
   </head>
   <body class="page">
-    <div class="page__login login">
+    <form class="form page__form">
+      <div class="form__inner">
+        <input class="form__field" type="text" name="method" value="help.getNearestDc" required>
+        <input class="form__field" type="text" name="params" value="{}">
+        <input class="form__field" type="text" name="options" value="{}">
+        <button class="form__button">mtproto.call</button>
+      </div>
+    </form>
+    <form class="form page__form">
+      <div class="form__inner">
+        <input class="form__field" type="text" name="method" value="users.getFullUser" required>
+        <input class="form__field" type="text" name="params" value="{&quot;id&quot;:{&quot;_&quot;:&quot;inputUserSelf&quot;}}">
+        <input class="form__field" type="text" name="options" value="{}">
+        <button class="form__button">mtproto.call</button>
+      </div>
+    </form>
+    <!-- <div class="page__login login">
       <div class="login__fields">
         <form id="form-phone" class="login__form">
           <input
@@ -74,6 +77,6 @@
     <div class="page__utils">
       <button id="getNearestDc" class="page__util">help.getNearestDc</button>
       <button id="getFullUser" class="page__util">users.getFullUser</button>
-    </div>
+    </div> -->
   </body>
 </html>

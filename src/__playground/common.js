@@ -122,6 +122,7 @@ function getConfig() {
 }
 
 module.exports = {
+  mtproto,
   sendCode,
   signIn,
   checkPassword,
