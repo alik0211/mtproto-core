@@ -6,7 +6,7 @@
 
 Telegram API (MTProto) client library for browser
 
-* **Actual.** 108 layer in the API scheme
+* **Actual.** 112 layer in the API scheme
 * **Fast.** Uses WebSocket to work with the network
 * **Easy.** Cryptography is hidden. [Just make requests](#mtprotocallmethod-options--promise) to the API
 * **Events.** [Subscribe to updates](#mtprotoupdatesonupdatesname-handler) via the EventEmitter API
