@@ -49,33 +49,21 @@ const PRODUCTION_DC_LIST = [
   },
 ];
 
-const DEFAULT_DC_ID = 2;
-
-// TODO: Handle updates
-
 class MTProto {
   constructor({ api_id, api_hash, test = false }) {
     this.api_id = api_id;
     this.api_hash = api_hash;
 
     this.dcList = test ? TEST_DC_LIST : PRODUCTION_DC_LIST;
+    this.setDefaultDc(2);
 
     this.rpcs = {};
   }
 
   call(method, params = {}, options = {}) {
-    const { dcId = DEFAULT_DC_ID, syncAuth = false } = options;
+    const { dcId = this.defaultDcId, syncAuth = false } = options;
 
-    if (!this.rpcs[dcId]) {
-      const { api_id, api_hash } = this;
-      const dc = this.dcList.find(({ id }) => id === dcId);
-
-      if (!dc) {
-        throw Error(`Don't find DC ${dcId}`);
-      }
-
-      this.rpcs[dcId] = new RPC({ api_id, api_hash, dc });
-    }
+    this.createRPC(dcId);
 
     return this.rpcs[dcId].call(method, params).then(result => {
       if (syncAuth && result._ === 'auth.authorization') {
@@ -116,6 +104,31 @@ class MTProto {
     });
 
     return Promise.all(promises);
+  }
+
+  setDefaultDc(dcId) {
+    if (this.updates) {
+      this.updates.removeAllListeners();
+    }
+
+    this.defaultDcId = dcId;
+
+    this.createRPC(this.defaultDcId);
+
+    this.updates = this.rpcs[this.defaultDcId].updates;
+  }
+
+  createRPC(dcId) {
+    if (!this.rpcs[dcId]) {
+      const { api_id, api_hash } = this;
+      const dc = this.dcList.find(({ id }) => id === dcId);
+
+      if (!dc) {
+        throw Error(`Don't find DC ${dcId}`);
+      }
+
+      this.rpcs[dcId] = new RPC({ api_id, api_hash, dc });
+    }
   }
 }
 
