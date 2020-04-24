@@ -10,10 +10,6 @@ forms.forEach(form => {
     const params = JSON.parse(form.elements.params.value);
     const options = JSON.parse(form.elements.options.value);
 
-    console.log(`method:`, method);
-    console.log(`params:`, params);
-    console.log(`options:`, options);
-
     mtproto
       .call(method, params, options)
       .then(result => {

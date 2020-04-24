@@ -43,6 +43,7 @@ function sendCode(phone, options) {
 
 function signIn(code, options) {
   state.code = code;
+  console.log(`code:`, code);
 
   return mtproto.call(
     'auth.signIn',
@@ -115,8 +116,8 @@ function getNearestDc(options) {
   return mtproto.call('help.getNearestDc', {}, options);
 }
 
-function getConfig() {
-  return mtproto.call('help.getConfig');
+function getConfig(options) {
+  return mtproto.call('help.getConfig', {}, options);
 }
 
 module.exports = {

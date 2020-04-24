@@ -55,13 +55,14 @@ class MTProto {
     this.api_hash = api_hash;
 
     this.dcList = test ? TEST_DC_LIST : PRODUCTION_DC_LIST;
-    this.setDefaultDc(2);
 
     this.rpcs = {};
+
+    this.setDefaultDc(2);
   }
 
   call(method, params = {}, options = {}) {
-    const { dcId = this.defaultDcId, syncAuth = false } = options;
+    const { dcId = this.defaultDcId, syncAuth = true } = options;
 
     this.createRPC(dcId);
 
@@ -96,7 +97,7 @@ class MTProto {
             id: result.id,
             bytes: result.bytes,
           },
-          { dcId: dc.id }
+          { dcId: dc.id, syncAuth: false }
         );
       });
 
