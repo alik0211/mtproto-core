@@ -116,9 +116,7 @@ function getNearestDc(options) {
 }
 
 function getConfig() {
-  mtproto.call('help.getConfig').then(result => {
-    console.log(`help.getConfig[result]:`, result);
-  });
+  return mtproto.call('help.getConfig');
 }
 
 module.exports = {

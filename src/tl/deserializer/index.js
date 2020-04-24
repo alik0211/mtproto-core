@@ -163,10 +163,15 @@ class TLDeserializer {
       );
     }
 
-    const result = { _: constructor.predicate, pFlags: {} };
+    const result = { _: constructor.predicate };
 
     constructor.params.forEach(param => {
       let paramType = param.type;
+
+      if (paramType === '#' && result.pFlags === undefined) {
+        result.pFlags = {};
+      }
+
       const isFlag = paramType.indexOf('?') !== -1;
 
       if (isFlag) {
