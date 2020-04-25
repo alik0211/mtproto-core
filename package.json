@@ -27,6 +27,7 @@
     "src/**/*.js",
     "scheme/index.js"
   ],
+  "types": "./index.d.ts",
   "browser": {
     "./src/meta/index.js": "./src/meta/index.browser.js",
     "./src/transport/index.js": "./src/transport/index.browser.js",
