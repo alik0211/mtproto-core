@@ -98,7 +98,7 @@ const params = {
 ```
 
 #### `options.dcId: number`
-Specific DC id. By default, it is `2`. You can change the default value using mtproto.setDefaultDc
+Specific DC id. By default, it is `2`. You can change the default value using [mtproto.setDefaultDc](#mtprotosetdefaultdcdcid) method
 
 #### `options.syncAuth: boolean`
 By default, it is `true`. Tells the @mtproto/core to copy authorization to all DC if the response contains `auth.authorization`
@@ -116,8 +116,10 @@ mtproto.call('help.getNearestDc', {}, {
 });
 ```
 
-### `mtproto.updates.on(UpdatesName, handler)`
-Authorized users are being [Updates](https://core.telegram.org/type/Updates). They can be handled using `mtproto.updates.on`. Example of handling a [updateShort](https://core.telegram.org/constructor/updateShort) with [updateUserStatus](https://core.telegram.org/constructor/updateUserStatus):
+### `mtproto.updates.on(updates, listener)`
+Handles [updates](https://core.telegram.org/type/Updates) on default DC. Use this method **only after authorization**!
+
+Example of handling a [updateShort](https://core.telegram.org/constructor/updateShort) with [updateUserStatus](https://core.telegram.org/constructor/updateUserStatus):
 ```js
 mtproto.updates.on('updateShort', message => {
   const { update } = message;
@@ -131,7 +133,7 @@ mtproto.updates.on('updateShort', message => {
 ```
 
 ### `mtproto.setDefaultDc(dcId)`
-If a [migration error](https://core.telegram.org/api/errors#303-see-other) occurs, you can use this function to change the default [data center](https://core.telegram.org/api/datacenter).
+If a [migration error](https://core.telegram.org/api/errors#303-see-other) occurs, you can use this function to change the default [data center](https://core.telegram.org/api/datacenter). You can also use [options.dcId](#optionsdcid-number).
 
 Example:
 ```js
