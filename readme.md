@@ -77,15 +77,42 @@ mtproto
 
 ## API
 
-### `mtproto.call(method, options) => Promise`
-Select method and options from [methods list](https://core.telegram.org/methods). `Promise.then` contain result. `Promise.catch` contain error with the `error_code` and `error_message` properties.
+### `mtproto.call(method, params, options) => Promise`
 
-Example:
+#### `method: string`
+Method name from [methods list](https://core.telegram.org/methods).
+
+#### `params: object`
+
+Parameters for `method` from `https://core.telegram.org/method/{method}#parameters`.
+
+If you need to pass a constructor use `_`. Example for [auth.sendCode](https://core.telegram.org/method/auth.sendCode#parameters):
 ```js
-mtproto.call('help.getNearestDc').then(result => {
-  console.log(`result:`, result);
+const params = {
+  // api_id and api_hash @mtproto/core will set automatically
+  phone_number: '+9996621111',
+  settings: {
+    _: 'codeSettings',
+  }
+};
+```
+
+#### `options.dcId: number`
+Specific DC id. By default, it is `2`. You can change the default value using mtproto.setDefaultDc
+
+#### `options.syncAuth: boolean`
+By default, it is `true`. Tells the @mtproto/core to copy authorization to all DC if the response contains `auth.authorization`
+
+#### Example:
+```js
+mtproto.call('help.getNearestDc', {}, {
+  dcId: 1
+}).then(result => {
+  console.log('result:', result);
+  // { _: 'nearestDc', country: 'RU', this_dc: 1, nearest_dc: 2 }
 }).catch(error => {
-  console.log(`error:`, error);
+  console.log('error.error_code:', error.error_code);
+  console.log('error.error_message:', error.error_message);
 });
 ```
 
