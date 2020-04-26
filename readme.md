@@ -77,6 +77,10 @@ mtproto
 
 ## API
 
+### `new MTProto({ api_id, api_hash, test }) => mtproto`
+
+Example in [quick start](#quick-start).
+
 ### `mtproto.call(method, params, options) => Promise`
 
 #### `method: string`
@@ -98,10 +102,10 @@ const params = {
 ```
 
 #### `options.dcId: number`
-Specific DC id. By default, it is `2`. You can change the default value using [mtproto.setDefaultDc](#mtprotosetdefaultdcdcid) method
+Specific DC id. By default, it is `2`. You can change the default value using [mtproto.setDefaultDc](#mtprotosetdefaultdcdcid) method.
 
 #### `options.syncAuth: boolean`
-By default, it is `true`. Tells the @mtproto/core to copy authorization to all DC if the response contains `auth.authorization`
+By default, it is `true`. Tells the @mtproto/core to copy authorization to all DC if the response contains `auth.authorization`.
 
 #### Example:
 ```js
