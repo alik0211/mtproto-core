@@ -24,10 +24,11 @@ const { AES, RSA, SHA1, SHA256 } = require('../utils/crypto');
 const { getRsaKeyByFingerprints } = require('../utils/rsa');
 
 class RPC {
-  constructor({ api_id, api_hash, dc }) {
+  constructor({ api_id, api_hash, dc, updates }) {
     this.api_id = api_id;
     this.api_hash = api_hash;
     this.dc = dc;
+    this.updates = updates;
 
     this.messagesWaitResponse = new Map();
     this.messagesWaitAuth = [];
@@ -38,8 +39,6 @@ class RPC {
     this.storage.set('timeOffset', 0);
 
     this.updateSession();
-
-    this.updates = new EventEmitter();
 
     this.handleTransportError = this.handleTransportError.bind(this);
     this.handleTransportOpen = this.handleTransportOpen.bind(this);

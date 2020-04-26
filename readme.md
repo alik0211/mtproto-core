@@ -121,7 +121,7 @@ mtproto.call('help.getNearestDc', {}, {
 ```
 
 ### `mtproto.updates.on(updates, listener)`
-Handles [updates](https://core.telegram.org/type/Updates) on default DC. Use this method **only after authorization**!
+Method for handles [updates](https://core.telegram.org/type/Updates).
 
 Example of handling a [updateShort](https://core.telegram.org/constructor/updateShort) with [updateUserStatus](https://core.telegram.org/constructor/updateUserStatus):
 ```js

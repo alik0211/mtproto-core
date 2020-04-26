@@ -1,3 +1,4 @@
+const EventEmitter = require('events');
 const { RPC } = require('./rpc');
 
 const TEST_DC_LIST = [
@@ -56,6 +57,8 @@ class MTProto {
 
     this.dcList = test ? TEST_DC_LIST : PRODUCTION_DC_LIST;
 
+    this.updates = new EventEmitter();
+
     this.rpcs = {};
 
     this.setDefaultDc(2);
@@ -108,27 +111,27 @@ class MTProto {
   }
 
   setDefaultDc(dcId) {
-    if (this.updates) {
-      this.updates.removeAllListeners();
-    }
-
     this.defaultDcId = dcId;
 
     this.createRPC(this.defaultDcId);
-
-    this.updates = this.rpcs[this.defaultDcId].updates;
   }
 
   createRPC(dcId) {
     if (!this.rpcs[dcId]) {
-      const { api_id, api_hash } = this;
       const dc = this.dcList.find(({ id }) => id === dcId);
 
       if (!dc) {
         throw Error(`Don't find DC ${dcId}`);
       }
 
-      this.rpcs[dcId] = new RPC({ api_id, api_hash, dc });
+      const { api_id, api_hash, updates } = this;
+
+      this.rpcs[dcId] = new RPC({
+        api_id,
+        api_hash,
+        dc,
+        updates,
+      });
     }
   }
 }
