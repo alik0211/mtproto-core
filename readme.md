@@ -109,24 +109,7 @@ mtproto.updates.on('updateShort', message => {
 ### `mtproto.setDefaultDc(dcId)`
 If a [migration error](https://core.telegram.org/api/errors#303-see-other) occurs, you can use this function to change the default [data center](https://core.telegram.org/api/datacenter). You can also use [options.dcId](#optionsdcid-number).
 
-Example:
-```js
-mtproto
-  .call('auth.sendCode', {
-    phone_number: '+9996621111',
-    settings: {
-      _: 'codeSettings',
-    },
-  })
-  .catch(error => {
-    if (error.error_message.includes('_MIGRATE_')) {
-      const [item, dcId] = error.error_message.split('_MIGRATE_');
-
-      mtproto.setDefaultDc(+dcId);
-
-      // Repeat call this
-    }
-  });
+See the example in the [authentication](docs/authentication.md).
 ```
 
 ### `getSRPParams({ g, p, salt1, salt2, gB, password }) => { A, M1 }`

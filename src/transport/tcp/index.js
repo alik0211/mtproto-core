@@ -12,6 +12,8 @@ class TCP extends Obfuscated {
     this.handleError = this.handleError.bind(this);
     this.handleClose = this.handleClose.bind(this);
 
+    this.stream = new Uint8Array();
+
     this.connect();
   }
 
@@ -30,9 +32,27 @@ class TCP extends Obfuscated {
 
     const deobfuscatedBytes = await this.deobfuscate(bytes);
 
-    const payload = this.getIntermediatePayload(deobfuscatedBytes);
+    this.stream = new Uint8Array([...this.stream, ...deobfuscatedBytes]);
 
-    this.emit('message', payload.buffer);
+    const dataView = new DataView(this.stream.buffer);
+    const payloadLength = dataView.getUint32(0, true);
+
+    if (payloadLength === this.stream.length - 4) {
+      const payload = this.stream.slice(4);
+
+      if (payloadLength === 4) {
+        const code = dataView.getInt32(4, true) * -1;
+
+        this.emit('error', {
+          type: 'transport',
+          code,
+        });
+      } else {
+        this.emit('message', payload.buffer);
+      }
+
+      this.stream = new Uint8Array();
+    }
   }
 
   async handleError(error) {
