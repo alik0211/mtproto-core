@@ -1505,10 +1505,10 @@ dotenv@^6.2.0:
   resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-6.2.0.tgz#941c0410535d942c8becf28d3f357dbd9d476064"
   integrity sha512-HygQCKUBSFl8wKQZBSemMywRWcEDNidvNbjGVyZu3nbZ8qq9ubiPoGLMdRDpfSrpkkm9BXYFkpKxxFX38o/76w==
 
-dual-publish@0.10.0:
-  version "0.10.0"
-  resolved "https://registry.yarnpkg.com/dual-publish/-/dual-publish-0.10.0.tgz#a62a3aba1c926488563d64832194a2ee6dcf868a"
-  integrity sha512-v0OopZmskI+hiocyLhuxlvO0zvetsElH71oSFHZCHgtr1FiobzRtFwSjw9+vinnNvsnvvSXke0TZ5MWDWrNMHA==
+dual-publish@0.10.1:
+  version "0.10.1"
+  resolved "https://registry.yarnpkg.com/dual-publish/-/dual-publish-0.10.1.tgz#b3d17280fe9d5ddbfae100b842b59d163d5f012b"
+  integrity sha512-AaxDN4y/yM5ns4D3wVMy5gmA9Wux2oG2ea8gzmMOhacEZ9eHi2X3Csm8tvLV4uUtLKJuCuasnQST+hpd8tuRgQ==
   dependencies:
     chalk "^4.0.0"
     clean-publish "^1.1.7"
