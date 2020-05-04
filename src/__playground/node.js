@@ -1,3 +1,4 @@
+const readline = require('readline');
 const {
   mtproto,
   getNearestDc,
@@ -7,6 +8,21 @@ const {
   getFullUser,
   getConfig,
 } = require('./common');
+
+function prompt(question) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve, reject) => {
+    rl.question(question, input => {
+      rl.close();
+
+      resolve(input);
+    });
+  });
+}
 
 const phone = '+9996627777';
 const password = 'test';
@@ -23,7 +39,11 @@ sendCode(phone)
       return sendCode(phone);
     }
   })
-  .then(() => signIn('22222'))
+  .then(async () => {
+    const code = await prompt('code: ');
+
+    return signIn(code);
+  })
   .catch(error => {
     console.log(`signIn[error]:`, error);
 
@@ -32,12 +52,14 @@ sendCode(phone)
     }
   })
   .then(result => {
-    console.log(`checkPassword[result]:`, result);
+    console.log(`signIn/checkPassword[result]:`, result);
 
     return getNearestDc({ dcId: 1 });
   })
   .then(result => {
     console.log(`getNearestDc[result]:`, result);
+
+    process.exit();
   })
   .catch(error => {
     console.log(`error:`, error);

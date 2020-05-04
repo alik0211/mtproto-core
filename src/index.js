@@ -93,16 +93,22 @@ class MTProto {
           dc_id: dc.id,
         },
         { dcId }
-      ).then(result => {
-        return this.call(
-          'auth.importAuthorization',
-          {
-            id: result.id,
-            bytes: result.bytes,
-          },
-          { dcId: dc.id, syncAuth: false }
-        );
-      });
+      )
+        .then(result => {
+          return this.call(
+            'auth.importAuthorization',
+            {
+              id: result.id,
+              bytes: result.bytes,
+            },
+            { dcId: dc.id, syncAuth: false }
+          );
+        })
+        .catch(error => {
+          console.warn(`Error when copy auth to DC ${dc.id}:`, error);
+
+          return Promise.resolve();
+        });
 
       promises.push(promise);
     });

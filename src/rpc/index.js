@@ -1,6 +1,5 @@
 const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
-const EventEmitter = require('events');
 const { meta } = require('../meta');
 const Storage = require('../storage');
 const { Transport } = require('../transport');
