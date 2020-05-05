@@ -27,6 +27,16 @@ function prompt(question) {
 const phone = '+9996627777';
 const password = 'test';
 
+// getFullUser()
+//   .then(result => {
+//     console.log(`result:`, result);
+//     process.exit();
+//   })
+//   .catch(error => {
+//     console.log(`error:`, error);
+//     process.exit();
+//   });
+
 sendCode(phone)
   .catch(error => {
     console.log(`sendCode[error]:`, error);

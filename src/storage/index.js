@@ -11,48 +11,35 @@ class Storage {
     this._prefix = prefix;
   }
 
-  // Set with prefix
   pSet(name, value) {
     const key = `${this._prefix}${name}`;
-    cache[key] = value;
 
-    localStorage[key] = JSON.stringify(value);
+    this.set(key, value);
   }
 
   pGetBytes(name) {
     return new Uint8Array(this.pGet(name));
   }
 
-  // Get with prefix
   pGet(name) {
     const key = `${this._prefix}${name}`;
 
-    if (key in this) {
-      return cache[key];
-    }
-
-    if (key in localStorage) {
-      cache[key] = JSON.parse(localStorage[key]);
-
-      return cache[key];
-    }
-
-    return null;
+    return this.get(key);
   }
 
   set(key, value) {
     cache[key] = value;
 
-    localStorage[key] = JSON.stringify(value);
+    localStorage.setItem(key, JSON.stringify(value));
   }
 
   get(key) {
-    if (key in this) {
+    if (key in cache) {
       return cache[key];
     }
 
-    if (key in localStorage) {
-      cache[key] = JSON.parse(localStorage[key]);
+    if (localStorage.getItem(key)) {
+      cache[key] = JSON.parse(localStorage.getItem(key));
 
       return cache[key];
     }
