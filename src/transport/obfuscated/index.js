@@ -4,31 +4,24 @@ const { getRandomBytes } = require('../../utils/common');
 
 class Obfuscated extends EventEmitter {
   async generateObfuscationKeys() {
-    const protocolId = 0xeeeeeeee;
     const init1bytes = getRandomBytes(64);
-    const init1buffer = init1bytes.buffer;
-    const init1data = new DataView(init1buffer);
-    init1data.setUint32(56, protocolId, true);
 
-    const init2buffer = new ArrayBuffer(init1buffer.byteLength);
-    const init2bytes = new Uint8Array(init2buffer);
-    for (let i = 0; i < init2buffer.byteLength; i++) {
-      init2bytes[init2buffer.byteLength - i - 1] = init1bytes[i];
-    }
+    // 0xeeeeeeee -> [238, 238, 238, 238]
+    init1bytes.set([238, 238, 238, 238], 56);
 
-    let encryptKey = new Uint8Array(init1buffer, 8, 32);
-    const encryptIV = new Uint8Array(16);
-    encryptIV.set(new Uint8Array(init1buffer, 40, 16));
+    const init2bytes = new Uint8Array(init1bytes).reverse();
 
-    let decryptKey = new Uint8Array(init2buffer, 8, 32);
-    const decryptIV = new Uint8Array(16);
-    decryptIV.set(new Uint8Array(init2buffer, 40, 16));
+    const encryptKey = init1bytes.slice(8, 40);
+    const encryptIV = init1bytes.slice(40, 56);
+
+    const decryptKey = init2bytes.slice(8, 40);
+    const decryptIV = init2bytes.slice(40, 56);
 
     this.encryptAES = new AES.CTR(encryptKey, encryptIV);
     this.decryptAES = new AES.CTR(decryptKey, decryptIV);
 
-    const init3buffer = (await this.obfuscate(init1bytes)).buffer;
-    init1bytes.set(new Uint8Array(init3buffer, 56, 8), 56);
+    const init3bytes = await this.obfuscate(init1bytes);
+    init1bytes.set(init3bytes.slice(56, 64), 56);
 
     return init1bytes;
   }
