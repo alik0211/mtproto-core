@@ -9,6 +9,7 @@ class Socket extends Obfuscated {
     this.setUrl();
 
     this.socket = new WebSocket(this.url, 'binary');
+    this.socket.binaryType = 'arraybuffer';
 
     this.handleError = this.handleError.bind(this);
     this.handleOpen = this.handleOpen.bind(this);
@@ -39,16 +40,12 @@ class Socket extends Obfuscated {
   }
 
   async handleMessage(event) {
-    const fileReader = new FileReader();
-    fileReader.onload = async event => {
-      const obfuscatedBytes = new Uint8Array(event.target.result);
-      const bytes = await this.deobfuscate(obfuscatedBytes);
+    const obfuscatedBytes = new Uint8Array(event.data);
+    const bytes = await this.deobfuscate(obfuscatedBytes);
 
-      const payload = this.getIntermediatePayload(bytes);
+    const payload = this.getIntermediatePayload(bytes);
 
-      this.emit('message', payload.buffer);
-    };
-    fileReader.readAsArrayBuffer(event.data);
+    this.emit('message', payload.buffer);
   }
 
   async send(bytes) {
