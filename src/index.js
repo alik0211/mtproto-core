@@ -1,5 +1,6 @@
 const EventEmitter = require('events');
 const { RPC } = require('./rpc');
+const { Storage } = require('./storage');
 
 const TEST_DC_LIST = [
   {
@@ -61,11 +62,13 @@ class MTProto {
 
     this.rpcs = {};
 
-    this.setDefaultDc(2);
+    this.storage = new Storage();
+
+    this.setDefaultDc();
   }
 
   call(method, params = {}, options = {}) {
-    const { dcId = this.defaultDcId, syncAuth = true } = options;
+    const { dcId = this.storage.get('defaultDcId'), syncAuth = true } = options;
 
     this.createRPC(dcId);
 
@@ -117,9 +120,11 @@ class MTProto {
   }
 
   setDefaultDc(dcId) {
-    this.defaultDcId = dcId;
+    const defaultDcId = dcId || this.storage.get('defaultDcId') || 2;
 
-    this.createRPC(this.defaultDcId);
+    this.storage.set('defaultDcId', defaultDcId);
+
+    this.createRPC(defaultDcId);
   }
 
   createRPC(dcId) {
