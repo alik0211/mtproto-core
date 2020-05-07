@@ -3,27 +3,59 @@ const { AES } = require('../../utils/crypto');
 const { getRandomBytes } = require('../../utils/common');
 
 class Obfuscated extends EventEmitter {
+  // https://core.telegram.org/mtproto/mtproto-transports#transport-obfuscation
   async generateObfuscationKeys() {
-    const init1bytes = getRandomBytes(64);
+    let initBytes = null;
 
-    // 0xeeeeeeee -> [238, 238, 238, 238]
-    init1bytes.set([238, 238, 238, 238], 56);
+    while (true) {
+      initBytes = getRandomBytes(64);
+      const initDataView = new DataView(initBytes.buffer);
+      initDataView.setUint32(56, 0xeeeeeeee, true);
 
-    const init2bytes = new Uint8Array(init1bytes).reverse();
+      if (initBytes[0] === 0xef) {
+        continue;
+      }
 
-    const encryptKey = init1bytes.slice(8, 40);
-    const encryptIV = init1bytes.slice(40, 56);
+      const firstInt = initDataView.getUint32(0, true);
 
-    const decryptKey = init2bytes.slice(8, 40);
-    const decryptIV = init2bytes.slice(40, 56);
+      if (
+        [
+          0x44414548,
+          0x54534f50,
+          0x20544547,
+          0x4954504f,
+          0xdddddddd,
+          0xeeeeeeee,
+          0x02010316,
+        ].includes(firstInt)
+      ) {
+        continue;
+      }
+
+      const secondInt = initDataView.getUint32(4, true);
+
+      if (secondInt === 0) {
+        continue;
+      }
+
+      break;
+    }
+
+    const initRevBytes = new Uint8Array(initBytes).reverse();
+
+    const encryptKey = initBytes.slice(8, 40);
+    const encryptIV = initBytes.slice(40, 56);
+
+    const decryptKey = initRevBytes.slice(8, 40);
+    const decryptIV = initRevBytes.slice(40, 56);
 
     this.encryptAES = new AES.CTR(encryptKey, encryptIV);
     this.decryptAES = new AES.CTR(decryptKey, decryptIV);
 
-    const init3bytes = await this.obfuscate(init1bytes);
-    init1bytes.set(init3bytes.slice(56, 64), 56);
+    const encryptedInitBytes = await this.obfuscate(initBytes);
+    initBytes.set(encryptedInitBytes.slice(56, 64), 56);
 
-    return init1bytes;
+    return initBytes;
   }
 
   async obfuscate(bytes) {
