@@ -374,7 +374,7 @@ class RPC {
 
         if (!waitMessage) {
           throw new Error(
-            `bad_server_salt. Not found message width id ${message.bad_msg_id}`
+            `bad_server_salt. Not found message with id ${message.bad_msg_id}`
           );
         }
 

@@ -34,24 +34,32 @@ class TCP extends Obfuscated {
 
     this.stream = new Uint8Array([...this.stream, ...deobfuscatedBytes]);
 
-    const dataView = new DataView(this.stream.buffer);
-    const payloadLength = dataView.getUint32(0, true);
-
-    if (payloadLength === this.stream.length - 4) {
-      const payload = this.stream.slice(4);
-
-      if (payloadLength === 4) {
-        const code = dataView.getInt32(4, true) * -1;
-
-        this.emit('error', {
-          type: 'transport',
-          code,
-        });
-      } else {
-        this.emit('message', payload.buffer);
+    while (true) {
+      if (this.stream.length < 8) {
+        break;
       }
 
-      this.stream = new Uint8Array();
+      const dataView = new DataView(this.stream.buffer);
+      const payloadLength = dataView.getUint32(0, true);
+
+      if (payloadLength <= this.stream.length - 4) {
+        const payload = this.stream.slice(4, payloadLength + 4);
+
+        if (payloadLength === 4) {
+          const code = dataView.getInt32(4, true) * -1;
+
+          this.emit('error', {
+            type: 'transport',
+            code,
+          });
+        } else {
+          this.emit('message', payload.buffer);
+        }
+
+        this.stream = this.stream.slice(payloadLength + 4);
+      } else {
+        break;
+      }
     }
   }
 
@@ -82,6 +90,8 @@ class TCP extends Obfuscated {
 
   destroy() {
     this.removeAllListeners();
+
+    // TODO: Remove this.socket.on
 
     if (!this.socket.destroyed) {
       this.socket.destroy();
