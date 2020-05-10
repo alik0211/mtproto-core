@@ -29,10 +29,10 @@ class TLDeserializer {
   }
 
   long() {
-    const iLow = this.uint32();
-    const iHigh = this.uint32();
+    const high = this.uint32();
+    const low = this.uint32();
 
-    const result = bigInt(iHigh).shiftLeft(32).add(bigInt(iLow)).toString();
+    const result = bigInt(low).shiftLeft(32).add(bigInt(high)).toString();
 
     return result;
   }

@@ -12,8 +12,8 @@ const {
   concatBytes,
   bytesToBigInt,
   bigIntToBytes,
-  longToBytes,
-  longFromInts,
+  longToBytesRaw,
+  intsToLong,
   getRandomInt,
   bytesToBytesRaw,
   xorBytes,
@@ -378,7 +378,10 @@ class RPC {
           );
         }
 
-        this.storage.pSet('serverSalt', longToBytes(message.new_server_salt));
+        this.storage.pSet(
+          'serverSalt',
+          longToBytesRaw(message.new_server_salt)
+        );
         this.call(waitMessage.method, waitMessage.params)
           .then(waitMessage.resolve)
           .catch(waitMessage.reject);
@@ -393,7 +396,7 @@ class RPC {
         this.ackMessage(messageId);
 
         // this.messagesWaitResponse.delete(message.first_msg_id);
-        this.storage.pSet('serverSalt', longToBytes(message.server_salt));
+        this.storage.pSet('serverSalt', longToBytesRaw(message.server_salt));
 
         return;
 
@@ -467,7 +470,7 @@ class RPC {
 
     return new Promise(async (resolve, reject) => {
       const messageId = await this.sendEncryptedMessage(serializer.getBytes());
-      const messageIdAsKey = longFromInts(messageId[0], messageId[1]);
+      const messageIdAsKey = intsToLong(messageId[0], messageId[1]);
 
       this.messagesWaitResponse.set(messageIdAsKey, {
         method,
@@ -596,7 +599,10 @@ class RPC {
   updateSession() {
     this.seqNo = 0;
     this.sessionId = getRandomBytes(8);
-    this.lastMessageId = [0, 0];
+    this.lastMessageId = [
+      0, // low
+      0, // high
+    ];
   }
 
   async getAESInstance(authKey, messageKey, isServer) {

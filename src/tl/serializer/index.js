@@ -215,8 +215,10 @@ class TLSerializer {
   long(value) {
     if (Array.isArray(value)) {
       if (value.length === 2) {
-        this.uint32(value[1]);
-        this.uint32(value[0]);
+        const [low, high] = value;
+
+        this.uint32(high);
+        this.uint32(low);
 
         return;
       }
@@ -224,8 +226,8 @@ class TLSerializer {
 
     const { quotient, remainder } = bigInt(value).divmod(bigInt(0x100000000));
 
-    this.int(intToUint(remainder.toJSNumber()));
-    this.int(intToUint(quotient.toJSNumber()));
+    this.uint32(remainder.toJSNumber());
+    this.uint32(quotient.toJSNumber());
   }
 
   double(value) {

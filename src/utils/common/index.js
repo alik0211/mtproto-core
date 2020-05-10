@@ -71,18 +71,6 @@ function bytesToHex(bytes) {
   return result.join('');
 }
 
-function bytesFromWords(wordArray) {
-  var words = wordArray.words;
-  var sigBytes = wordArray.sigBytes;
-  var bytes = [];
-
-  for (var i = 0; i < sigBytes; i++) {
-    bytes.push((words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff);
-  }
-
-  return bytes;
-}
-
 function bytesToBytesRaw(bytes) {
   const result = [];
 
@@ -93,18 +81,16 @@ function bytesToBytesRaw(bytes) {
   return result;
 }
 
-function longToInts(sLong) {
-  const { quotient, remainder } = bigInt(sLong).divmod(bigInt(0x100000000));
+function longToBytesRaw(value) {
+  const result = bytesToBytesRaw(
+    hexToBytes(bigInt(value).toString(16), 8)
+  ).reverse();
 
-  return [uintToInt(quotient.toJSNumber()), uintToInt(remainder.toJSNumber())];
+  return result;
 }
 
-function longToBytes(sLong) {
-  return bytesFromWords({ words: longToInts(sLong), sigBytes: 8 }).reverse();
-}
-
-function longFromInts(high, low) {
-  return bigInt(high).shiftLeft(32).add(bigInt(low)).toString(10);
+function intsToLong(low, high) {
+  return bigInt(low).shiftLeft(32).add(bigInt(high)).toString(10);
 }
 
 function intToUint(value) {
@@ -133,11 +119,9 @@ module.exports = {
   xorBytes,
   concatBytes,
   bytesToHex,
-  bytesFromWords,
   bytesToBytesRaw,
-  longToInts,
-  longToBytes,
-  longFromInts,
+  longToBytesRaw,
+  intsToLong,
   intToUint,
   uintToInt,
   getRandomInt,
