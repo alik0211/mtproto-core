@@ -94,28 +94,6 @@ function bytesFromWords(wordArray) {
   return bytes;
 }
 
-function bytesFromBigInt(bigInt, len) {
-  var bytes = bigInt.toByteArray();
-
-  if (len && bytes.length < len) {
-    var padding = [];
-    for (var i = 0, needPadding = len - bytes.length; i < needPadding; i++) {
-      padding[i] = 0;
-    }
-    if (bytes instanceof ArrayBuffer) {
-      bytes = bufferConcat(padding, bytes);
-    } else {
-      bytes = padding.concat(bytes);
-    }
-  } else {
-    while (!bytes[0] && (!len || bytes.length > len)) {
-      bytes = bytes.slice(1);
-    }
-  }
-
-  return bytes;
-}
-
 function convertToUint8Array(bytes) {
   if (bytes.buffer !== undefined) {
     return bytes;
@@ -192,7 +170,6 @@ module.exports = {
   concatBytes,
   bytesToHex,
   bytesFromWords,
-  bytesFromBigInt,
   convertToUint8Array,
   convertToByteArray,
   bufferConcat,
