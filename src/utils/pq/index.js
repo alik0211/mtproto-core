@@ -14,11 +14,11 @@ const {
   one,
   bpe,
 } = require('leemon');
-const { bytesFromHex, bytesToBigInt, getRandomInt } = require('../common');
+const { hexToBytes, bytesToBigInt, getRandomInt } = require('../common');
 
 function bytesFromLeemonBigInt(bigInt, len) {
   var str = bigInt2str(bigInt, 16);
-  return bytesFromHex(str);
+  return hexToBytes(str);
 }
 
 function pqPrimeFactorization(pqBytes) {

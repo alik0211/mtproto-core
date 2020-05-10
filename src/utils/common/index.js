@@ -19,18 +19,18 @@ function bigIntToBytes(bigInt, length) {
   return hexToBytes(bigInt.toString(16), length);
 }
 
-function hexToBytes(str, len) {
-  if (!len) {
-    len = Math.ceil(str.length / 2);
+function hexToBytes(str, length) {
+  if (!length) {
+    length = Math.ceil(str.length / 2);
   }
-  while (str.length < len * 2) {
+  while (str.length < length * 2) {
     str = '0' + str;
   }
-  const buf = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    buf[i] = parseInt(str.slice(i * 2, i * 2 + 2), 16);
+  const bytes = new Uint8Array(length);
+  for (let i = 0; i < length; i++) {
+    bytes[i] = parseInt(str.slice(i * 2, i * 2 + 2), 16);
   }
-  return buf;
+  return bytes;
 }
 
 function bytesToBigInt(bytes) {
@@ -80,24 +80,6 @@ function bytesToHex(bytes) {
     result.push((bytes[i] < 16 ? '0' : '') + bytes[i].toString(16));
   }
   return result.join('');
-}
-
-function bytesFromHex(hexString) {
-  var len = hexString.length,
-    i;
-  var start = 0;
-  var bytes = [];
-
-  if (hexString.length % 2) {
-    bytes.push(parseInt(hexString.charAt(0), 16));
-    start++;
-  }
-
-  for (i = start; i < len; i += 2) {
-    bytes.push(parseInt(hexString.substr(i, 2), 16));
-  }
-
-  return bytes;
 }
 
 function bytesXor(bytes1, bytes2) {
@@ -220,7 +202,6 @@ module.exports = {
   xorBytes,
   concatBytes,
   bytesToHex,
-  bytesFromHex,
   bytesXor,
   bytesFromWords,
   bytesFromBigInt,
