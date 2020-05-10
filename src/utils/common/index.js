@@ -34,12 +34,7 @@ function hexToBytes(str, length) {
 }
 
 function bytesToBigInt(bytes) {
-  const digits = new Array(bytes.byteLength);
-  for (let i = 0; i < bytes.byteLength; i++) {
-    digits[i] =
-      bytes[i] < 16 ? '0' + bytes[i].toString(16) : bytes[i].toString(16);
-  }
-  return bigInt(digits.join(''), 16);
+  return bigInt(bytesToHex(bytes), 16);
 }
 
 function xorBytes(bytes1, bytes2) {
