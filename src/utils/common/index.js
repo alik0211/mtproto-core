@@ -42,12 +42,6 @@ function bytesToBigInt(bytes) {
   return bigInt(digits.join(''), 16);
 }
 
-// function getRandomBytes(length) {
-//   const bytes = new Uint8Array(length);
-//   crypto.getRandomValues(bytes);
-//   return bytes;
-// }
-
 function xorBytes(bytes1, bytes2) {
   let bytes = new Uint8Array(bytes1.byteLength);
   for (let i = 0; i < bytes1.byteLength; i++) {
@@ -113,22 +107,6 @@ function convertToByteArray(bytes) {
   return newBytes;
 }
 
-function bufferConcat(buffer1, buffer2) {
-  var l1 = buffer1.byteLength || buffer1.length;
-  var l2 = buffer2.byteLength || buffer2.length;
-  var tmp = new Uint8Array(l1 + l2);
-  tmp.set(
-    buffer1 instanceof ArrayBuffer ? new Uint8Array(buffer1) : buffer1,
-    0
-  );
-  tmp.set(
-    buffer2 instanceof ArrayBuffer ? new Uint8Array(buffer2) : buffer2,
-    l1
-  );
-
-  return tmp.buffer;
-}
-
 function longToInts(sLong) {
   const { quotient, remainder } = bigInt(sLong).divmod(bigInt(0x100000000));
 
@@ -172,7 +150,6 @@ module.exports = {
   bytesFromWords,
   convertToUint8Array,
   convertToByteArray,
-  bufferConcat,
   longToInts,
   longToBytes,
   longFromInts,
