@@ -88,23 +88,14 @@ function bytesFromWords(wordArray) {
   return bytes;
 }
 
-function convertToUint8Array(bytes) {
-  if (bytes.buffer !== undefined) {
-    return bytes;
-  }
-  return new Uint8Array(bytes);
-}
+function bytesToBytesRaw(bytes) {
+  const result = [];
 
-function convertToByteArray(bytes) {
-  if (Array.isArray(bytes)) {
-    return bytes;
+  for (let i = 0; i < bytes.length; i++) {
+    result.push(bytes[i]);
   }
-  bytes = convertToUint8Array(bytes);
-  var newBytes = [];
-  for (var i = 0, len = bytes.length; i < len; i++) {
-    newBytes.push(bytes[i]);
-  }
-  return newBytes;
+
+  return result;
 }
 
 function longToInts(sLong) {
@@ -148,8 +139,7 @@ module.exports = {
   concatBytes,
   bytesToHex,
   bytesFromWords,
-  convertToUint8Array,
-  convertToByteArray,
+  bytesToBytesRaw,
   longToInts,
   longToBytes,
   longFromInts,

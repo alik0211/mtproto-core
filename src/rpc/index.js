@@ -15,7 +15,7 @@ const {
   longToBytes,
   longFromInts,
   getRandomInt,
-  convertToByteArray,
+  bytesToBytesRaw,
   xorBytes,
 } = require('../utils/common');
 const { pqPrimeFactorization } = require('../utils/pq');
@@ -258,10 +258,10 @@ class RPC {
 
   async generateDH(retryId = 0) {
     const b = bytesToBigInt(getRandomBytes(256));
-    const authKey = convertToByteArray(
+    const authKey = bytesToBytesRaw(
       bigIntToBytes(this.gA.modPow(b, this.dhPrime))
     );
-    const serverSalt = convertToByteArray(
+    const serverSalt = bytesToBytesRaw(
       xorBytes(this.newNonce.slice(0, 8), this.serverNonce.slice(0, 8))
     );
 
