@@ -82,17 +82,6 @@ function bytesToHex(bytes) {
   return result.join('');
 }
 
-function bytesXor(bytes1, bytes2) {
-  var len = bytes1.length;
-  var bytes = [];
-
-  for (var i = 0; i < len; ++i) {
-    bytes[i] = bytes1[i] ^ bytes2[i];
-  }
-
-  return bytes;
-}
-
 function bytesFromWords(wordArray) {
   var words = wordArray.words;
   var sigBytes = wordArray.sigBytes;
@@ -202,7 +191,6 @@ module.exports = {
   xorBytes,
   concatBytes,
   bytesToHex,
-  bytesXor,
   bytesFromWords,
   bytesFromBigInt,
   convertToUint8Array,
