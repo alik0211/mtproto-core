@@ -233,11 +233,11 @@ class RPC {
       throw new Error('Server_DH_inner_data.dh_prime incorrect');
     }
 
-    if (gA.compareTo(bigInt.one) <= 0) {
+    if (gA.lesserOrEquals(bigInt.one)) {
       throw new Error('Server_DH_inner_data.g_a incorrect: g_a <= 1');
     }
 
-    if (gA.compareTo(dhPrime.subtract(bigInt.one)) >= 0) {
+    if (gA.greaterOrEquals(dhPrime.minus(bigInt.one))) {
       throw new Error(
         'Server_DH_inner_data.g_a incorrect: g_a >= dh_prime - 1'
       );
@@ -245,13 +245,13 @@ class RPC {
 
     const twoPow = bigInt(2).pow(2048 - 64);
 
-    if (gA.compareTo(twoPow) < 0) {
+    if (gA.lesser(twoPow)) {
       throw new Error('Server_DH_inner_data.g_a incorrect: g_a < 2^{2048-64}');
     }
 
-    if (gA.compareTo(dhPrime.subtract(twoPow)) >= 0) {
+    if (gA.greaterOrEquals(dhPrime.minus(twoPow))) {
       throw new Error(
-        'Server_DH_inner_data.g_a incorrect: g_a > dh_prime - 2^{2048-64}'
+        'Server_DH_inner_data.g_a incorrect: g_a >= dh_prime - 2^{2048-64}'
       );
     }
   }
