@@ -19,18 +19,24 @@ function bigIntToBytes(bigInt, length) {
   return hexToBytes(bigInt.toString(16), length);
 }
 
-function hexToBytes(str, length) {
+function hexToBytesRaw(value, length) {
   if (!length) {
-    length = Math.ceil(str.length / 2);
+    length = Math.ceil(value.length / 2);
   }
-  while (str.length < length * 2) {
-    str = '0' + str;
+
+  while (value.length < length * 2) {
+    value = '0' + value;
   }
-  const bytes = new Uint8Array(length);
+
+  const bytes = [];
   for (let i = 0; i < length; i++) {
-    bytes[i] = parseInt(str.slice(i * 2, i * 2 + 2), 16);
+    bytes.push(parseInt(value.slice(i * 2, i * 2 + 2), 16));
   }
   return bytes;
+}
+
+function hexToBytes(value, length) {
+  return new Uint8Array(hexToBytesRaw(value, length));
 }
 
 function bytesToBigInt(bytes) {
@@ -38,8 +44,8 @@ function bytesToBigInt(bytes) {
 }
 
 function xorBytes(bytes1, bytes2) {
-  let bytes = new Uint8Array(bytes1.byteLength);
-  for (let i = 0; i < bytes1.byteLength; i++) {
+  let bytes = new Uint8Array(bytes1.length);
+  for (let i = 0; i < bytes1.length; i++) {
     bytes[i] = bytes1[i] ^ bytes2[i];
   }
   return bytes;
@@ -82,9 +88,7 @@ function bytesToBytesRaw(bytes) {
 }
 
 function longToBytesRaw(value) {
-  const result = bytesToBytesRaw(
-    hexToBytes(bigInt(value).toString(16), 8)
-  ).reverse();
+  const result = hexToBytesRaw(bigInt(value).toString(16), 8).reverse();
 
   return result;
 }
@@ -113,6 +117,7 @@ function getRandomInt(maxValue) {
 module.exports = {
   bytesIsEqual,
   bigIntToBytes,
+  hexToBytesRaw,
   hexToBytes,
   bytesToBigInt,
   getRandomBytes,
