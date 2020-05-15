@@ -358,6 +358,13 @@ class RPC {
     // console.groupEnd(`handleDecryptedMessage ${message._}`);
 
     const { messageId } = params;
+
+    if (bigInt(messageId).isEven()) {
+      console.warn(`Message id from server is even:`, message);
+
+      return;
+    }
+
     let waitMessage = null;
 
     switch (message._) {
