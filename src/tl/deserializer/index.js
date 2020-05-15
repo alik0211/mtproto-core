@@ -1,7 +1,7 @@
 const pako = require('pako');
 const bigInt = require('big-integer');
 const { schema } = require('../../../scheme');
-const { uintToInt } = require('../../utils/common');
+const { uintToInt, intsToLong } = require('../../utils/common');
 
 class TLDeserializer {
   constructor(buffer) {
@@ -32,7 +32,7 @@ class TLDeserializer {
     const high = this.uint32();
     const low = this.uint32();
 
-    const result = bigInt(low).shiftLeft(32).add(bigInt(high)).toString();
+    const result = intsToLong(low, high);
 
     return result;
   }
