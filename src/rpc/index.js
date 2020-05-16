@@ -346,6 +346,23 @@ class RPC {
     const seqNo = plainDeserializer.uint32();
     const length = plainDeserializer.uint32();
 
+    if (length > plaintextData.length) {
+      console.warn(
+        `Length in message ${messageId} to exceed the plaintext length:`,
+        `${length} > ${plaintextData.length}`
+      );
+
+      return;
+    }
+
+    if (length % 4 !== 0) {
+      console.warn(
+        `Length ${length} in message ${messageId} is not a multiple of four`
+      );
+
+      return;
+    }
+
     const result = plainDeserializer.predicate();
 
     this.handleDecryptedMessage(result, { messageId, seqNo });
