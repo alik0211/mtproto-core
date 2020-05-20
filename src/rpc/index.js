@@ -120,7 +120,6 @@ class RPC {
 
   async handlePQResponse(buffer) {
     const deserializer = new TLDeserializer(buffer);
-
     const auth_key_id = deserializer.long('auth_key_id');
     const msg_id = deserializer.long('msg_id');
     const msg_len = deserializer.int('msg_len');
@@ -132,6 +131,10 @@ class RPC {
       server_nonce,
       server_public_key_fingerprints,
     } = responsePQ;
+
+    if (!bytesIsEqual(this.nonce, nonce)) {
+      throw new Error('The nonce are not equal');
+    }
 
     const publicKey = await getRsaKeyByFingerprints(
       server_public_key_fingerprints
@@ -184,6 +187,15 @@ class RPC {
     const msg_len = deserializer.int('msg_len');
 
     const serverDH = deserializer.predicate('Server_DH_Params');
+    const { nonce, server_nonce, encrypted_answer } = serverDH;
+
+    if (!bytesIsEqual(this.nonce, nonce)) {
+      throw new Error('The nonce are not equal');
+    }
+
+    if (!bytesIsEqual(this.serverNonce, server_nonce)) {
+      throw new Error('The server_nonce are not equal');
+    }
 
     this.tmpAesKey = concatBytes(
       await SHA1(concatBytes(this.newNonce, this.serverNonce)),
@@ -196,7 +208,7 @@ class RPC {
     );
 
     const decryptedData = new AES.IGE(this.tmpAesKey, this.tmpAesIV).decrypt(
-      serverDH.encrypted_answer
+      encrypted_answer
     );
     const innerDataHash = decryptedData.slice(0, 20);
     const innerDeserializer = new TLDeserializer(
@@ -307,6 +319,15 @@ class RPC {
     const serverDHAnswer = deserializer.predicate(
       'Set_client_DH_params_answer'
     );
+    const { nonce, server_nonce } = serverDHAnswer;
+
+    if (!bytesIsEqual(this.nonce, nonce)) {
+      throw new Error('The nonce are not equal');
+    }
+
+    if (!bytesIsEqual(this.serverNonce, server_nonce)) {
+      throw new Error('The server_nonce are not equal');
+    }
 
     if (serverDHAnswer._ === 'dh_gen_ok') {
       const hash = (
