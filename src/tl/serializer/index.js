@@ -219,9 +219,11 @@ class TLSerializer {
 
         this.uint32(high);
         this.uint32(low);
-
-        return;
+      } else {
+        this.bytesRaw(value);
       }
+
+      return;
     }
 
     const { quotient, remainder } = bigInt(value).divmod(bigInt(0x100000000));

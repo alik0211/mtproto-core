@@ -258,15 +258,16 @@ class RPC {
 
   async generateDH(retryId = 0) {
     const b = bytesToBigInt(getRandomBytes(256));
-    const authKey = bytesToBytesRaw(
-      bigIntToBytes(this.gA.modPow(b, this.dhPrime))
-    );
-    const serverSalt = bytesToBytesRaw(
-      xorBytes(this.newNonce.slice(0, 8), this.serverNonce.slice(0, 8))
+    const authKey = bigIntToBytes(this.gA.modPow(b, this.dhPrime));
+    const serverSalt = xorBytes(
+      this.newNonce.slice(0, 8),
+      this.serverNonce.slice(0, 8)
     );
 
-    this.storage.pSet('authKey', authKey);
-    this.storage.pSet('serverSalt', serverSalt);
+    this.storage.pSet('authKey', bytesToBytesRaw(authKey));
+    this.storage.pSet('serverSalt', bytesToBytesRaw(serverSalt));
+
+    this.authKeyAuxHash = bytesToBytesRaw((await SHA1(authKey)).slice(0, 8));
 
     const innerSerializer = new TLSerializer();
     innerSerializer.predicate(
@@ -308,12 +309,48 @@ class RPC {
     );
 
     if (serverDHAnswer._ === 'dh_gen_ok') {
+      const hash = (
+        await SHA1(concatBytes(this.newNonce, [1], this.authKeyAuxHash))
+      ).slice(4, 20);
+
+      if (!bytesIsEqual(hash, serverDHAnswer.new_nonce_hash1)) {
+        throw new Error(`Invalid hash in dh_gen_ok`);
+      }
+
       this.handleMessage = this.handleEncryptedMessage;
       this.isReady = true;
       this.sendWaitMessages();
-    } else {
-      console.error(`Invalid Set_client_DH_params_answer:`, serverDHAnswer);
+
+      return;
     }
+
+    if (serverDHAnswer._ === 'dh_gen_retry') {
+      const hash = (
+        await SHA1(concatBytes(this.newNonce, [2], this.authKeyAuxHash))
+      ).slice(4, 20);
+
+      if (!bytesIsEqual(hash, serverDHAnswer.new_nonce_hash2)) {
+        throw new Error(`Invalid hash in dh_gen_retry`);
+      }
+
+      this.generateDH(this.authKeyAuxHash);
+
+      return;
+    }
+
+    if (serverDHAnswer._ === 'dh_gen_fail') {
+      const hash = (
+        await SHA1(concatBytes(this.newNonce, [3], this.authKeyAuxHash))
+      ).slice(4, 20);
+
+      if (!bytesIsEqual(hash, serverDHAnswer.new_nonce_hash3)) {
+        throw new Error(`Invalid hash in dh_gen_fail`);
+      }
+
+      throw new Error(`dh_gen_fail`);
+    }
+
+    throw new Error(`Invalid Set_client_DH_params_answer: ${serverDHAnswer}`);
   }
 
   async sendWaitMessages() {
