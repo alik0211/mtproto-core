@@ -404,6 +404,16 @@ class RPC {
       await this.getAESInstance(authKey, messageKey, true)
     ).decrypt(encryptedData);
 
+    const computedMessageKey = (
+      await SHA256(concatBytes(authKey.slice(96, 128), plaintextData))
+    ).slice(8, 24);
+
+    if (!bytesIsEqual(messageKey, computedMessageKey)) {
+      console.warn(`Incorrect msg_key`);
+
+      return;
+    }
+
     const plainDeserializer = new TLDeserializer(plaintextData.buffer);
 
     const salt = plainDeserializer.long();
