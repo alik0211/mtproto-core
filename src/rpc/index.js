@@ -214,10 +214,18 @@ class RPC {
     const innerDeserializer = new TLDeserializer(
       decryptedData.slice(20).buffer
     );
-
     const serverDHInnerData = innerDeserializer.predicate(
       'Server_DH_inner_data'
     );
+
+    if (
+      !bytesIsEqual(
+        innerDataHash,
+        await SHA1(decryptedData.slice(20, 20 + innerDeserializer.offset))
+      )
+    ) {
+      throw new Error('Invalid hash in DH params decrypted data');
+    }
 
     this.storage.set(
       'timeOffset',
