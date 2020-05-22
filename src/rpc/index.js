@@ -100,7 +100,6 @@ class RPC {
       // This request is necessary to ensure that you start interacting with the server. If we have not made any request, the server will not send us updates.
       this.call('help.getConfig')
         .then(result => {
-          console.log(`help.getConfig[result].this_dc:`, result.this_dc);
           // TODO: Handle config
         })
         .catch(error => {

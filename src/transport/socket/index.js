@@ -1,25 +1,33 @@
 const { Obfuscated } = require('../obfuscated');
 
+const subdomainsMap = {
+  1: 'pluto',
+  2: 'venus',
+  3: 'aurora',
+  4: 'vesta',
+  5: 'flora',
+};
+
 class Socket extends Obfuscated {
   constructor(dc) {
     super();
 
     this.dc = dc;
+    this.url = `wss://${subdomainsMap[this.dc.id]}.web.telegram.org${
+      this.dc.test ? '/apiws_test' : '/apiws'
+    }`;
 
-    this.setUrl();
+    this.connect();
+  }
 
+  connect() {
     this.socket = new WebSocket(this.url, 'binary');
     this.socket.binaryType = 'arraybuffer';
 
-    this.handleError = this.handleError.bind(this);
-    this.handleOpen = this.handleOpen.bind(this);
-    this.handleClose = this.handleClose.bind(this);
-    this.handleMessage = this.handleMessage.bind(this);
-
-    this.socket.addEventListener('error', this.handleError);
-    this.socket.addEventListener('open', this.handleOpen);
-    this.socket.addEventListener('close', this.handleClose);
-    this.socket.addEventListener('message', this.handleMessage);
+    this.socket.addEventListener('error', this.handleError.bind(this));
+    this.socket.addEventListener('open', this.handleOpen.bind(this));
+    this.socket.addEventListener('close', this.handleClose.bind(this));
+    this.socket.addEventListener('message', this.handleMessage.bind(this));
   }
 
   async handleError(event) {
@@ -36,7 +44,13 @@ class Socket extends Obfuscated {
   }
 
   async handleClose(event) {
+    if (this.socket.readyState === 1) {
+      this.socket.close();
+    }
+
     this.emit('close', event);
+
+    this.connect();
   }
 
   async handleMessage(event) {
@@ -51,32 +65,9 @@ class Socket extends Obfuscated {
   async send(bytes) {
     const intermediateBytes = this.getIntermediateBytes(bytes);
 
-    const buffer = (await this.obfuscate(intermediateBytes)).buffer;
+    const { buffer } = await this.obfuscate(intermediateBytes);
 
     this.socket.send(buffer);
-  }
-
-  destroy() {
-    this.removeAllListeners();
-
-    if (this.socket.readyState === 1) {
-      this.socket.close();
-    }
-  }
-
-  setUrl() {
-    const subdomainsMap = {
-      1: 'pluto',
-      2: 'venus',
-      3: 'aurora',
-      4: 'vesta',
-      5: 'flora',
-    };
-
-    const dcId = this.dc.id;
-    const urlPath = this.dc.test ? '/apiws_test' : '/apiws';
-
-    this.url = `wss://${subdomainsMap[dcId]}.web.telegram.org${urlPath}`;
   }
 }
 
