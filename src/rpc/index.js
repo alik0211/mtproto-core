@@ -39,12 +39,12 @@ class RPC {
 
     this.updateSession();
 
-    this.handleTransportError = this.handleTransportError.bind(this);
-    this.handleTransportOpen = this.handleTransportOpen.bind(this);
-    this.handleTransportClose = this.handleTransportClose.bind(this);
-    this.handleTransportMessage = this.handleTransportMessage.bind(this);
+    this.transport = new Transport(this.dc);
 
-    this.connect();
+    this.transport.on('open', this.handleTransportOpen.bind(this));
+    this.transport.on('close', this.handleTransportClose.bind(this));
+    this.transport.on('error', this.handleTransportError.bind(this));
+    this.transport.on('message', this.handleTransportMessage.bind(this));
 
     this.sendAcks = debounce(() => {
       if (!this.pendingAcks.length) {
@@ -67,6 +67,7 @@ class RPC {
       });
     }, 500);
   }
+
   async handleTransportError(payload) {
     const { type } = payload;
 
@@ -78,8 +79,6 @@ class RPC {
       if (payload.code === 404) {
         this.storage.pSet('authKey', null);
         this.storage.pSet('serverSalt', null);
-
-        return this.recconect();
       }
 
       // transport flood
@@ -88,6 +87,7 @@ class RPC {
       }
     }
   }
+
   async handleTransportOpen(event) {
     const authKey = this.storage.pGet('authKey');
     const serverSalt = this.storage.pGet('serverSalt');
@@ -100,6 +100,7 @@ class RPC {
       // This request is necessary to ensure that you start interacting with the server. If we have not made any request, the server will not send us updates.
       this.call('help.getConfig')
         .then(result => {
+          console.log(`help.getConfig[result].this_dc:`, result.this_dc);
           // TODO: Handle config
         })
         .catch(error => {
@@ -111,9 +112,11 @@ class RPC {
       this.sendPlainMessage('req_pq_multi', { nonce: this.nonce });
     }
   }
+
   async handleTransportClose(event) {
-    this.recconect();
+    this.isReady = false;
   }
+
   async handleTransportMessage(buffer) {
     this.handleMessage(buffer);
   }
@@ -724,23 +727,6 @@ class RPC {
       sha256b.slice(24, 32)
     );
     return new AES.IGE(aesKey, aesIV);
-  }
-
-  connect() {
-    this.transport = new Transport(this.dc);
-
-    this.transport.on('error', this.handleTransportError);
-    this.transport.on('open', this.handleTransportOpen);
-    this.transport.on('close', this.handleTransportClose);
-    this.transport.on('message', this.handleTransportMessage);
-  }
-
-  recconect() {
-    this.isReady = false;
-
-    this.transport.destroy();
-
-    this.connect();
   }
 }
 

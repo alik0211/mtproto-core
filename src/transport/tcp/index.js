@@ -7,24 +7,23 @@ class TCP extends Obfuscated {
 
     this.dc = dc;
 
-    this.handleConnect = this.handleConnect.bind(this);
-    this.handleData = this.handleData.bind(this);
-    this.handleError = this.handleError.bind(this);
-    this.handleClose = this.handleClose.bind(this);
-
-    this.stream = new Uint8Array();
-
     this.connect();
   }
 
   connect() {
+    this.stream = new Uint8Array();
+
     this.socket = new Socket();
 
-    this.socket.on('data', this.handleData);
-    this.socket.on('error', this.handleError);
-    this.socket.on('close', this.handleClose);
+    this.socket.on('data', this.handleData.bind(this));
+    this.socket.on('error', this.handleError.bind(this));
+    this.socket.on('close', this.handleClose.bind(this));
 
-    this.socket.connect(this.dc.port, this.dc.ip, this.handleConnect);
+    this.socket.connect(
+      this.dc.port,
+      this.dc.ip,
+      this.handleConnect.bind(this)
+    );
   }
 
   async handleData(data) {
@@ -34,11 +33,8 @@ class TCP extends Obfuscated {
 
     this.stream = new Uint8Array([...this.stream, ...deobfuscatedBytes]);
 
-    while (true) {
-      if (this.stream.length < 8) {
-        break;
-      }
-
+    // The minimum length is eight (transport error with a intermediate header)
+    while (this.stream.length >= 8) {
       const dataView = new DataView(this.stream.buffer);
       const payloadLength = dataView.getUint32(0, true);
 
@@ -69,8 +65,14 @@ class TCP extends Obfuscated {
     });
   }
 
-  async handleClose() {
+  async handleClose(hadError) {
+    if (!this.socket.destroyed) {
+      this.socket.destroy();
+    }
+
     this.emit('close');
+
+    this.connect();
   }
 
   async handleConnect() {
@@ -86,16 +88,6 @@ class TCP extends Obfuscated {
     const obfuscatedBytes = await this.obfuscate(intermediateBytes);
 
     this.socket.write(obfuscatedBytes);
-  }
-
-  destroy() {
-    this.removeAllListeners();
-
-    // TODO: Remove this.socket.on
-
-    if (!this.socket.destroyed) {
-      this.socket.destroy();
-    }
   }
 }
 
