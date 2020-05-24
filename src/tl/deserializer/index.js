@@ -120,11 +120,10 @@ class TLDeserializer {
 
     if (type.substr(0, 6).toLowerCase() === 'vector') {
       if (type.charAt(0) === 'V') {
-        let constructor = this.int();
-        let constructorCmp = uintToInt(constructor);
+        let constructorId = this.uint32();
 
-        if (constructorCmp != 0x1cb5c415) {
-          throw new Error('Invalid vector constructor ' + constructorCmp);
+        if (constructorId !== 0x1cb5c415) {
+          throw new Error('Invalid vector constructor id ' + constructorId);
         }
       }
 
