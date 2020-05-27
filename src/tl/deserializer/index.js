@@ -4,7 +4,9 @@ const { schema } = require('../../../scheme');
 const { uintToInt, intsToLong } = require('../../utils/common');
 
 class TLDeserializer {
-  constructor(buffer) {
+  constructor(buffer, options = {}) {
+    const { predicatesHandlers = {} } = options;
+
     this.buffer = buffer;
     this.byteView = new Uint8Array(this.buffer);
     this.dataView = new DataView(
@@ -14,6 +16,8 @@ class TLDeserializer {
     );
 
     this.offset = 0;
+
+    this.predicatesHandlers = predicatesHandlers;
   }
 
   int() {
@@ -164,32 +168,36 @@ class TLDeserializer {
 
     const result = { _: constructor.predicate };
 
-    constructor.params.forEach(param => {
-      let paramType = param.type;
+    if (result._ in this.predicatesHandlers) {
+      this.predicatesHandlers[result._].call(this, result);
+    } else {
+      constructor.params.forEach(param => {
+        let paramType = param.type;
 
-      if (paramType === '#' && result.pFlags === undefined) {
-        result.pFlags = {};
-      }
-
-      const isFlag = paramType.indexOf('?') !== -1;
-
-      if (isFlag) {
-        const condType = paramType.split('?');
-        const fieldBit = condType[0].split('.');
-        if (!(result[fieldBit[0]] & (1 << fieldBit[1]))) {
-          return;
+        if (paramType === '#' && result.pFlags === undefined) {
+          result.pFlags = {};
         }
-        paramType = condType[1];
-      }
 
-      const value = this.predicate(paramType);
+        const isFlag = paramType.indexOf('?') !== -1;
 
-      if (isFlag && paramType === 'true') {
-        result.pFlags[param.name] = value;
-      } else {
-        result[param.name] = value;
-      }
-    });
+        if (isFlag) {
+          const condType = paramType.split('?');
+          const fieldBit = condType[0].split('.');
+          if (!(result[fieldBit[0]] & (1 << fieldBit[1]))) {
+            return;
+          }
+          paramType = condType[1];
+        }
+
+        const value = this.predicate(paramType);
+
+        if (isFlag && paramType === 'true') {
+          result.pFlags[param.name] = value;
+        } else {
+          result[param.name] = value;
+        }
+      });
+    }
 
     return result;
   }

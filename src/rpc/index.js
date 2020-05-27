@@ -416,7 +416,27 @@ class RPC {
       return;
     }
 
-    const plainDeserializer = new TLDeserializer(plaintextData.buffer);
+    const self = this;
+
+    const plainDeserializer = new TLDeserializer(plaintextData.buffer, {
+      predicatesHandlers: {
+        rpc_result(result) {
+          result.req_msg_id = this.long();
+
+          const type = self.messagesWaitResponse.has(result.req_msg_id)
+            ? self.messagesWaitResponse.get(result.req_msg_id).type
+            : null;
+
+          if (!type) {
+            console.warn(`Not type for RPC request ${result.req_msg_id}`);
+
+            return;
+          }
+
+          result.result = this.predicate(type);
+        },
+      },
+    });
 
     const salt = plainDeserializer.long();
     const sessionId = plainDeserializer.long();
@@ -564,9 +584,9 @@ class RPC {
       lang_code: 'en',
     });
 
-    serializer.method(method, {
-      api_hash: this.api_hash, // TODO: not found in scheme
-      api_id: this.api_id, // TODO: not found in scheme
+    const type = serializer.method(method, {
+      api_hash: this.api_hash,
+      api_id: this.api_id,
       ...params,
     });
 
@@ -577,6 +597,7 @@ class RPC {
       this.messagesWaitResponse.set(messageIdAsKey, {
         method,
         params,
+        type,
         resolve,
         reject,
       });

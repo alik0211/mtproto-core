@@ -80,6 +80,8 @@ class TLSerializer {
 
       this.predicate(param, paramType);
     });
+
+    return methodData.type;
   }
 
   predicate(predicate, type) {
