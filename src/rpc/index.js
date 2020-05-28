@@ -1,7 +1,6 @@
 const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
 const { meta } = require('../meta');
-const { Storage } = require('../storage');
 const { Transport } = require('../transport');
 const TLSerializer = require('../tl/serializer');
 const TLDeserializer = require('../tl/deserializer');
@@ -23,7 +22,7 @@ const { AES, RSA, SHA1, SHA256 } = require('../utils/crypto');
 const { getRsaKeyByFingerprints } = require('../utils/rsa');
 
 class RPC {
-  constructor({ api_id, api_hash, dc, updates }) {
+  constructor({ api_id, api_hash, dc, updates, storage }) {
     this.api_id = api_id;
     this.api_hash = api_hash;
     this.dc = dc;
@@ -34,7 +33,7 @@ class RPC {
     this.pendingAcks = [];
     this.isReady = false;
 
-    this.storage = new Storage(this.dc.id);
+    this.storage = storage;
     this.storage.set('timeOffset', 0);
 
     this.updateSession();

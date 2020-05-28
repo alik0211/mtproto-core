@@ -52,17 +52,21 @@ const PRODUCTION_DC_LIST = [
 ];
 
 class MTProto {
-  constructor({ api_id, api_hash, test = false }) {
+  constructor(options) {
+    const { api_id, api_hash, test = false, customLocalStorage } = options;
+
     this.api_id = api_id;
     this.api_hash = api_hash;
 
     this.dcList = test ? TEST_DC_LIST : PRODUCTION_DC_LIST;
 
+    this.customLocalStorage = customLocalStorage;
+
     this.updates = new EventEmitter();
 
     this.rpcs = {};
 
-    this.storage = new Storage();
+    this.storage = new Storage('', { customLocalStorage });
 
     this.setDefaultDc();
   }
@@ -135,13 +139,14 @@ class MTProto {
         throw Error(`Don't find DC ${dcId}`);
       }
 
-      const { api_id, api_hash, updates } = this;
+      const { api_id, api_hash, updates, customLocalStorage } = this;
 
       this.rpcs[dcId] = new RPC({
         api_id,
         api_hash,
         dc,
         updates,
+        storage: new Storage(dc.id, { customLocalStorage }),
       });
     }
   }

@@ -1,10 +1,13 @@
 const { MTProto, getSRPParams } = require('../../');
+const { tempLocalStorage } = require('../storage/temp');
 
 const mtproto = new MTProto({
   api_id: +process.env.API_ID,
   api_hash: process.env.API_HASH,
 
   // test: true,
+
+  customLocalStorage: tempLocalStorage,
 });
 
 // Ali: +9996621111 -> @test9996621111
