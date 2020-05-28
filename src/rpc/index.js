@@ -574,7 +574,7 @@ class RPC {
     const serializer = new TLSerializer();
 
     serializer.method('invokeWithLayer', {
-      layer: 112,
+      layer: 113,
     });
 
     serializer.method('initConnection', {
