@@ -34,7 +34,6 @@ class RPC {
     this.isReady = false;
 
     this.storage = storage;
-    this.storage.set('timeOffset', 0);
 
     this.updateSession();
 
@@ -483,79 +482,75 @@ class RPC {
       return;
     }
 
-    let waitMessage = null;
-
-    switch (message._) {
-      case 'msg_container':
-        message.messages.forEach(message => {
-          this.handleDecryptedMessage(message.body, {
-            messageId: message.msg_id,
-          });
+    if (message._ === 'msg_container') {
+      message.messages.forEach(message => {
+        this.handleDecryptedMessage(message.body, {
+          messageId: message.msg_id,
         });
-        return;
+      });
 
-      case 'bad_server_salt':
-        waitMessage = this.messagesWaitResponse.get(message.bad_msg_id);
+      return;
+    }
 
-        if (!waitMessage) {
-          throw new Error(
-            `bad_server_salt. Not found message with id ${message.bad_msg_id}`
-          );
-        }
-
+    if (['bad_server_salt', 'bad_msg_notification'].includes(message._)) {
+      if (message.error_code === 48) {
         this.storage.pSet(
           'serverSalt',
           longToBytesRaw(message.new_server_salt)
         );
+      }
+
+      if ([16, 17].includes(message.error_code)) {
+        const serverTime = bigInt(messageId).shiftRight(32).toJSNumber();
+        const timeOffset = Math.floor(Date.now() / 1000) - serverTime;
+
+        this.storage.set('timeOffset', timeOffset);
+        this.lastMessageId = [0, 0];
+      }
+
+      const waitMessage = this.messagesWaitResponse.get(message.bad_msg_id);
+
+      if (waitMessage) {
         this.call(waitMessage.method, waitMessage.params)
           .then(waitMessage.resolve)
           .catch(waitMessage.reject);
         this.messagesWaitResponse.delete(message.bad_msg_id);
-        this.ackMessage(messageId);
-        return;
+      } else {
+        console.warn(`${message._} for a non-existent message:`, message);
+      }
 
-      case 'bad_msg_notification':
-        return;
-
-      case 'new_session_created':
-        this.ackMessage(messageId);
-
-        // this.messagesWaitResponse.delete(message.first_msg_id);
-        this.storage.pSet('serverSalt', longToBytesRaw(message.server_salt));
-
-        return;
-
-      case 'msgs_ack':
-        // console.log(`msgs_ack:`, message.msg_ids);
-        // console.log(`this.messagesWaitResponse:`, this.messagesWaitResponse);
-        // message.msg_ids.forEach(msgId => {
-        //   this.pendingAcks.forEach((pendingAckMsgId, index) => {
-        //     if (msgId === pendingAckMsgId) {
-        //       this.pendingAcks.splice(index, 1);
-        //     }
-        //   });
-        // });
-        return;
-
-      case 'rpc_result':
-        this.ackMessage(messageId);
-
-        waitMessage = this.messagesWaitResponse.get(message.req_msg_id);
-
-        if (message.result._ === 'rpc_error') {
-          waitMessage.reject(message.result);
-        } else {
-          waitMessage.resolve(message.result);
-        }
-
-        this.messagesWaitResponse.delete(message.req_msg_id);
-        return;
-
-      default:
-        this.ackMessage(messageId);
-        this.updates.emit(message._, message);
-        return;
+      return;
     }
+
+    if (message._ === 'new_session_created') {
+      this.ackMessage(messageId);
+      this.storage.pSet('serverSalt', longToBytesRaw(message.server_salt));
+
+      return;
+    }
+
+    if (message._ === 'msgs_ack') {
+      return;
+    }
+
+    if (message._ === 'rpc_result') {
+      this.ackMessage(messageId);
+
+      const waitMessage = this.messagesWaitResponse.get(message.req_msg_id);
+
+      if (message.result._ === 'rpc_error') {
+        waitMessage.reject(message.result);
+      } else {
+        waitMessage.resolve(message.result);
+      }
+
+      this.messagesWaitResponse.delete(message.req_msg_id);
+
+      return;
+    }
+
+    this.ackMessage(messageId);
+    this.updates.emit(message._, message);
   }
 
   ackMessage(messageId) {
