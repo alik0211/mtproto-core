@@ -423,15 +423,19 @@ class RPC {
         rpc_result(result) {
           result.req_msg_id = this.long();
 
-          const type = self.messagesWaitResponse.has(result.req_msg_id)
-            ? self.messagesWaitResponse.get(result.req_msg_id).type
-            : null;
+          const waitMessage = self.messagesWaitResponse.get(result.req_msg_id);
 
-          if (!type) {
-            console.warn(`Not type for RPC request ${result.req_msg_id}`);
-
-            return;
+          if (!waitMessage) {
+            console.warn(
+              `RPC result for a non-existent message with id ${result.req_msg_id}`
+            );
           }
+
+          const constructorId = this.uint32();
+          this.offset -= 4;
+
+          const type =
+            constructorId === 558156313 ? 'rpc_error' : waitMessage.type;
 
           result.result = this.predicate(type);
         },

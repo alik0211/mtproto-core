@@ -1,7 +1,6 @@
 const pako = require('pako');
-const bigInt = require('big-integer');
 const { schema } = require('../../../scheme');
-const { uintToInt, intsToLong } = require('../../utils/common');
+const { intsToLong } = require('../../utils/common');
 
 class TLDeserializer {
   constructor(buffer, options = {}) {
@@ -122,16 +121,20 @@ class TLDeserializer {
         return true;
     }
 
+    const isContainer = type.charAt(0) === '%';
+
+    const constructorId = isContainer ? 1538843921 : this.uint32();
+
+    if (constructorId === 812830625) {
+      const gzipBytes = this.bytes();
+      const uncompressed = pako.inflate(gzipBytes);
+      const deserializer = new TLDeserializer(uncompressed.buffer);
+
+      return deserializer.predicate(type);
+    }
+
     if (type.substr(0, 6).toLowerCase() === 'vector') {
-      if (type.charAt(0) === 'V') {
-        let constructorId = this.uint32();
-
-        if (constructorId !== 0x1cb5c415) {
-          throw new Error('Invalid vector constructor id ' + constructorId);
-        }
-      }
-
-      const length = this.int();
+      const length = type.charAt(0) === 'V' ? this.int() : constructorId;
       const result = [];
 
       if (!length) {
@@ -144,18 +147,6 @@ class TLDeserializer {
       }
 
       return result;
-    }
-
-    const isContainer = type.charAt(0) === '%';
-
-    const constructorId = isContainer ? 1538843921 : this.uint32();
-
-    if (constructorId === 812830625) {
-      const gzipBytes = this.bytes();
-      const uncompressed = pako.inflate(gzipBytes);
-      const deserializer = new TLDeserializer(uncompressed.buffer);
-
-      return deserializer.predicate(type);
     }
 
     const constructor = schema.constructorsById[constructorId];
