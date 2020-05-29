@@ -34,9 +34,6 @@ const api_hash = 'YOU_API_HASH';
 const mtproto = new MTProto({
   api_id,
   api_hash,
-
-  // Use test servers
-  test: true,
 });
 
 // 2. Get the user country code
@@ -47,9 +44,34 @@ mtproto.call('help.getNearestDc').then(result => {
 
 ## API
 
-### `new MTProto({ api_id, api_hash, test }) => mtproto`
+### `new MTProto({ api_id, api_hash, test, customLocalStorage }) => mtproto`
 
-Example in [quick start](#quick-start).
+#### `api_id: number` and `api_hash: string`
+**api_id** and **api_hash** are required. If you do not have them yet, then get them according to the official instructions: [creating your Telegram application](https://core.telegram.org/api/obtaining_api_id).
+
+#### `test: boolean`
+Default: `false`. Use test data centers. On test servers, you can use [test phone numbers](https://core.telegram.org/api/auth#test-phone-numbers).
+
+#### `customLocalStorage: localStorage`
+Default for browser: `window.localStorage`. Default for nodejs: [`node-localstorage`](https://github.com/alik0211/mtproto-core/blob/master/src/storage/local/index.js). Custom storage for save auth data. Your localStorage must follow this API:
+```ts
+interface MyLocalStorage {
+  setItem(key: string, value: string): void;
+  getItem(key: string): string;
+}
+```
+
+We have ready-made storage:
+1. [tempLocalStorage](https://github.com/alik0211/mtproto-core/blob/master/src/storage/temp/index.js) only stores data while the script is running
+
+Example:
+```js
+const { tempLocalStorage } = require('@mtproto/core/src/storage/temp');
+
+const mtproto = new MTProto({
+  customLocalStorage: tempLocalStorage,
+});
+```
 
 ### `mtproto.call(method, params, options) => Promise`
 
@@ -57,17 +79,14 @@ Example in [quick start](#quick-start).
 Method name from [methods list](https://core.telegram.org/methods).
 
 #### `params: object`
-
 Parameters for `method` from `https://core.telegram.org/method/{method}#parameters`.
 
-If you need to pass a constructor use `_`. Example for [auth.sendCode](https://core.telegram.org/method/auth.sendCode#parameters):
+If you need to pass a constructor use `_`. Example for [users.getFullUser](https://core.telegram.org/method/users.getFullUser#parameters):
 ```js
 const params = {
-  // api_id and api_hash @mtproto/core will set automatically
-  phone_number: '+9996621111',
-  settings: {
-    _: 'codeSettings',
-  }
+  id: {
+    _: 'inputUserSelf',
+  },
 };
 ```
 
@@ -75,7 +94,7 @@ const params = {
 Specific DC id. By default, it is `2`. You can change the default value using [mtproto.setDefaultDc](#mtprotosetdefaultdcdcid) method.
 
 #### `options.syncAuth: boolean`
-By default, it is `true`. Tells the @mtproto/core to copy authorization to all DC if the response contains `auth.authorization`.
+Default: `true`. Copy authorization to all DC if the response contains `auth.authorization`.
 
 #### Example:
 ```js
