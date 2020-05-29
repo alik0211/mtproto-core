@@ -29,6 +29,9 @@
     "src/**/*.js",
     "scheme/index.js"
   ],
+  "engines": {
+    "node": ">=12"
+  },
   "types": "./index.d.ts",
   "browser": {
     "./src/meta/index.js": "./src/meta/index.browser.js",
