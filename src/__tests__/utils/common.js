@@ -3,6 +3,7 @@ const {
   getRandomBytes,
   bytesIsEqual,
   bigIntToBytes,
+  hexToBytesRaw,
   xorBytes,
   concatBytes,
   bytesToHex,
@@ -52,6 +53,23 @@ describe('bigIntToBytes', function () {
 
   it('return Uint8Array', function () {
     expect(expectedResult).toBeInstanceOf(Uint8Array);
+  });
+
+  it('return correct length', function () {
+    expect(reslut.length).toBe(expectedResult.length);
+  });
+
+  it('return correct result', function () {
+    expect(reslut).toEqual(expectedResult);
+  });
+});
+
+describe('hexToBytesRaw', function () {
+  const expectedResult = [0, 0, 0, 0, 255, 255, 255, 255];
+  const reslut = hexToBytesRaw('ffffffff', expectedResult.length);
+
+  it('return Array', function () {
+    expect(Array.isArray(reslut)).toBeTrue();
   });
 
   it('return correct length', function () {
