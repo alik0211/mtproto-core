@@ -9,6 +9,7 @@ const {
   bytesToHex,
   intToUint,
   uintToInt,
+  getRandomInt,
 } = require('../../utils/common');
 
 describe('getRandomBytes', function () {
@@ -156,5 +157,14 @@ describe('uintToInt', function () {
 
   it('return correct result for a number less or equal 0x7fffffff', function () {
     expect(uintToInt(0x7fffffff)).toBe(0x7fffffff);
+  });
+});
+
+describe('getRandomInt', function () {
+  const max = 1024;
+  const result = getRandomInt(max);
+
+  it('result does not exceed the maximum value', function () {
+    expect(result).toBeLessThanOrEqual(max);
   });
 });
