@@ -1,12 +1,27 @@
+const bigInt = require('big-integer');
 const {
-  bytesIsEqual,
   getRandomBytes,
+  bytesIsEqual,
+  bigIntToBytes,
   xorBytes,
   concatBytes,
   bytesToHex,
   intToUint,
   uintToInt,
 } = require('../../utils/common');
+
+describe('getRandomBytes', function () {
+  const length = 16;
+  const result = getRandomBytes(length);
+
+  it('return Uint8Array', function () {
+    expect(result).toBeInstanceOf(Uint8Array);
+  });
+
+  it('return correct length', function () {
+    expect(result.length).toBe(length);
+  });
+});
 
 describe('bytesIsEqual', function () {
   it('return false if the length is different', function () {
@@ -31,16 +46,20 @@ describe('bytesIsEqual', function () {
   });
 });
 
-describe('getRandomBytes', function () {
-  const length = 16;
-  const result = getRandomBytes(length);
+describe('bigIntToBytes', function () {
+  const reslut = bigIntToBytes(bigInt(0xffffffff));
+  const expectedResult = new Uint8Array([255, 255, 255, 255]);
 
   it('return Uint8Array', function () {
-    expect(result).toBeInstanceOf(Uint8Array);
+    expect(expectedResult).toBeInstanceOf(Uint8Array);
   });
 
   it('return correct length', function () {
-    expect(result.length).toBe(length);
+    expect(reslut.length).toBe(expectedResult.length);
+  });
+
+  it('return correct result', function () {
+    expect(reslut).toEqual(expectedResult);
   });
 });
 

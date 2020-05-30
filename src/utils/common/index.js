@@ -115,12 +115,12 @@ function getRandomInt(maxValue) {
 }
 
 module.exports = {
+  getRandomBytes,
   bytesIsEqual,
   bigIntToBytes,
   hexToBytesRaw,
   hexToBytes,
   bytesToBigInt,
-  getRandomBytes,
   xorBytes,
   concatBytes,
   bytesToHex,
