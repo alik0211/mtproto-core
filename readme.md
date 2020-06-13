@@ -4,7 +4,7 @@
 [![Travis](https://img.shields.io/travis/com/alik0211/mtproto-core/master.svg?style=flat-square)](https://travis-ci.com/alik0211/mtproto-core)
 [![Telegram channel](https://img.shields.io/badge/Telegram-channel-blue?style=flat-square&logo=telegram)](https://t.me/mtproto_core)
 
-Telegram API (MTProto) client library for browser and nodejs
+Telegram API JS (MTProto) client library for browser and nodejs
 
 * **Actual.** 113 layer in the API scheme
 * **Fast.** Uses WebSocket for browser and TCP for nodejs
