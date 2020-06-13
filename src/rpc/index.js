@@ -75,8 +75,8 @@ class RPC {
     if (type === 'transport') {
       // Auth key not found
       if (payload.code === 404) {
-        this.storage.pSet('authKey', null);
-        this.storage.pSet('serverSalt', null);
+        await this.storage.pSet('authKey', null);
+        await this.storage.pSet('serverSalt', null);
       }
 
       // transport flood
@@ -87,8 +87,8 @@ class RPC {
   }
 
   async handleTransportOpen(event) {
-    const authKey = this.storage.pGet('authKey');
-    const serverSalt = this.storage.pGet('serverSalt');
+    const authKey = await this.storage.pGet('authKey');
+    const serverSalt = await this.storage.pGet('serverSalt');
 
     if (authKey && serverSalt) {
       this.handleMessage = this.handleEncryptedMessage;
@@ -227,7 +227,7 @@ class RPC {
       throw new Error('Invalid hash in DH params decrypted data');
     }
 
-    this.storage.set(
+    await this.storage.set(
       'timeOffset',
       Math.floor(Date.now() / 1000) - serverDHInnerData.server_time
     );
@@ -284,8 +284,8 @@ class RPC {
       this.serverNonce.slice(0, 8)
     );
 
-    this.storage.pSet('authKey', bytesToBytesRaw(authKey));
-    this.storage.pSet('serverSalt', bytesToBytesRaw(serverSalt));
+    await this.storage.pSet('authKey', bytesToBytesRaw(authKey));
+    await this.storage.pSet('serverSalt', bytesToBytesRaw(serverSalt));
 
     this.authKeyAuxHash = bytesToBytesRaw((await SHA1(authKey)).slice(0, 8));
 
@@ -392,7 +392,7 @@ class RPC {
   }
 
   async handleEncryptedMessage(buffer) {
-    const authKey = this.storage.pGetBytes('authKey');
+    const authKey = await this.storage.pGetBytes('authKey');
 
     const deserializer = new TLDeserializer(buffer);
     const authKeyId = deserializer.long();
@@ -494,7 +494,7 @@ class RPC {
 
     if (['bad_server_salt', 'bad_msg_notification'].includes(message._)) {
       if (message.error_code === 48) {
-        this.storage.pSet(
+        await this.storage.pSet(
           'serverSalt',
           longToBytesRaw(message.new_server_salt)
         );
@@ -504,7 +504,7 @@ class RPC {
         const serverTime = bigInt(messageId).shiftRight(32).toJSNumber();
         const timeOffset = Math.floor(Date.now() / 1000) - serverTime;
 
-        this.storage.set('timeOffset', timeOffset);
+        await this.storage.set('timeOffset', timeOffset);
         this.lastMessageId = [0, 0];
       }
 
@@ -524,7 +524,10 @@ class RPC {
 
     if (message._ === 'new_session_created') {
       this.ackMessage(messageId);
-      this.storage.pSet('serverSalt', longToBytesRaw(message.server_salt));
+      await this.storage.pSet(
+        'serverSalt',
+        longToBytesRaw(message.server_salt)
+      );
 
       return;
     }
@@ -553,13 +556,13 @@ class RPC {
     this.updates.emit(message._, message);
   }
 
-  ackMessage(messageId) {
+  async ackMessage(messageId) {
     this.pendingAcks.push(messageId);
 
     this.sendAcks();
   }
 
-  call(method, params = {}) {
+  async call(method, params = {}) {
     if (!this.isReady) {
       return new Promise((resolve, reject) => {
         this.messagesWaitAuth.push({ method, params, resolve, reject });
@@ -618,9 +621,9 @@ class RPC {
   async sendEncryptedMessage(data, options = {}) {
     const { isContentRelated = true } = options;
 
-    const authKey = this.storage.pGetBytes('authKey');
-    const serverSalt = this.storage.pGetBytes('serverSalt');
-    const messageId = this.getMessageId();
+    const authKey = await this.storage.pGetBytes('authKey');
+    const serverSalt = await this.storage.pGetBytes('serverSalt');
+    const messageId = await this.getMessageId();
     const seqNo = this.getSeqNo(isContentRelated);
     const minPadding = 12;
     const unpadded = (32 + data.length + minPadding) % 16;
@@ -656,7 +659,7 @@ class RPC {
     return messageId;
   }
 
-  sendPlainMessage(method, params) {
+  async sendPlainMessage(method, params) {
     const serializer = new TLSerializer();
     serializer.method(method, params);
 
@@ -666,7 +669,7 @@ class RPC {
 
     const header = new TLSerializer();
     header.long([0, 0]); // auth_key_id (8)
-    header.long(this.getMessageId()); // msg_id (8)
+    header.long(await this.getMessageId()); // msg_id (8)
     header.uint32(requestLength); // request_length (4)
 
     const headerBuffer = header.getBuffer();
@@ -682,8 +685,8 @@ class RPC {
     this.transport.send(resultBytes);
   }
 
-  getMessageId() {
-    const timeOffset = this.storage.get('timeOffset');
+  async getMessageId() {
+    const timeOffset = await this.storage.get('timeOffset');
 
     const timeTicks = Date.now();
     const timeSec = Math.floor(timeTicks / 1000) + timeOffset;

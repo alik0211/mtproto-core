@@ -67,12 +67,12 @@ class MTProto {
     this.rpcs = {};
 
     this.storage = new Storage('', { customLocalStorage });
-
-    this.setDefaultDc();
   }
 
-  call(method, params = {}, options = {}) {
-    const { dcId = this.storage.get('defaultDcId'), syncAuth = true } = options;
+  async call(method, params = {}, options = {}) {
+    const { syncAuth = true } = options;
+
+    const dcId = options.dcId || (await this.storage.get('defaultDcId')) || 2;
 
     this.createRPC(dcId);
 
@@ -86,7 +86,6 @@ class MTProto {
   }
 
   syncAuth(dcId) {
-    // console.log(`Sync from DC ${dcId}`);
     const promises = [];
 
     this.dcList.forEach(dc => {
@@ -124,31 +123,31 @@ class MTProto {
   }
 
   setDefaultDc(dcId) {
-    const defaultDcId = dcId || this.storage.get('defaultDcId') || 2;
-
-    this.storage.set('defaultDcId', defaultDcId);
-
-    this.createRPC(defaultDcId);
+    return this.storage.set('defaultDcId', dcId);
   }
 
   createRPC(dcId) {
-    if (!this.rpcs[dcId]) {
-      const dc = this.dcList.find(({ id }) => id === dcId);
-
-      if (!dc) {
-        throw Error(`Don't find DC ${dcId}`);
-      }
-
-      const { api_id, api_hash, updates, customLocalStorage } = this;
-
-      this.rpcs[dcId] = new RPC({
-        api_id,
-        api_hash,
-        dc,
-        updates,
-        storage: new Storage(dc.id, { customLocalStorage }),
-      });
+    if (dcId in this.rpcs) {
+      return;
     }
+
+    const dc = this.dcList.find(({ id }) => id === dcId);
+
+    if (!dc) {
+      console.warn(`Don't find DC ${dcId}`);
+
+      return;
+    }
+
+    const { api_id, api_hash, updates, customLocalStorage } = this;
+
+    this.rpcs[dcId] = new RPC({
+      api_id,
+      api_hash,
+      dc,
+      updates,
+      storage: new Storage(dc.id, { customLocalStorage }),
+    });
   }
 }
 

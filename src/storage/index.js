@@ -18,11 +18,13 @@ class Storage {
   pSet(name, value) {
     const key = `${this._prefix}${name}`;
 
-    this.set(key, value);
+    return this.set(key, value);
   }
 
-  pGetBytes(name) {
-    return new Uint8Array(this.pGet(name));
+  async pGetBytes(name) {
+    const result = await this.pGet(name);
+
+    return new Uint8Array(result);
   }
 
   pGet(name) {
@@ -31,19 +33,23 @@ class Storage {
     return this.get(key);
   }
 
-  set(key, value) {
+  async set(key, value) {
     cache[key] = value;
 
-    this.localStorage.setItem(key, JSON.stringify(value));
+    const result = await this.localStorage.setItem(key, JSON.stringify(value));
+
+    return result;
   }
 
-  get(key) {
+  async get(key) {
     if (key in cache) {
       return cache[key];
     }
 
-    if (this.localStorage.getItem(key)) {
-      cache[key] = JSON.parse(this.localStorage.getItem(key));
+    const fromLocalStorage = await this.localStorage.getItem(key);
+
+    if (fromLocalStorage) {
+      cache[key] = JSON.parse(fromLocalStorage);
 
       return cache[key];
     }

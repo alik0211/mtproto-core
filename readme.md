@@ -55,9 +55,9 @@ Default: `false`. Use test data centers. On test servers, you can use [test phon
 #### `customLocalStorage: localStorage`
 Default for browser: `window.localStorage`. Default for nodejs: [`node-localstorage`](https://github.com/alik0211/mtproto-core/blob/master/src/storage/local/index.js). Custom storage for save auth data. Your localStorage must follow this API:
 ```ts
-interface MyLocalStorage {
-  setItem(key: string, value: string): void;
-  getItem(key: string): string;
+interface MyAsyncLocalStorage {
+  setItem(key: string, value: string): Promise;
+  getItem(key: string): Promise<string>;
 }
 ```
 
@@ -125,7 +125,7 @@ mtproto.updates.on('updateShort', message => {
 });
 ```
 
-### `mtproto.setDefaultDc(dcId)`
+### `mtproto.setDefaultDc(dcId) => Promise`
 If a [migration error](https://core.telegram.org/api/errors#303-see-other) occurs, you can use this function to change the default [data center](https://core.telegram.org/api/datacenter). You can also use [options.dcId](#optionsdcid-number).
 
 See the example in the [authentication](docs/authentication.md).
