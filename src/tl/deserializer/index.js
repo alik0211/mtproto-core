@@ -53,7 +53,7 @@ class TLDeserializer {
   }
 
   double() {
-    const value = this.data.getFloat64(this.offset, true);
+    const value = this.dataView.getFloat64(this.offset, true);
     this.offset += 8;
     return value;
   }
