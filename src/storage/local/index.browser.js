@@ -1,3 +1,5 @@
-const localStorage = window.localStorage;
+function getLocalStorage() {
+  return window.localStorage;
+}
 
-module.exports = { localStorage };
+module.exports = { getLocalStorage };

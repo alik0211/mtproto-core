@@ -1,10 +1,22 @@
 const envPaths = require('env-paths');
 const { LocalStorage } = require('node-localstorage');
 
-const paths = envPaths('@mtproto/core', {
-  suffix: '',
-});
+let localStorage = null;
 
-const localStorage = new LocalStorage(paths.data);
+function getLocalStorage() {
+  if (localStorage) {
+    return localStorage;
+  }
 
-module.exports = { localStorage };
+  const paths = envPaths('@mtproto/core', {
+    suffix: '',
+  });
+
+  localStorage = new LocalStorage(paths.data);
+
+  console.log(`Auth data is located in ${paths.data}`);
+
+  return localStorage;
+}
+
+module.exports = { getLocalStorage };

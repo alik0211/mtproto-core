@@ -1,4 +1,4 @@
-const { localStorage } = require('./local');
+const { getLocalStorage } = require('./local');
 
 const cache = {};
 
@@ -6,7 +6,7 @@ class Storage {
   constructor(prefix, options = {}) {
     this._prefix = prefix;
 
-    const { customLocalStorage = localStorage } = options;
+    const { customLocalStorage = getLocalStorage() } = options;
 
     this.localStorage = customLocalStorage;
   }
