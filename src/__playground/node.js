@@ -1,13 +1,6 @@
 const readline = require('readline');
-const {
-  mtproto,
-  getNearestDc,
-  sendCode,
-  signIn,
-  checkPassword,
-  getFullUser,
-  getConfig,
-} = require('./common');
+const { getSRPParams } = require('../../');
+const { sendCode, signIn, getPassword, checkPassword } = require('./auth');
 
 function prompt(question) {
   const rl = readline.createInterface({
@@ -24,52 +17,42 @@ function prompt(question) {
   });
 }
 
-const phone = '+9996627777';
-const password = 'test';
+(async () => {
+  const phone = await prompt('phone: ');
 
-getFullUser()
-  .then(result => {
-    console.log(`result:`, result);
-    process.exit();
-  })
-  .catch(error => {
-    console.log(`error:`, error);
+  sendCode(phone)
+    .then(async sendCodeResult => {
+      const code = await prompt('code: ');
 
-    return sendCode(phone);
-  })
-  .catch(error => {
-    console.log(`sendCode[error]:`, error);
+      return signIn({
+        code,
+        phone,
+        phone_code_hash: sendCodeResult.phone_code_hash,
+      }).catch(async error => {
+        if (error.error_message === 'SESSION_PASSWORD_NEEDED') {
+          const password = await prompt('password: ');
 
-    if (error.error_message.includes('_MIGRATE_')) {
-      const [type, nextDcId] = error.error_message.split('_MIGRATE_');
+          return getPassword().then(async result => {
+            const { srp_id, current_algo, srp_B } = result;
+            const { g, p, salt1, salt2 } = current_algo;
 
-      mtproto.setDefaultDc(+nextDcId);
+            const { A, M1 } = await getSRPParams({
+              g,
+              p,
+              salt1,
+              salt2,
+              gB: srp_B,
+              password,
+            });
 
-      return sendCode(phone);
-    }
-  })
-  .then(async () => {
-    const code = await prompt('code: ');
+            return checkPassword({ srp_id, A, M1 });
+          });
+        }
 
-    return signIn(code);
-  })
-  .catch(error => {
-    console.log(`signIn[error]:`, error);
-
-    if (error.error_message === 'SESSION_PASSWORD_NEEDED') {
-      return checkPassword(password);
-    }
-  })
-  .then(result => {
-    console.log(`signIn/checkPassword[result]:`, result);
-
-    return getNearestDc({ dcId: 1 });
-  })
-  .then(result => {
-    console.log(`getNearestDc[result]:`, result);
-
-    process.exit();
-  })
-  .catch(error => {
-    console.log(`error:`, error);
-  });
+        return Promise.reject(error);
+      });
+    })
+    .then(result => {
+      console.log('auth.authorization:', result);
+    });
+})();

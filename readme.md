@@ -46,6 +46,7 @@ mtproto.call('help.getNearestDc').then(result => {
 ## Guides
 
 - [Authentication](docs/authentication.md)
+- [Handling common errors](docs/handling-common-errors.md)
 
 ## API
 

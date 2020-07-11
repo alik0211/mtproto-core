@@ -70,7 +70,7 @@ sendCode(phone)
       phone_code_hash: sendCodeResult.phone_code_hash,
     }).catch(error => {
       if (error.error_message === 'SESSION_PASSWORD_NEEDED') {
-        return getPassword().then(async reslut => {
+        return getPassword().then(async result => {
           const { srp_id, current_algo, srp_B } = result;
           const { g, p, salt1, salt2, } = current_algo;
 
