@@ -61,9 +61,9 @@ Default: `false`. Use test data centers. On test servers, you can use [test phon
 #### `customLocalStorage: localStorage`
 Default for browser: `window.localStorage`. Default for nodejs: [`node-localstorage`](https://github.com/alik0211/mtproto-core/blob/master/src/storage/local/index.js). Custom storage for save auth data. Your localStorage must follow this API:
 ```ts
-interface MyAsyncLocalStorage {
-  setItem(key: string, value: string): Promise;
-  getItem(key: string): Promise<string>;
+class MyAsyncLocalStorage {
+  setItem(key: string, value: string): Promise<void>;
+  getItem(key: string): Promise<string|null>;
 }
 ```
 
