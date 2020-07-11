@@ -1,22 +1,13 @@
 # Authentication
 
-## 0. Init MTProto
-```js
-const { MTProto } = require('@mtproto/core');
+## 0. Init Telegram API
 
-const api_id = 'YOU_API_ID';
-const api_hash = 'YOU_API_HASH';
-
-const mtproto = new MTProto({
-  api_id,
-  api_hash,
-});
-```
+Create an Telegram API instance according to the [handling common errors](./handling-common-errors.md) guide. This is **required** to automatically handle migration errors.
 
 ## 1. Send code
 ```js
 function sendCode(phone) {
-  return mtproto.call('auth.sendCode', {
+  return api.call('auth.sendCode', {
     phone_number: phone,
     settings: {
       _: 'codeSettings',
@@ -28,7 +19,7 @@ function sendCode(phone) {
 ## 2. Sign in
 ```js
 function signIn({ code, phone, phone_code_hash }) {
-  return mtproto.call('auth.signIn', {
+  return api.call('auth.signIn', {
     phone_code: code,
     phone_number: phone,
     phone_code_hash: phone_code_hash,
@@ -39,11 +30,11 @@ function signIn({ code, phone, phone_code_hash }) {
 ## 2.1. 2FA
 ```js
 function getPassword() {
-  return mtproto.call('account.getPassword');
+  return api.call('account.getPassword');
 }
 
 async function checkPassword({ srp_id, A, M1 }) {
-  return mtproto.call('auth.checkPassword', {
+  return api.call('auth.checkPassword', {
     password: {
       _: 'inputCheckPasswordSRP',
       srp_id,
