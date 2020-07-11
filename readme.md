@@ -43,6 +43,10 @@ mtproto.call('help.getNearestDc').then(result => {
 });
 ```
 
+## Guides
+
+- [Authentication](docs/authentication.md)
+
 ## API
 
 ### `new MTProto({ api_id, api_hash, test, customLocalStorage }) => mtproto`
@@ -136,10 +140,6 @@ See the example in the [authentication](docs/authentication.md).
 Function to calculate parameters for 2FA (Two-factor authentication). For more information about parameters, see the [article on the Telegram website](https://core.telegram.org/api/srp).
 
 See the example in the [authentication](docs/authentication.md).
-
-## Cases
-
-- [Authentication](docs/authentication.md)
 
 ## Useful references
 
