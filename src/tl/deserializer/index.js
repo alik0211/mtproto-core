@@ -4,7 +4,7 @@ const { intsToLong } = require('../../utils/common');
 
 class TLDeserializer {
   constructor(buffer, options = {}) {
-    const { predicatesHandlers = {} } = options;
+    const { predicatesHandlers = {}, schema = schema } = options;
 
     this.buffer = buffer;
     this.byteView = new Uint8Array(this.buffer);
@@ -17,6 +17,7 @@ class TLDeserializer {
     this.offset = 0;
 
     this.predicatesHandlers = predicatesHandlers;
+    this.schema = schema;
   }
 
   int() {
@@ -61,11 +62,11 @@ class TLDeserializer {
   bool() {
     const id = this.uint32();
 
-    if (id === schema.constructorsIdsByPredicate.boolTrue) {
+    if (id === this.schema.constructorsIdsByPredicate.boolTrue) {
       return true;
     }
 
-    if (id === schema.constructorsIdsByPredicate.boolFalse) {
+    if (id === this.schema.constructorsIdsByPredicate.boolFalse) {
       return false;
     }
 
@@ -149,7 +150,7 @@ class TLDeserializer {
       return result;
     }
 
-    const constructor = schema.constructorsById[constructorId];
+    const constructor = this.schema.constructorsById[constructorId];
 
     if (!constructor) {
       throw new Error(

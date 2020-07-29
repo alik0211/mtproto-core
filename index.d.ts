@@ -7,6 +7,28 @@ declare class MyAsyncLocalStorage {
   getItem(key: string): Promise<string|null>;
 }
 
+interface TlConstructor {
+  id: string
+  predicate: string
+  type: string
+}
+
+interface TlMethod {
+  id: string
+  method: string
+  type: string
+}
+
+interface TlSchema {
+  constructors: TlConstructor[]
+  methods: TlMethod[]
+}
+
+export interface Schema {
+  constructorsById: Record<string, TlConstructor>
+  methodsByName: Record<string, TlMethod>
+  constructorsIdsByPredicate: Record<string, number>
+}
 export class MTProto {
   constructor(options: {
     api_id: number,
@@ -40,3 +62,5 @@ export function getSRPParams(params: {
   A: Uint8Array,
   M1: Uint8Array
 }>
+
+export function getSchema(schema: TlSchema, existingSchema?: Schema | null): Promise<Schema>

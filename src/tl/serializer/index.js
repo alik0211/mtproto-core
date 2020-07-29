@@ -4,7 +4,9 @@ const { bigIntToBytes } = require('../../utils/common');
 
 class TLSerializer {
   constructor(options = {}) {
-    const { maxLength = 2048 } = options;
+    const { maxLength = 2048, schema = schema } = options;
+
+    this.schema = schema;
 
     this.maxLength = maxLength;
     this.offset = 0; // in bytes
@@ -57,7 +59,7 @@ class TLSerializer {
   }
 
   method(methodName, params) {
-    const methodData = schema.methodsByName[methodName];
+    const methodData = this.schema.methodsByName[methodName];
 
     if (!methodData) {
       throw new Error(`Method ${methodName} not found in schema`);
@@ -129,8 +131,8 @@ class TLSerializer {
       return;
     }
 
-    const constructorId = schema.constructorsIdsByPredicate[predicate._];
-    const constructorData = schema.constructorsById[constructorId];
+    const constructorId = this.schema.constructorsIdsByPredicate[predicate._];
+    const constructorData = this.schema.constructorsById[constructorId];
 
     if (!constructorData) {
       throw new Error(`Constructor ${predicate._} not found in schema`);
