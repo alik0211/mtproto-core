@@ -26,7 +26,7 @@
   "repository": "github:alik0211/mtproto-core",
   "files": [
     "index.js",
-    "index.d.js",
+    "index.d.ts",
     "src/**/*.js",
     "scheme/index.js"
   ],
