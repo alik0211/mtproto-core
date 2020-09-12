@@ -1,8 +1,9 @@
 const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
 const { meta } = require('../meta');
+const { schema } = require('../../scheme');
 const { Transport } = require('../transport');
-const TLSerializer = require('../tl/serializer');
+const Serializer = require('../tl/serializer');
 const TLDeserializer = require('../tl/deserializer');
 const {
   bytesIsEqual,
@@ -20,6 +21,8 @@ const {
 const { pqPrimeFactorization } = require('../utils/pq');
 const { AES, RSA, SHA1, SHA256 } = require('../utils/crypto');
 const { getRsaKeyByFingerprints } = require('../utils/rsa');
+
+const { tlBuild } = require('../tl');
 
 class RPC {
   constructor({ api_id, api_hash, dc, updates, storage }) {
@@ -49,18 +52,14 @@ class RPC {
         return;
       }
 
-      const serializer = new TLSerializer();
-      serializer.predicate(
-        {
-          _: 'msgs_ack',
-          msg_ids: this.pendingAcks,
-        },
-        'MsgsAck'
-      );
+      const bytes = tlBuild({
+        _: 'mt_msgs_ack',
+        msg_ids: this.pendingAcks,
+      }).getBytes();
 
       this.pendingAcks = [];
 
-      this.sendEncryptedMessage(serializer.getBytes(), {
+      this.sendEncryptedMessage(bytes, {
         isContentRelated: false,
       });
     }, 500);
@@ -106,7 +105,7 @@ class RPC {
     } else {
       this.nonce = getRandomBytes(16);
       this.handleMessage = this.handlePQResponse;
-      this.sendPlainMessage('req_pq_multi', { nonce: this.nonce });
+      this.sendPlainMessage({ _: 'mt_req_pq_multi', nonce: this.nonce });
     }
   }
 
@@ -145,19 +144,15 @@ class RPC {
     this.newNonce = getRandomBytes(32);
     this.serverNonce = server_nonce;
 
-    const serializer = new TLSerializer();
-    serializer.predicate(
-      {
-        _: 'p_q_inner_data',
-        pq: pq,
-        p: p,
-        q: q,
-        nonce: this.nonce,
-        server_nonce: this.serverNonce,
-        new_nonce: this.newNonce,
-      },
-      'P_Q_inner_data'
-    );
+    const serializer = tlBuild({
+      _: 'mt_p_q_inner_data',
+      pq: pq,
+      p: p,
+      q: q,
+      nonce: this.nonce,
+      server_nonce: this.serverNonce,
+      new_nonce: this.newNonce,
+    });
 
     const data = serializer.getBytes();
     const dataHash = await SHA1(data);
@@ -168,7 +163,8 @@ class RPC {
 
     const encryptedData = new RSA(publicKey).encrypt(innerData);
 
-    this.sendPlainMessage('req_DH_params', {
+    this.sendPlainMessage({
+      _: 'mt_req_DH_params',
       nonce: this.nonce,
       server_nonce: this.serverNonce,
       p: p,
@@ -289,18 +285,13 @@ class RPC {
 
     this.authKeyAuxHash = bytesToBytesRaw((await SHA1(authKey)).slice(0, 8));
 
-    const innerSerializer = new TLSerializer();
-    innerSerializer.predicate(
-      {
-        _: 'client_DH_inner_data',
-        nonce: this.nonce,
-        server_nonce: this.serverNonce,
-        retry_id: retryId,
-        g_b: bigIntToBytes(this.g.modPow(b, this.dhPrime)),
-      },
-      'Client_DH_Inner_Data'
-    );
-    const innerData = innerSerializer.getBytes();
+    const innerData = tlBuild({
+      _: 'mt_client_DH_inner_data',
+      nonce: this.nonce,
+      server_nonce: this.serverNonce,
+      retry_id: retryId,
+      g_b: bigIntToBytes(this.g.modPow(b, this.dhPrime)),
+    }).getBytes();
 
     const innerDataHash = await SHA1(innerData);
     const paddingLength = 16 - ((innerDataHash.length + innerData.length) % 16);
@@ -309,7 +300,8 @@ class RPC {
       concatBytes(innerDataHash, innerData, getRandomBytes(paddingLength))
     );
 
-    this.sendPlainMessage('set_client_DH_params', {
+    this.sendPlainMessage({
+      _: 'mt_set_client_DH_params',
       nonce: this.nonce,
       server_nonce: this.serverNonce,
       encrypted_data: encryptedData,
@@ -569,30 +561,30 @@ class RPC {
       });
     }
 
-    const serializer = new TLSerializer();
-
-    serializer.method('invokeWithLayer', {
+    const bytes = tlBuild({
+      _: 'invokeWithLayer',
       layer: 113,
-    });
+      query: {
+        _: 'initConnection',
+        api_id: this.api_id,
+        device_model: meta.device_model,
+        system_version: meta.system_version,
+        app_version: '1.0.0',
+        system_lang_code: 'en',
+        lang_code: 'en',
+        query: {
+          _: method,
+          api_hash: this.api_hash,
+          api_id: this.api_id,
+          ...params,
+        },
+      },
+    }).getBytes();
 
-    serializer.method('initConnection', {
-      flags: 0, // because the proxy is not set
-      api_id: this.api_id,
-      device_model: meta.device_model,
-      system_version: meta.system_version,
-      app_version: '1.0.0',
-      system_lang_code: 'en',
-      lang_code: 'en',
-    });
-
-    const type = serializer.method(method, {
-      api_hash: this.api_hash,
-      api_id: this.api_id,
-      ...params,
-    });
+    const { type } = schema.methodsByName[method];
 
     return new Promise(async (resolve, reject) => {
-      const messageId = await this.sendEncryptedMessage(serializer.getBytes());
+      const messageId = await this.sendEncryptedMessage(bytes);
       const messageIdAsKey = intsToLong(messageId[0], messageId[1]);
 
       this.messagesWaitResponse.set(messageIdAsKey, {
@@ -629,11 +621,11 @@ class RPC {
     const unpadded = (32 + data.length + minPadding) % 16;
     const padding = minPadding + (unpadded ? 16 - unpadded : 0);
 
-    const plainDataSerializer = new TLSerializer();
+    const plainDataSerializer = new Serializer();
     plainDataSerializer.bytesRaw(serverSalt);
     plainDataSerializer.bytesRaw(this.sessionId);
     plainDataSerializer.long(messageId);
-    plainDataSerializer.int(seqNo);
+    plainDataSerializer.int32(seqNo);
     plainDataSerializer.uint32(data.length);
     plainDataSerializer.bytesRaw(data);
     plainDataSerializer.bytesRaw(getRandomBytes(padding));
@@ -649,7 +641,7 @@ class RPC {
     ).encrypt(plainData);
 
     const authKeyId = (await SHA1(authKey)).slice(-8);
-    const serializer = new TLSerializer();
+    const serializer = new Serializer();
     serializer.bytesRaw(authKeyId);
     serializer.bytesRaw(messageKey);
     serializer.bytesRaw(encryptedData);
@@ -659,28 +651,23 @@ class RPC {
     return messageId;
   }
 
-  async sendPlainMessage(method, params) {
-    const serializer = new TLSerializer();
-    serializer.method(method, params);
+  async sendPlainMessage(params) {
+    const requestBytes = tlBuild(params).getBytes();
+    const requestLength = requestBytes.length;
 
-    const requestBuffer = serializer.getBuffer();
-    const requestLength = requestBuffer.byteLength;
-    const requestBytes = new Uint8Array(requestBuffer);
-
-    const header = new TLSerializer();
+    const header = new Serializer();
     header.long([0, 0]); // auth_key_id (8)
     header.long(await this.getMessageId()); // msg_id (8)
     header.uint32(requestLength); // request_length (4)
 
-    const headerBuffer = header.getBuffer();
-    const headerArray = new Uint8Array(headerBuffer);
-    const headerLength = headerBuffer.byteLength;
+    const headerBytes = header.getBytes();
+    const headerLength = headerBytes.length;
 
     const resultBuffer = new ArrayBuffer(headerLength + requestLength);
     const resultBytes = new Uint8Array(resultBuffer);
 
-    resultBytes.set(headerArray);
-    resultBytes.set(requestBytes, headerArray.length);
+    resultBytes.set(headerBytes);
+    resultBytes.set(requestBytes, headerLength);
 
     this.transport.send(resultBytes);
   }

@@ -1,7 +1,7 @@
 const bigInt = require('big-integer');
-const TLSerializer = require('../../tl/serializer');
-const { bytesToHex, hexToBytes } = require('../../utils/common');
 const { SHA1 } = require('../../utils/crypto');
+const Serializer = require('../../tl/serializer');
+const { bytesToHex, hexToBytes } = require('../../utils/common');
 
 const publisKeys = [
   {
@@ -35,7 +35,7 @@ async function getPublisKeysByHex() {
   const publisKeysByHex = {};
 
   for (const publisKey of publisKeys) {
-    const RSAPublicKey = new TLSerializer();
+    const RSAPublicKey = new Serializer();
     RSAPublicKey.bytes(hexToBytes(publisKey.modulus), 'n');
     RSAPublicKey.bytes(hexToBytes(publisKey.exponent), 'e');
 

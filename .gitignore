@@ -14,6 +14,7 @@
 /package
 /scheme/index.js
 /dual-publish-tmp
+/src/tl/builder
 
 # misc
 .DS_Store
