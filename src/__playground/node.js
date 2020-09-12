@@ -20,39 +20,32 @@ function prompt(question) {
 (async () => {
   const phone = await prompt('phone: ');
 
-  sendCode(phone)
-    .then(async sendCodeResult => {
-      const code = await prompt('code: ');
-
-      return signIn({
-        code,
-        phone,
-        phone_code_hash: sendCodeResult.phone_code_hash,
-      }).catch(async error => {
-        if (error.error_message === 'SESSION_PASSWORD_NEEDED') {
-          const password = await prompt('password: ');
-
-          return getPassword().then(async result => {
-            const { srp_id, current_algo, srp_B } = result;
-            const { g, p, salt1, salt2 } = current_algo;
-
-            const { A, M1 } = await getSRPParams({
-              g,
-              p,
-              salt1,
-              salt2,
-              gB: srp_B,
-              password,
-            });
-
-            return checkPassword({ srp_id, A, M1 });
+  const authResult = await sendCode(phone).then(async sendCodeResult => {
+    const code = await prompt('code: ');
+    return signIn({
+      code,
+      phone,
+      phone_code_hash: sendCodeResult.phone_code_hash,
+    }).catch(async error => {
+      if (error.error_message === 'SESSION_PASSWORD_NEEDED') {
+        const password = await prompt('password: ');
+        return getPassword().then(async result => {
+          const { srp_id, current_algo, srp_B } = result;
+          const { g, p, salt1, salt2 } = current_algo;
+          const { A, M1 } = await getSRPParams({
+            g,
+            p,
+            salt1,
+            salt2,
+            gB: srp_B,
+            password,
           });
-        }
-
-        return Promise.reject(error);
-      });
-    })
-    .then(result => {
-      console.log('auth.authorization:', result);
+          return checkPassword({ srp_id, A, M1 });
+        });
+      }
+      return Promise.reject(error);
     });
+  });
+
+  console.log(`authResult:`, authResult);
 })();
