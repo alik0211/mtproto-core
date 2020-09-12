@@ -25,11 +25,19 @@ const { getRsaKeyByFingerprints } = require('../utils/rsa');
 const { tlBuild } = require('../tl');
 
 class RPC {
-  constructor({ api_id, api_hash, dc, updates, storage }) {
+  constructor({
+    api_id,
+    api_hash,
+    dc,
+    updates,
+    storage,
+    getInitConnectionParams,
+  }) {
     this.api_id = api_id;
     this.api_hash = api_hash;
     this.dc = dc;
     this.updates = updates;
+    this.getInitConnectionParams = getInitConnectionParams;
 
     this.messagesWaitResponse = new Map();
     this.messagesWaitAuth = [];
@@ -561,21 +569,26 @@ class RPC {
       });
     }
 
+    const initConnectionParams = {
+      api_id: this.api_id,
+      device_model: meta.device_model,
+      system_version: meta.system_version,
+      app_version: '1.0.0',
+      system_lang_code: 'en',
+      lang_code: 'en',
+      ...this.getInitConnectionParams(),
+    };
+
     const bytes = tlBuild({
       _: 'invokeWithLayer',
       layer: 113,
       query: {
         _: 'initConnection',
-        api_id: this.api_id,
-        device_model: meta.device_model,
-        system_version: meta.system_version,
-        app_version: '1.0.0',
-        system_lang_code: 'en',
-        lang_code: 'en',
+        ...initConnectionParams,
         query: {
           _: method,
-          api_hash: this.api_hash,
           api_id: this.api_id,
+          api_hash: this.api_hash,
           ...params,
         },
       },

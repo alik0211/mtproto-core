@@ -8,6 +8,10 @@ const mtproto = new MTProto({
   customLocalStorage: tempLocalStorage,
 });
 
+mtproto.updateInitConnectionParams({
+  app_version: '2.2.8',
+});
+
 const api = {
   call(method, params, options = {}) {
     return mtproto.call(method, params, options).catch(async error => {

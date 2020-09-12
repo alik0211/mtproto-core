@@ -58,6 +58,8 @@ class MTProto {
     this.api_id = api_id;
     this.api_hash = api_hash;
 
+    this.initConnectionParams = {};
+
     this.dcList = test ? TEST_DC_LIST : PRODUCTION_DC_LIST;
 
     this.customLocalStorage = customLocalStorage;
@@ -147,7 +149,12 @@ class MTProto {
       dc,
       updates,
       storage: new Storage(dc.id, { customLocalStorage }),
+      getInitConnectionParams: () => this.initConnectionParams,
     });
+  }
+
+  updateInitConnectionParams(params) {
+    this.initConnectionParams = params;
   }
 }
 
