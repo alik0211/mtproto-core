@@ -1,6 +1,5 @@
 const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
-const { meta } = require('../meta');
 const { schema } = require('../../scheme');
 const { Transport } = require('../transport');
 const Serializer = require('../tl/serializer');
@@ -571,8 +570,8 @@ class RPC {
 
     const initConnectionParams = {
       api_id: this.api_id,
-      device_model: meta.device_model,
-      system_version: meta.system_version,
+      device_model: '@mtproto/core',
+      system_version: '4.0.0',
       app_version: '1.0.0',
       system_lang_code: 'en',
       lang_code: 'en',
