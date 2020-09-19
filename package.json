@@ -27,8 +27,7 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "src/**/*.js",
-    "scheme/index.js"
+    "src/**/*.js"
   ],
   "engines": {
     "node": ">=12"
@@ -43,12 +42,14 @@
     "./src/utils/common/random/index.js": "./src/utils/common/random/index.browser.js"
   },
   "scripts": {
-    "start": "run-s merge-scheme && webpack-dev-server --color",
-    "start:node": "run-s merge-scheme && node -r dotenv/config src/__playground/node.js",
+    "start": "run-s generate-tl && webpack-dev-server --color",
+    "start:node": "run-s generate-tl && node -r dotenv/config src/__playground/node.js",
     "watch": "karma start --browsers Chrome",
     "test": "karma start --browsers ChromeCI --single-run",
-    "merge-scheme": "node scripts/merge-scheme.js",
-    "prepublishOnly": "run-s merge-scheme"
+    "generate-builder": "node scripts/generate-builder.js",
+    "generate-parser": "node scripts/generate-parser.js",
+    "generate-tl": "run-p generate-builder generate-parser",
+    "prepublishOnly": "run-s generate-tl"
   },
   "license": "GPL-3.0",
   "dependencies": {
