@@ -1,12 +1,11 @@
+const pako = require('pako');
 const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
-const { schema } = require('../../scheme');
 const { Transport } = require('../transport');
 const Serializer = require('../tl/serializer');
-const TLDeserializer = require('../tl/deserializer');
+const Deserializer = require('../tl/deserializer');
 const {
   bytesIsEqual,
-  bytesToHex,
   getRandomBytes,
   concatBytes,
   bytesToBigInt,
@@ -21,7 +20,7 @@ const { pqPrimeFactorization } = require('../utils/pq');
 const { AES, RSA, SHA1, SHA256 } = require('../utils/crypto');
 const { getRsaKeyByFingerprints } = require('../utils/rsa');
 
-const { tlBuild } = require('../tl');
+const { tlParse, tlBuild } = require('../tl');
 
 class RPC {
   constructor({
@@ -125,12 +124,12 @@ class RPC {
   }
 
   async handlePQResponse(buffer) {
-    const deserializer = new TLDeserializer(buffer);
-    const auth_key_id = deserializer.long('auth_key_id');
-    const msg_id = deserializer.long('msg_id');
-    const msg_len = deserializer.int('msg_len');
+    const deserializer = new Deserializer(buffer);
+    deserializer.long(); // auth_key_id
+    deserializer.long(); // msg_id
+    deserializer.int32(); // msg_len
 
-    const responsePQ = deserializer.predicate('ResPQ');
+    const responsePQ = tlParse(deserializer);
     const {
       pq,
       nonce,
@@ -184,12 +183,12 @@ class RPC {
   }
 
   async handleDHParams(buffer) {
-    const deserializer = new TLDeserializer(buffer);
-    const auth_key_id = deserializer.long('auth_key_id');
-    const msg_id = deserializer.long('msg_id');
-    const msg_len = deserializer.int('msg_len');
+    const deserializer = new Deserializer(buffer);
+    deserializer.long(); // auth_key_id
+    deserializer.long(); // msg_id
+    deserializer.int32(); // msg_len
 
-    const serverDH = deserializer.predicate('Server_DH_Params');
+    const serverDH = tlParse(deserializer);
     const { nonce, server_nonce, encrypted_answer } = serverDH;
 
     if (!bytesIsEqual(this.nonce, nonce)) {
@@ -214,12 +213,8 @@ class RPC {
       encrypted_answer
     );
     const innerDataHash = decryptedData.slice(0, 20);
-    const innerDeserializer = new TLDeserializer(
-      decryptedData.slice(20).buffer
-    );
-    const serverDHInnerData = innerDeserializer.predicate(
-      'Server_DH_inner_data'
-    );
+    const innerDeserializer = new Deserializer(decryptedData.slice(20).buffer);
+    const serverDHInnerData = tlParse(innerDeserializer);
 
     if (
       !bytesIsEqual(
@@ -318,14 +313,13 @@ class RPC {
   }
 
   async handleDHAnswer(buffer) {
-    const deserializer = new TLDeserializer(buffer);
-    const auth_key_id = deserializer.long('auth_key_id');
-    const msg_id = deserializer.long('msg_id');
-    const msg_len = deserializer.int('msg_len');
+    const deserializer = new Deserializer(buffer);
+    deserializer.long(); // auth_key_id
+    deserializer.long(); // msg_id
+    deserializer.int32(); // msg_len
 
-    const serverDHAnswer = deserializer.predicate(
-      'Set_client_DH_params_answer'
-    );
+    const serverDHAnswer = tlParse(deserializer);
+
     const { nonce, server_nonce } = serverDHAnswer;
 
     if (!bytesIsEqual(this.nonce, nonce)) {
@@ -336,13 +330,13 @@ class RPC {
       throw new Error('The server_nonce are not equal');
     }
 
-    if (serverDHAnswer._ === 'dh_gen_ok') {
+    if (serverDHAnswer._ === 'mt_dh_gen_ok') {
       const hash = (
         await SHA1(concatBytes(this.newNonce, [1], this.authKeyAuxHash))
       ).slice(4, 20);
 
       if (!bytesIsEqual(hash, serverDHAnswer.new_nonce_hash1)) {
-        throw new Error(`Invalid hash in dh_gen_ok`);
+        throw new Error(`Invalid hash in mt_dh_gen_ok`);
       }
 
       this.handleMessage = this.handleEncryptedMessage;
@@ -352,13 +346,13 @@ class RPC {
       return;
     }
 
-    if (serverDHAnswer._ === 'dh_gen_retry') {
+    if (serverDHAnswer._ === 'mt_dh_gen_retry') {
       const hash = (
         await SHA1(concatBytes(this.newNonce, [2], this.authKeyAuxHash))
       ).slice(4, 20);
 
       if (!bytesIsEqual(hash, serverDHAnswer.new_nonce_hash2)) {
-        throw new Error(`Invalid hash in dh_gen_retry`);
+        throw new Error(`Invalid hash in mt_dh_gen_retry`);
       }
 
       this.generateDH(this.authKeyAuxHash);
@@ -366,16 +360,16 @@ class RPC {
       return;
     }
 
-    if (serverDHAnswer._ === 'dh_gen_fail') {
+    if (serverDHAnswer._ === 'mt_dh_gen_fail') {
       const hash = (
         await SHA1(concatBytes(this.newNonce, [3], this.authKeyAuxHash))
       ).slice(4, 20);
 
       if (!bytesIsEqual(hash, serverDHAnswer.new_nonce_hash3)) {
-        throw new Error(`Invalid hash in dh_gen_fail`);
+        throw new Error(`Invalid hash in mt_dh_gen_fail`);
       }
 
-      throw new Error(`dh_gen_fail`);
+      throw new Error(`mt_dh_gen_fail`);
     }
 
     throw new Error(`Invalid Set_client_DH_params_answer: ${serverDHAnswer}`);
@@ -393,7 +387,7 @@ class RPC {
   async handleEncryptedMessage(buffer) {
     const authKey = await this.storage.pGetBytes('authKey');
 
-    const deserializer = new TLDeserializer(buffer);
+    const deserializer = new Deserializer(buffer);
     const authKeyId = deserializer.long();
     const messageKey = deserializer.int128();
 
@@ -413,31 +407,7 @@ class RPC {
       return;
     }
 
-    const self = this;
-
-    const plainDeserializer = new TLDeserializer(plaintextData.buffer, {
-      predicatesHandlers: {
-        rpc_result(result) {
-          result.req_msg_id = this.long();
-
-          const waitMessage = self.messagesWaitResponse.get(result.req_msg_id);
-
-          if (!waitMessage) {
-            console.warn(
-              `RPC result for a non-existent message with id ${result.req_msg_id}`
-            );
-          }
-
-          const constructorId = this.uint32();
-          this.offset -= 4;
-
-          const type =
-            constructorId === 558156313 ? 'rpc_error' : waitMessage.type;
-
-          result.result = this.predicate(type);
-        },
-      },
-    });
+    const plainDeserializer = new Deserializer(plaintextData.buffer);
 
     const salt = plainDeserializer.long();
     const sessionId = plainDeserializer.long();
@@ -462,16 +432,14 @@ class RPC {
       return;
     }
 
-    const result = plainDeserializer.predicate();
+    const result = tlParse(plainDeserializer);
 
     this.handleDecryptedMessage(result, { messageId, seqNo });
   }
 
   async handleDecryptedMessage(message, params = {}) {
-    // console.group(`handleDecryptedMessage ${message._}`);
+    // console.log(`---handleDecryptedMessage ${message._}`);
     // console.log(`message:`, message);
-    // console.log(`params:`, params);
-    // console.groupEnd(`handleDecryptedMessage ${message._}`);
 
     const { messageId } = params;
 
@@ -481,7 +449,7 @@ class RPC {
       return;
     }
 
-    if (message._ === 'msg_container') {
+    if (message._ === 'mt_msg_container') {
       message.messages.forEach(message => {
         this.handleDecryptedMessage(message.body, {
           messageId: message.msg_id,
@@ -491,7 +459,7 @@ class RPC {
       return;
     }
 
-    if (['bad_server_salt', 'bad_msg_notification'].includes(message._)) {
+    if (['mt_bad_server_salt', 'mt_bad_msg_notification'].includes(message._)) {
       if (message.error_code === 48) {
         await this.storage.pSet(
           'serverSalt',
@@ -521,7 +489,7 @@ class RPC {
       return;
     }
 
-    if (message._ === 'new_session_created') {
+    if (message._ === 'mt_new_session_created') {
       this.ackMessage(messageId);
       await this.storage.pSet(
         'serverSalt',
@@ -531,16 +499,24 @@ class RPC {
       return;
     }
 
-    if (message._ === 'msgs_ack') {
+    if (message._ === 'mt_msgs_ack') {
       return;
     }
 
-    if (message._ === 'rpc_result') {
+    if (message._ === 'mt_rpc_result') {
       this.ackMessage(messageId);
+
+      if (message.result._ === 'mt_gzip_packed') {
+        const deserializer = new Deserializer(
+          pako.inflate(message.result.packed_data).buffer
+        );
+
+        message.result = tlParse(deserializer);
+      }
 
       const waitMessage = this.messagesWaitResponse.get(message.req_msg_id);
 
-      if (message.result._ === 'rpc_error') {
+      if (message.result._ === 'mt_rpc_error') {
         waitMessage.reject(message.result);
       } else {
         waitMessage.resolve(message.result);
@@ -593,8 +569,6 @@ class RPC {
       },
     }).getBytes();
 
-    const { type } = schema.methodsByName[method];
-
     return new Promise(async (resolve, reject) => {
       const messageId = await this.sendEncryptedMessage(bytes);
       const messageIdAsKey = intsToLong(messageId[0], messageId[1]);
@@ -602,7 +576,6 @@ class RPC {
       this.messagesWaitResponse.set(messageIdAsKey, {
         method,
         params,
-        type,
         resolve,
         reject,
       });

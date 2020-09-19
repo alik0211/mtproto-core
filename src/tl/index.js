@@ -1,5 +1,8 @@
+const parser = require('./parser');
 const builder = require('./builder');
 const Serializer = require('./serializer');
+
+const tlParse = deserializer => parser(deserializer);
 
 const tlBuild = params => {
   const serializer = new Serializer();
@@ -9,4 +12,4 @@ const tlBuild = params => {
   return serializer;
 };
 
-module.exports = { tlBuild };
+module.exports = { tlParse, tlBuild };

@@ -15,6 +15,7 @@
 /scheme/index.js
 /dual-publish-tmp
 /src/tl/builder
+/src/tl/parser
 
 # misc
 .DS_Store
