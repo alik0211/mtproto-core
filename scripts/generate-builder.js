@@ -20,7 +20,7 @@ const lines = [
   `  }`,
   `};`,
   `const predicate = (params, bare = false) => {`,
-  `  const fn = writerMap[params._];`,
+  `  const fn = builderMap[params._];`,
   `  fn(params);`,
   `};`,
   `const Bool = (value) => predicate({ _: value ? 'boolTrue' : 'boolFalse' });`,
@@ -132,14 +132,14 @@ const paramsToLines = params => {
   return paramsLines;
 };
 
-const writerMapLines = [];
+const builderMapLines = [];
 
 mtprotoSchema.constructors.forEach(constructor => {
   const { id, predicate, params } = constructor;
 
   const body = [`    int(${id});`, ...paramsToLines(params)].join('\n');
 
-  writerMapLines.push(`  'mt_${predicate}': (params) => {\n${body}\n  },`);
+  builderMapLines.push(`  'mt_${predicate}': (params) => {\n${body}\n  },`);
 });
 
 mtprotoSchema.methods.forEach(method => {
@@ -147,7 +147,7 @@ mtprotoSchema.methods.forEach(method => {
 
   const body = [`    int(${id});`, ...paramsToLines(params)].join('\n');
 
-  writerMapLines.push(`  'mt_${name}': (params) => {\n${body}\n  },`);
+  builderMapLines.push(`  'mt_${name}': (params) => {\n${body}\n  },`);
 });
 
 apiSchema.constructors.forEach(constructor => {
@@ -155,7 +155,7 @@ apiSchema.constructors.forEach(constructor => {
 
   const body = [`    int(${id});`, ...paramsToLines(params)].join('\n');
 
-  writerMapLines.push(`  '${predicate}': (params) => {\n${body}\n  },`);
+  builderMapLines.push(`  '${predicate}': (params) => {\n${body}\n  },`);
 });
 
 apiSchema.methods.forEach(method => {
@@ -163,10 +163,10 @@ apiSchema.methods.forEach(method => {
 
   const body = [`    int(${id});`, ...paramsToLines(params)].join('\n');
 
-  writerMapLines.push(`  '${name}': (params) => {\n${body}\n  },`);
+  builderMapLines.push(`  '${name}': (params) => {\n${body}\n  },`);
 });
 
-lines.push(`const writerMap = {\n${writerMapLines.join('\n')}\n};`);
+lines.push(`const builderMap = {\n${builderMapLines.join('\n')}\n};`);
 
 const fileContent = lines.join('\n');
 
