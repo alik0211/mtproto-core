@@ -92,7 +92,9 @@ Method name from [methods list](https://core.telegram.org/methods).
 #### `params: object`
 Parameters for `method` from `https://core.telegram.org/method/{method}#parameters`.
 
-If you need to pass a constructor use `_`. Example for [users.getFullUser](https://core.telegram.org/method/users.getFullUser#parameters):
+1. If the method needs the `flags` parameter, `flags` is calculated automatically 🙃
+
+2. If you need to pass a constructor use `_`. Example for [users.getFullUser](https://core.telegram.org/method/users.getFullUser#parameters):
 ```js
 const params = {
   id: {
