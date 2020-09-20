@@ -37,7 +37,12 @@ const mtproto = new MTProto({
   api_hash,
 });
 
-// 2. Get the user country code
+// 2. Provide params for initConnection method (optional)
+mtproto.updateInitConnectionParams({
+  app_version: '10.0.0',
+});
+
+// 3. Get the user country code
 mtproto.call('help.getNearestDc').then(result => {
   console.log(`country:`, result.country);
 });
@@ -135,6 +140,12 @@ mtproto.updates.on('updateShort', message => {
 If a [migration error](https://core.telegram.org/api/errors#303-see-other) occurs, you can use this function to change the default [data center](https://core.telegram.org/api/datacenter). You can also use [options.dcId](#optionsdcid-number).
 
 See the example in the [authentication](docs/authentication.md).
+
+### `mtproto.updateInitConnectionParams(params)`
+Provide params for [initConnection](https://core.telegram.org/method/initConnection#parameters) method. **I recommend** running this function immediately after [creating an instance of MTProto](#new-mtproto-api_id-api_hash-test-customlocalstorage---mtproto).
+
+
+See the example in the [quick start](#quick-start).
 
 ### `getSRPParams({ g, p, salt1, salt2, gB, password }) => { A, M1 }`
 
