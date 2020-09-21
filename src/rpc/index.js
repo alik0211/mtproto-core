@@ -1,4 +1,3 @@
-const pako = require('pako');
 const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
 const { Transport } = require('../transport');
@@ -505,14 +504,6 @@ class RPC {
 
     if (message._ === 'mt_rpc_result') {
       this.ackMessage(messageId);
-
-      if (message.result._ === 'mt_gzip_packed') {
-        const deserializer = new Deserializer(
-          pako.inflate(message.result.packed_data).buffer
-        );
-
-        message.result = tlParse(deserializer);
-      }
 
       const waitMessage = this.messagesWaitResponse.get(message.req_msg_id);
 

@@ -4,6 +4,8 @@ const apiSchema = require('../scheme/api.json');
 const mtprotoSchema = require('../scheme/mtproto.json');
 
 const lines = [
+  `const pako = require('pako');`,
+  `const Deserializer = require('../deserializer');`,
   `let deserializer = null;`,
   `const int = () => deserializer.int32();`,
   `const long = () => deserializer.long();`,
@@ -13,6 +15,10 @@ const lines = [
   `const bytes = () => deserializer.bytes();`,
   `const double = () => deserializer.double();`,
   `const mt_message = () => parserMap.get(1538843921)();`,
+  `const mt_gzip_packed = () => {`,
+  `  deserializer = new Deserializer(pako.inflate(bytes()).buffer);`,
+  `  return predicate();`,
+  `};`,
   `const vector = (fn, bare = false) => {`,
   `  if (!bare) { int(); }`,
   `  const length = int();`,
@@ -56,6 +62,7 @@ const bodyById = new Map([
   [2574415285, 'return true;'],
   [1072550713, 'return true;'],
   [1450380236, 'return null;'],
+  [812830625, 'return mt_gzip_packed();'],
 ]);
 
 const typeIsVector = type =>
