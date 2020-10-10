@@ -1,3 +1,5 @@
+const pako = require('pako');
+const parserMap = require('../parser');
 const { intsToLong } = require('../../utils/common');
 
 class Deserializer {
@@ -69,6 +71,50 @@ class Deserializer {
     }
 
     return bytes;
+  }
+
+  int() {
+    return this.int32();
+  }
+
+  vector(fn, bare = false) {
+    if (!bare) {
+      this.int32();
+    }
+
+    const length = this.int32();
+    const result = [];
+
+    for (let i = 0; i < length; i++) {
+      result.push(fn.call(this));
+    }
+
+    return result;
+  }
+
+  gzip() {
+    const deserializer = new Deserializer(pako.inflate(this.bytes()).buffer);
+
+    return deserializer.predicate();
+  }
+
+  mt_message() {
+    const fn = parserMap.get(1538843921);
+
+    return fn.call(this);
+  }
+
+  predicate() {
+    const id = this.int32() >>> 0;
+    const fn = parserMap.get(id);
+
+    if (!fn) {
+      console.log('Not found predicate with id:', id);
+
+      return;
+    }
+
+    return fn.call(this);
   }
 }
 

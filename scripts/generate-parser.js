@@ -3,45 +3,7 @@ const fs = require('fs');
 const apiSchema = require('../scheme/api.json');
 const mtprotoSchema = require('../scheme/mtproto.json');
 
-const lines = [
-  `const pako = require('pako');`,
-  `const Deserializer = require('../deserializer');`,
-  `let deserializer = null;`,
-  `const int = () => deserializer.int32();`,
-  `const long = () => deserializer.long();`,
-  `const int128 = () => deserializer.int128();`,
-  `const int256 = () => deserializer.int256();`,
-  `const string = () => deserializer.string();`,
-  `const bytes = () => deserializer.bytes();`,
-  `const double = () => deserializer.double();`,
-  `const mt_message = () => parserMap.get(1538843921)();`,
-  `const mt_gzip_packed = () => {`,
-  `  deserializer = new Deserializer(pako.inflate(bytes()).buffer);`,
-  `  return predicate();`,
-  `};`,
-  `const vector = (fn, bare = false) => {`,
-  `  if (!bare) { int(); }`,
-  `  const length = int();`,
-  `  const result = [];`,
-  `  for (let i = 0; i < length; i++) {`,
-  `    result.push(fn());`,
-  `  }`,
-  `  return result;`,
-  `};`,
-  `function predicate() {`,
-  `  const id = int() >>> 0;`,
-  `  const fn = parserMap.get(id);`,
-  `  if (fn) {`,
-  `    return fn();`,
-  `  }`,
-  `  console.log('Not found predicate with id:', id);`,
-  `  return undefined;`,
-  `}`,
-  `module.exports = function (sharedDeserializer) {`,
-  `  deserializer = sharedDeserializer;`,
-  `  return predicate();`,
-  `};`,
-];
+const lines = [];
 
 const aviableTypes = [
   'int',
@@ -57,12 +19,12 @@ const aviableTypes = [
 ];
 
 const bodyById = new Map([
-  [481674261, 'return vector(predicate, true);'],
+  [481674261, 'return this.vector(this.predicate, true);'],
   [3162085175, 'return false;'],
   [2574415285, 'return true;'],
   [1072550713, 'return true;'],
   [1450380236, 'return null;'],
-  [812830625, 'return mt_gzip_packed();'],
+  [812830625, 'return this.gzip();'],
 ]);
 
 const typeIsVector = type =>
@@ -87,12 +49,14 @@ const calcFlag = (name, type) => {
     }
 
     fnName = 'vector';
-    args = [vectorType];
+    args = [`this.${vectorType}`];
   } else if (!aviableTypes.includes(flagType)) {
     fnName = 'predicate';
   }
 
-  return `if (${condition}) result.${name} = ${fnName}(${args.join(', ')});`;
+  return `if (${condition}) result.${name} = this.${fnName}(${args.join(
+    ', '
+  )});`;
 };
 
 const parserMapLines = [];
@@ -127,12 +91,14 @@ const paramsToLines = params => {
       }
 
       fnName = 'vector';
-      args = [vectorType, isBare];
+      args = [`this.${vectorType}`, isBare];
     } else if (!aviableTypes.includes(param.type)) {
       fnName = 'predicate';
     }
 
-    paramsLines.push(`result.${param.name} = ${fnName}(${args.join(', ')});`);
+    paramsLines.push(
+      `result.${param.name} = this.${fnName}(${args.join(', ')});`
+    );
   });
 
   return paramsLines;
@@ -151,7 +117,7 @@ mtprotoSchema.constructors.forEach(constructor => {
         'return result;',
       ].join('\n');
 
-  parserMapLines.push(`  [${id}, () => {\n${body}\n  }],`);
+  parserMapLines.push(`  [${id}, function() {\n${body}\n  }],`);
 });
 
 apiSchema.constructors.forEach(constructor => {
@@ -167,10 +133,12 @@ apiSchema.constructors.forEach(constructor => {
         'return result;',
       ].join('\n');
 
-  parserMapLines.push(`  [${id}, () => {\n${body}\n  }],`);
+  parserMapLines.push(`  [${id}, function() {\n${body}\n  }],`);
 });
 
 lines.push(`const parserMap = new Map([\n${parserMapLines.join('\n')}\n]);`);
+
+lines.push('module.exports = parserMap;');
 
 const fileContent = lines.join('\n');
 

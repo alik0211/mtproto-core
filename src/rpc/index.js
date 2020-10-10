@@ -19,7 +19,7 @@ const { pqPrimeFactorization } = require('../utils/pq');
 const { AES, RSA, SHA1, SHA256 } = require('../utils/crypto');
 const { getRsaKeyByFingerprints } = require('../utils/rsa');
 
-const { tlParse, tlBuild } = require('../tl');
+const { tlBuild } = require('../tl');
 
 class RPC {
   constructor({
@@ -128,7 +128,7 @@ class RPC {
     deserializer.long(); // msg_id
     deserializer.int32(); // msg_len
 
-    const responsePQ = tlParse(deserializer);
+    const responsePQ = deserializer.predicate();
     const {
       pq,
       nonce,
@@ -187,7 +187,7 @@ class RPC {
     deserializer.long(); // msg_id
     deserializer.int32(); // msg_len
 
-    const serverDH = tlParse(deserializer);
+    const serverDH = deserializer.predicate();
     const { nonce, server_nonce, encrypted_answer } = serverDH;
 
     if (!bytesIsEqual(this.nonce, nonce)) {
@@ -213,7 +213,7 @@ class RPC {
     );
     const innerDataHash = decryptedData.slice(0, 20);
     const innerDeserializer = new Deserializer(decryptedData.slice(20).buffer);
-    const serverDHInnerData = tlParse(innerDeserializer);
+    const serverDHInnerData = innerDeserializer.predicate();
 
     if (
       !bytesIsEqual(
@@ -317,7 +317,7 @@ class RPC {
     deserializer.long(); // msg_id
     deserializer.int32(); // msg_len
 
-    const serverDHAnswer = tlParse(deserializer);
+    const serverDHAnswer = deserializer.predicate();
 
     const { nonce, server_nonce } = serverDHAnswer;
 
@@ -431,15 +431,12 @@ class RPC {
       return;
     }
 
-    const result = tlParse(plainDeserializer);
+    const result = plainDeserializer.predicate();
 
     this.handleDecryptedMessage(result, { messageId, seqNo });
   }
 
   async handleDecryptedMessage(message, params = {}) {
-    // console.log(`---handleDecryptedMessage ${message._}`);
-    // console.log(`message:`, message);
-
     const { messageId } = params;
 
     if (bigInt(messageId).isEven()) {
