@@ -443,14 +443,14 @@ class RPC {
     }
 
     logger.bytes({
-      name: 'plainDeserializer.byteView',
+      name: 'handleEncryptedMessage plainDeserializer.byteView',
       bytes: plainDeserializer.byteView,
     });
 
     const result = plainDeserializer.predicate();
 
     logger.log({
-      name: 'plainDeserializer.predicate()',
+      name: 'handleEncryptedMessage result',
       result,
     });
 
