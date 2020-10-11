@@ -18,8 +18,10 @@ const {
 const { pqPrimeFactorization } = require('../utils/pq');
 const { AES, RSA, SHA1, SHA256 } = require('../utils/crypto');
 const { getRsaKeyByFingerprints } = require('../utils/rsa');
-
+const { createLogger } = require('../utils/common/logger');
 const { tlBuild } = require('../tl');
+
+const logger = createLogger('RPC');
 
 class RPC {
   constructor({
@@ -431,7 +433,17 @@ class RPC {
       return;
     }
 
+    logger.bytes({
+      name: 'plainDeserializer.byteView',
+      bytes: plainDeserializer.byteView,
+    });
+
     const result = plainDeserializer.predicate();
+
+    logger.log({
+      name: 'plainDeserializer.predicate()',
+      result,
+    });
 
     this.handleDecryptedMessage(result, { messageId, seqNo });
   }
