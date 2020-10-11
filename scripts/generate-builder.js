@@ -50,7 +50,7 @@ const paramsToLines = params => {
 
       paramsLines.push(flagsLine);
 
-      fnName = 'int';
+      fnName = 'int32';
       args = ['flags'];
     } else if (param.type.includes('?')) {
       let flagType = param.type.split('?')[1];
