@@ -19,7 +19,6 @@ const { pqPrimeFactorization } = require('../utils/pq');
 const { AES, RSA, SHA1, SHA256 } = require('../utils/crypto');
 const { getRsaKeyByFingerprints } = require('../utils/rsa');
 const { createLogger } = require('../utils/common/logger');
-const { tlBuild } = require('../tl');
 
 const logger = createLogger('RPC');
 
@@ -59,10 +58,14 @@ class RPC {
         return;
       }
 
-      const bytes = tlBuild({
+      const serializer = new Serializer();
+
+      serializer.predicate({
         _: 'mt_msgs_ack',
         msg_ids: this.pendingAcks,
-      }).getBytes();
+      });
+
+      const bytes = serializer.getBytes();
 
       this.pendingAcks = [];
 
@@ -151,7 +154,9 @@ class RPC {
     this.newNonce = getRandomBytes(32);
     this.serverNonce = server_nonce;
 
-    const serializer = tlBuild({
+    const serializer = new Serializer();
+
+    serializer.predicate({
       _: 'mt_p_q_inner_data',
       pq: pq,
       p: p,
@@ -288,13 +293,17 @@ class RPC {
 
     this.authKeyAuxHash = bytesToBytesRaw((await SHA1(authKey)).slice(0, 8));
 
-    const innerData = tlBuild({
+    const serializer = new Serializer();
+
+    serializer.predicate({
       _: 'mt_client_DH_inner_data',
       nonce: this.nonce,
       server_nonce: this.serverNonce,
       retry_id: retryId,
       g_b: bigIntToBytes(this.g.modPow(b, this.dhPrime)),
-    }).getBytes();
+    });
+
+    const innerData = serializer.getBytes();
 
     const innerDataHash = await SHA1(innerData);
     const paddingLength = 16 - ((innerDataHash.length + innerData.length) % 16);
@@ -554,7 +563,9 @@ class RPC {
       ...this.getInitConnectionParams(),
     };
 
-    const bytes = tlBuild({
+    const serializer = new Serializer();
+
+    serializer.predicate({
       _: 'invokeWithLayer',
       layer: 113,
       query: {
@@ -567,7 +578,9 @@ class RPC {
           ...params,
         },
       },
-    }).getBytes();
+    });
+
+    const bytes = serializer.getBytes();
 
     return new Promise(async (resolve, reject) => {
       const messageId = await this.sendEncryptedMessage(bytes);
@@ -637,7 +650,10 @@ class RPC {
   }
 
   async sendPlainMessage(params) {
-    const requestBytes = tlBuild(params).getBytes();
+    const serializer = new Serializer();
+    serializer.predicate(params);
+
+    const requestBytes = serializer.getBytes();
     const requestLength = requestBytes.length;
 
     const header = new Serializer();

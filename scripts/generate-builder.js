@@ -3,42 +3,7 @@ const fs = require('fs');
 const apiSchema = require('../scheme/api.json');
 const mtprotoSchema = require('../scheme/mtproto.json');
 
-const lines = [
-  `let serializer = null;`,
-  `const int = (value) => serializer.int32(value);`,
-  `const long = (value) => serializer.long(value);`,
-  `const int128 = (value) => serializer.int128(value);`,
-  `const int256 = (value) => serializer.int256(value);`,
-  `const string = (value) => serializer.string(value);`,
-  `const bytes = (value) => serializer.bytes(value);`,
-  `const double = (value) => serializer.double(value);`,
-  `const vector = (fn, value) => {`,
-  `  int(0x1cb5c415);`,
-  `  int(value.length);`,
-  `  for (let i = 0; i < value.length; i++) {`,
-  `    fn(value[i]);`,
-  `  }`,
-  `};`,
-  `const predicate = (params, bare = false) => {`,
-  `  const fn = builderMap[params._];`,
-  `  fn(params);`,
-  `};`,
-  `const Bool = (value) => predicate({ _: value ? 'boolTrue' : 'boolFalse' });`,
-  `function has(value) {`,
-  `  return +!!(Array.isArray(value) ? value.length : value);`,
-  `}`,
-  `function flag(fn, value) {`,
-  `  if (has(value)) fn(value);`,
-  `}`,
-  `function flagVector(fn, value) {`,
-  `  if (value === undefined || value.length === 0) return;`,
-  `  vector(fn, value);`,
-  `}`,
-  `module.exports = (sharedSerializer, params) => {`,
-  `  serializer = sharedSerializer;`,
-  `  predicate(params);`,
-  `};`,
-];
+const lines = [];
 
 const aviableTypes = [
   'int',
@@ -63,7 +28,7 @@ const calcFlags = params => {
     if (param.type.includes('?')) {
       const count = param.type.split('?')[0].split('.')[1];
 
-      bitMap.push(`(has(params.${param.name}) << ${count})`);
+      bitMap.push(`(this.has(params.${param.name}) << ${count})`);
     }
   });
 
@@ -106,7 +71,7 @@ const paramsToLines = params => {
         flagType = 'predicate';
       }
 
-      args = [flagType, `params.${param.name}`];
+      args = [`this.${flagType}`, `params.${param.name}`];
     } else if (typeIsVector(param.type)) {
       let vectorType = param.type.substr(7, param.type.length - 8);
 
@@ -119,14 +84,14 @@ const paramsToLines = params => {
       }
 
       fnName = 'vector';
-      args = [vectorType, `params.${param.name}`];
+      args = [`this.${vectorType}`, `params.${param.name}`];
     } else if (['!X'].includes(param.type)) {
       fnName = 'predicate';
     } else if (!aviableTypes.includes(param.type)) {
       fnName = 'predicate';
     }
 
-    paramsLines.push(`    ${fnName}(${args.join(', ')});`);
+    paramsLines.push(`    this.${fnName}(${args.join(', ')});`);
   });
 
   return paramsLines;
@@ -137,36 +102,40 @@ const builderMapLines = [];
 mtprotoSchema.constructors.forEach(constructor => {
   const { id, predicate, params } = constructor;
 
-  const body = [`    int(${id});`, ...paramsToLines(params)].join('\n');
+  const body = [`    this.int32(${id});`, ...paramsToLines(params)].join('\n');
 
-  builderMapLines.push(`  'mt_${predicate}': (params) => {\n${body}\n  },`);
+  builderMapLines.push(
+    `  'mt_${predicate}': function(params) {\n${body}\n  },`
+  );
 });
 
 mtprotoSchema.methods.forEach(method => {
   const { id, method: name, params } = method;
 
-  const body = [`    int(${id});`, ...paramsToLines(params)].join('\n');
+  const body = [`    this.int32(${id});`, ...paramsToLines(params)].join('\n');
 
-  builderMapLines.push(`  'mt_${name}': (params) => {\n${body}\n  },`);
+  builderMapLines.push(`  'mt_${name}': function(params) {\n${body}\n  },`);
 });
 
 apiSchema.constructors.forEach(constructor => {
   const { id, predicate, params } = constructor;
 
-  const body = [`    int(${id});`, ...paramsToLines(params)].join('\n');
+  const body = [`    this.int32(${id});`, ...paramsToLines(params)].join('\n');
 
-  builderMapLines.push(`  '${predicate}': (params) => {\n${body}\n  },`);
+  builderMapLines.push(`  '${predicate}': function(params) {\n${body}\n  },`);
 });
 
 apiSchema.methods.forEach(method => {
   const { id, method: name, params } = method;
 
-  const body = [`    int(${id});`, ...paramsToLines(params)].join('\n');
+  const body = [`    this.int32(${id});`, ...paramsToLines(params)].join('\n');
 
-  builderMapLines.push(`  '${name}': (params) => {\n${body}\n  },`);
+  builderMapLines.push(`  '${name}': function(params) {\n${body}\n  },`);
 });
 
 lines.push(`const builderMap = {\n${builderMapLines.join('\n')}\n};`);
+
+lines.push('module.exports = builderMap;');
 
 const fileContent = lines.join('\n');
 

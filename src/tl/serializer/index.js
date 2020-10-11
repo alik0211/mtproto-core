@@ -1,4 +1,5 @@
 const bigInt = require('big-integer');
+const builderMap = require('../builder');
 
 class Serializer {
   constructor() {
@@ -87,6 +88,48 @@ class Serializer {
     const bytes = encoder.encode(value);
 
     this.bytes(bytes);
+  }
+
+  int(value) {
+    this.int32(value);
+  }
+
+  // TODO: Convert method name to 'bool'
+  Bool(value) {
+    this.predicate({ _: value ? 'boolTrue' : 'boolFalse' });
+  }
+
+  has(value) {
+    return +!!(Array.isArray(value) ? value.length : value);
+  }
+
+  flag(fn, value) {
+    if (this.has(value)) {
+      fn.call(this, value);
+    }
+  }
+
+  flagVector(fn, value) {
+    if (value === undefined || value.length === 0) {
+      return;
+    }
+
+    this.vector(fn, value);
+  }
+
+  vector(fn, value) {
+    this.int32(0x1cb5c415);
+    this.int32(value.length);
+
+    for (let i = 0; i < value.length; i++) {
+      fn.call(this, value[i]);
+    }
+  }
+
+  predicate(params, bare = false) {
+    const fn = builderMap[params._];
+
+    fn.call(this, params);
   }
 
   getBytes() {
