@@ -55,6 +55,10 @@ const paramsToLines = params => {
     } else if (param.type.includes('?')) {
       let flagType = param.type.split('?')[1];
 
+      if (flagType === 'true') {
+        return;
+      }
+
       if (typeIsVector(flagType)) {
         flagType = flagType.substr(7, flagType.length - 8);
 
