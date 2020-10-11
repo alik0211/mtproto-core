@@ -580,7 +580,17 @@ class RPC {
       },
     });
 
+    logger.log({
+      name: 'call params',
+      params,
+    });
+
     const bytes = serializer.getBytes();
+
+    logger.bytes({
+      name: 'call bytes',
+      bytes,
+    });
 
     return new Promise(async (resolve, reject) => {
       const messageId = await this.sendEncryptedMessage(bytes);
