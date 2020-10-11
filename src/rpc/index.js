@@ -556,7 +556,7 @@ class RPC {
     const initConnectionParams = {
       api_id: this.api_id,
       device_model: '@mtproto/core',
-      system_version: '4.0.1',
+      system_version: '5.0.0',
       app_version: '1.0.0',
       system_lang_code: 'en',
       lang_code: 'en',
