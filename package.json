@@ -44,8 +44,8 @@
   "scripts": {
     "start": "run-s generate-tl && webpack-dev-server --color",
     "start:node": "run-s generate-tl && node -r dotenv/config src/__playground/node.js",
-    "watch": "karma start --browsers Chrome",
-    "test": "karma start --browsers ChromeCI --single-run",
+    "watch": "karma start",
+    "test": "karma start --single-run",
     "generate-builder": "node scripts/generate-builder.js",
     "generate-parser": "node scripts/generate-parser.js",
     "generate-tl": "run-p generate-builder generate-parser",

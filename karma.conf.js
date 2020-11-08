@@ -1,7 +1,7 @@
 // Karma configuration
 // Generated on Fri Mar 06 2020 07:45:39 GMT+0400 (GMT+04:00)
 
-module.exports = function(config) {
+module.exports = function (config) {
   config.set({
     // base path that will be used to resolve all patterns (eg. files, exclude)
     basePath: '',
@@ -54,12 +54,13 @@ module.exports = function(config) {
     // enable / disable watching file and executing tests whenever any file changes
     autoWatch: true,
 
+    browsers: ['ChromeHeadlessCI'],
+
     // start these browsers
     // available browser launchers: https://npmjs.org/browse/keyword/karma-launcher
-
     customLaunchers: {
-      ChromeCI: {
-        base: 'Chrome',
+      ChromeHeadlessCI: {
+        base: 'ChromeHeadless',
         flags: ['--no-sandbox'],
       },
     },
