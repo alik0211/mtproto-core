@@ -1,14 +1,18 @@
 const bigInt = require('big-integer');
+const Counter = require('../counter');
 const builderMap = require('../builder');
 
 class Serializer {
-  constructor() {
-    // 0.5 MB
-    this.buffer = new ArrayBuffer(524288);
+  constructor(fn, params) {
+    const counter = new Counter(fn, params);
+
+    this.buffer = new ArrayBuffer(counter.count);
     this.dataView = new DataView(this.buffer);
     this.byteView = new Uint8Array(this.buffer);
 
     this.offset = 0;
+
+    fn.call(this, params);
   }
 
   uint32(value) {
@@ -133,16 +137,11 @@ class Serializer {
   }
 
   getBytes() {
-    const resultBuffer = new ArrayBuffer(this.offset);
-    const resultArray = new Uint8Array(resultBuffer);
-
-    resultArray.set(this.byteView.subarray(0, this.offset));
-
-    return resultArray;
+    return this.byteView;
   }
 
   getBuffer() {
-    return this.getBytes().buffer;
+    return this.buffer;
   }
 }
 

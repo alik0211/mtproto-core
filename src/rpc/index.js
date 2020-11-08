@@ -1,6 +1,7 @@
 const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
 const { Transport } = require('../transport');
+const builderMap = require('../tl/builder');
 const Serializer = require('../tl/serializer');
 const Deserializer = require('../tl/deserializer');
 const {
@@ -58,10 +59,7 @@ class RPC {
         return;
       }
 
-      const serializer = new Serializer();
-
-      serializer.predicate({
-        _: 'mt_msgs_ack',
+      const serializer = new Serializer(builderMap.mt_msgs_ack, {
         msg_ids: this.pendingAcks,
       });
 
@@ -115,7 +113,7 @@ class RPC {
     } else {
       this.nonce = getRandomBytes(16);
       this.handleMessage = this.handlePQResponse;
-      this.sendPlainMessage({ _: 'mt_req_pq_multi', nonce: this.nonce });
+      this.sendPlainMessage(builderMap.mt_req_pq_multi, { nonce: this.nonce });
     }
   }
 
@@ -154,10 +152,7 @@ class RPC {
     this.newNonce = getRandomBytes(32);
     this.serverNonce = server_nonce;
 
-    const serializer = new Serializer();
-
-    serializer.predicate({
-      _: 'mt_p_q_inner_data',
+    const serializer = new Serializer(builderMap.mt_p_q_inner_data, {
       pq: pq,
       p: p,
       q: q,
@@ -175,8 +170,7 @@ class RPC {
 
     const encryptedData = new RSA(publicKey).encrypt(innerData);
 
-    this.sendPlainMessage({
-      _: 'mt_req_DH_params',
+    this.sendPlainMessage(builderMap.mt_req_DH_params, {
       nonce: this.nonce,
       server_nonce: this.serverNonce,
       p: p,
@@ -293,10 +287,7 @@ class RPC {
 
     this.authKeyAuxHash = bytesToBytesRaw((await SHA1(authKey)).slice(0, 8));
 
-    const serializer = new Serializer();
-
-    serializer.predicate({
-      _: 'mt_client_DH_inner_data',
+    const serializer = new Serializer(builderMap.mt_client_DH_inner_data, {
       nonce: this.nonce,
       server_nonce: this.serverNonce,
       retry_id: retryId,
@@ -312,8 +303,7 @@ class RPC {
       concatBytes(innerDataHash, innerData, getRandomBytes(paddingLength))
     );
 
-    this.sendPlainMessage({
-      _: 'mt_set_client_DH_params',
+    this.sendPlainMessage(builderMap.mt_set_client_DH_params, {
       nonce: this.nonce,
       server_nonce: this.serverNonce,
       encrypted_data: encryptedData,
@@ -563,10 +553,7 @@ class RPC {
       ...this.getInitConnectionParams(),
     };
 
-    const serializer = new Serializer();
-
-    serializer.predicate({
-      _: 'invokeWithLayer',
+    const serializer = new Serializer(builderMap.invokeWithLayer, {
       layer: 113,
       query: {
         _: 'initConnection',
@@ -629,14 +616,17 @@ class RPC {
     const unpadded = (32 + data.length + minPadding) % 16;
     const padding = minPadding + (unpadded ? 16 - unpadded : 0);
 
-    const plainDataSerializer = new Serializer();
-    plainDataSerializer.bytesRaw(serverSalt);
-    plainDataSerializer.bytesRaw(this.sessionId);
-    plainDataSerializer.long(messageId);
-    plainDataSerializer.int32(seqNo);
-    plainDataSerializer.uint32(data.length);
-    plainDataSerializer.bytesRaw(data);
-    plainDataSerializer.bytesRaw(getRandomBytes(padding));
+    const { sessionId } = this;
+
+    const plainDataSerializer = new Serializer(function () {
+      this.bytesRaw(serverSalt);
+      this.bytesRaw(sessionId);
+      this.long(messageId);
+      this.int32(seqNo);
+      this.uint32(data.length);
+      this.bytesRaw(data);
+      this.bytesRaw(getRandomBytes(padding));
+    });
 
     const plainData = plainDataSerializer.getBytes();
 
@@ -649,27 +639,30 @@ class RPC {
     ).encrypt(plainData);
 
     const authKeyId = (await SHA1(authKey)).slice(-8);
-    const serializer = new Serializer();
-    serializer.bytesRaw(authKeyId);
-    serializer.bytesRaw(messageKey);
-    serializer.bytesRaw(encryptedData);
+    const serializer = new Serializer(function () {
+      this.bytesRaw(authKeyId);
+      this.bytesRaw(messageKey);
+      this.bytesRaw(encryptedData);
+    });
 
     this.transport.send(serializer.getBytes());
 
     return messageId;
   }
 
-  async sendPlainMessage(params) {
-    const serializer = new Serializer();
-    serializer.predicate(params);
+  async sendPlainMessage(fn, params) {
+    const serializer = new Serializer(fn, params);
 
     const requestBytes = serializer.getBytes();
     const requestLength = requestBytes.length;
 
-    const header = new Serializer();
-    header.long([0, 0]); // auth_key_id (8)
-    header.long(await this.getMessageId()); // msg_id (8)
-    header.uint32(requestLength); // request_length (4)
+    const messageId = await this.getMessageId();
+
+    const header = new Serializer(function () {
+      this.long([0, 0]);
+      this.long(messageId);
+      this.uint32(requestLength);
+    });
 
     const headerBytes = header.getBytes();
     const headerLength = headerBytes.length;

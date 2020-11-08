@@ -35,9 +35,10 @@ async function getPublisKeysByHex() {
   const publisKeysByHex = {};
 
   for (const publisKey of publisKeys) {
-    const RSAPublicKey = new Serializer();
-    RSAPublicKey.bytes(hexToBytes(publisKey.modulus), 'n');
-    RSAPublicKey.bytes(hexToBytes(publisKey.exponent), 'e');
+    const RSAPublicKey = new Serializer(function () {
+      this.bytes(hexToBytes(publisKey.modulus));
+      this.bytes(hexToBytes(publisKey.exponent));
+    });
 
     const buffer = RSAPublicKey.getBuffer();
 
