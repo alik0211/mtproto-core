@@ -4,7 +4,24 @@
 
 Create an Telegram API instance according to the [handling common errors](./handling-common-errors.md) guide. This is **required** to automatically handle migration errors.
 
-## 1. Send code
+## 1. Get information about the current user
+```js
+async function getUser() {
+  try {
+    const user = await api.call('users.getFullUser', {
+      id: {
+        _: 'inputUserSelf',
+      },
+    });
+
+    return user;
+  } catch (error) {
+    return null;
+  }
+}
+```
+
+## 2. Send code
 ```js
 function sendCode(phone) {
   return api.call('auth.sendCode', {
@@ -16,7 +33,7 @@ function sendCode(phone) {
 }
 ```
 
-## 2. Sign in
+## 3. Sign in
 ```js
 function signIn({ code, phone, phone_code_hash }) {
   return api.call('auth.signIn', {
@@ -27,13 +44,13 @@ function signIn({ code, phone, phone_code_hash }) {
 }
 ```
 
-## 2.1. 2FA
+## 3.1. 2FA
 ```js
 function getPassword() {
   return api.call('account.getPassword');
 }
 
-async function checkPassword({ srp_id, A, M1 }) {
+function checkPassword({ srp_id, A, M1 }) {
   return api.call('auth.checkPassword', {
     password: {
       _: 'inputCheckPasswordSRP',
@@ -53,34 +70,57 @@ const phone = 'PHONE_NUMBER';
 const code = 'XXXXX';
 const password = 'PASSWORD';
 
-sendCode(phone)
-  .then(sendCodeResult => {
-    return signIn({
-      code,
-      phone,
-      phone_code_hash: sendCodeResult.phone_code_hash,
-    }).catch(error => {
-      if (error.error_message === 'SESSION_PASSWORD_NEEDED') {
-        return getPassword().then(async result => {
-          const { srp_id, current_algo, srp_B } = result;
-          const { g, p, salt1, salt2, } = current_algo;
+(async () => {
+  const user = await getUser();
 
-          const { A, M1 } = await getSRPParams({
-            g,
-            p,
-            salt1,
-            salt2,
-            gB: srp_B,
-            password,
-          });
+  if (!user) {
+    const { phone_code_hash } = await sendCode(phone);
 
-          return checkPassword({ srp_id, A, M1 });
-        });
+    try {
+      const authResult = await signIn({
+        code,
+        phone,
+        phone_code_hash,
+      });
+
+      console.log(`authResult:`, authResult);
+    } catch (error) {
+      if (error.error_message !== 'SESSION_PASSWORD_NEEDED') {
+        return;
       }
 
-      return Promise.reject(error);
-    });
-  }).then(result => {
-    console.log('auth.authorization:', result);
-  });
+      // 2FA
+
+      const { srp_id, current_algo, srp_B } = await getPassword();
+      const { g, p, salt1, salt2 } = current_algo;
+
+      const { A, M1 } = await getSRPParams({
+        g,
+        p,
+        salt1,
+        salt2,
+        gB: srp_B,
+        password,
+      });
+
+      const authResult = await checkPassword({ srp_id, A, M1 });
+
+      console.log(`authResult:`, authResult);
+    }
+  }
+
+  // const result = await api.call('account.getAccountTTL');
+
+  // const result = await api.call('help.getConfig');
+
+  // const result = await api.call('users.getUsers', {
+  //   id: [
+  //     {
+  //       _: 'inputUserSelf',
+  //     },
+  //   ],
+  // });
+
+  // console.log(`result:`, result);
+})();
 ```

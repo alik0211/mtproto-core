@@ -1,5 +1,19 @@
 const api = require('./api');
 
+async function getUser() {
+  try {
+    const user = await api.call('users.getFullUser', {
+      id: {
+        _: 'inputUserSelf',
+      },
+    });
+
+    return user;
+  } catch (error) {
+    return null;
+  }
+}
+
 function sendCode(phone) {
   return api.call('auth.sendCode', {
     phone_number: phone,
@@ -21,7 +35,7 @@ function getPassword() {
   return api.call('account.getPassword');
 }
 
-async function checkPassword({ srp_id, A, M1 }) {
+function checkPassword({ srp_id, A, M1 }) {
   return api.call('auth.checkPassword', {
     password: {
       _: 'inputCheckPasswordSRP',
@@ -33,6 +47,7 @@ async function checkPassword({ srp_id, A, M1 }) {
 }
 
 module.exports = {
+  getUser,
   sendCode,
   signIn,
   getPassword,
