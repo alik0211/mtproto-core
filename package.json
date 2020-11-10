@@ -63,9 +63,8 @@
     "pako": "1.0.11"
   },
   "devDependencies": {
-    "dotenv-webpack": "1.7.0",
+    "dotenv": "8.2.0",
     "dual-publish": "0.11.0",
-    "html-webpack-plugin": "3.2.0",
     "jasmine-core": "3.5.0",
     "karma": "4.4.1",
     "karma-chrome-launcher": "3.1.0",
@@ -73,8 +72,6 @@
     "karma-mocha-reporter": "2.2.5",
     "karma-webpack": "4.0.2",
     "npm-run-all": "4.1.5",
-    "webpack": "4.41.2",
-    "webpack-cli": "3.3.10",
-    "webpack-dev-server": "3.10.3"
+    "webpack": "4.44.2"
   }
 }
