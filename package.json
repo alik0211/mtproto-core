@@ -43,8 +43,7 @@
   },
   "scripts": {
     "start": "run-s generate-tl && node -r dotenv/config src/__playground/node.js",
-    "watch": "karma start",
-    "test": "karma start --single-run",
+    "test": "jest",
     "generate-builder": "node scripts/generate-builder.js",
     "generate-parser": "node scripts/generate-parser.js",
     "generate-tl": "run-p generate-builder generate-parser",
@@ -64,13 +63,7 @@
   "devDependencies": {
     "dotenv": "8.2.0",
     "dual-publish": "0.11.0",
-    "jasmine-core": "3.5.0",
-    "karma": "4.4.1",
-    "karma-chrome-launcher": "3.1.0",
-    "karma-jasmine": "3.1.1",
-    "karma-mocha-reporter": "2.2.5",
-    "karma-webpack": "4.0.2",
-    "npm-run-all": "4.1.5",
-    "webpack": "4.44.2"
+    "jest": "26.6.3",
+    "npm-run-all": "4.1.5"
   }
 }

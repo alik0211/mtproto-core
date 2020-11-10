@@ -30,21 +30,21 @@ describe('bytesIsEqual', function () {
     const firstBytes = new Uint8Array([]);
     const secondBytes = new Uint8Array([255]);
 
-    expect(bytesIsEqual(firstBytes, secondBytes)).toBeFalse();
+    expect(bytesIsEqual(firstBytes, secondBytes)).toBe(false);
   });
 
   it("return false if the bytes don't equal", function () {
     const firstBytes = new Uint8Array([127]);
     const secondBytes = new Uint8Array([255]);
 
-    expect(bytesIsEqual(firstBytes, secondBytes)).toBeFalse();
+    expect(bytesIsEqual(firstBytes, secondBytes)).toBe(false);
   });
 
   it('return true if the bytes is equal', function () {
     const firstBytes = new Uint8Array([255]);
     const secondBytes = new Uint8Array([255]);
 
-    expect(bytesIsEqual(firstBytes, secondBytes)).toBeTrue();
+    expect(bytesIsEqual(firstBytes, secondBytes)).toBe(true);
   });
 });
 
@@ -70,7 +70,7 @@ describe('hexToBytesRaw', function () {
   const reslut = hexToBytesRaw('ffffffff', expectedResult.length);
 
   it('return Array', function () {
-    expect(Array.isArray(reslut)).toBeTrue();
+    expect(Array.isArray(reslut)).toBe(true);
   });
 
   it('return correct length', function () {
