@@ -42,8 +42,7 @@
     "./src/utils/common/random/index.js": "./src/utils/common/random/index.browser.js"
   },
   "scripts": {
-    "start": "run-s generate-tl && webpack-dev-server --color",
-    "start:node": "run-s generate-tl && node -r dotenv/config src/__playground/node.js",
+    "start": "run-s generate-tl && node -r dotenv/config src/__playground/node.js",
     "watch": "karma start",
     "test": "karma start --single-run",
     "generate-builder": "node scripts/generate-builder.js",
