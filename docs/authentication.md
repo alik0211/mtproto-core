@@ -108,19 +108,5 @@ const password = 'PASSWORD';
       console.log(`authResult:`, authResult);
     }
   }
-
-  // const result = await api.call('account.getAccountTTL');
-
-  // const result = await api.call('help.getConfig');
-
-  // const result = await api.call('users.getUsers', {
-  //   id: [
-  //     {
-  //       _: 'inputUserSelf',
-  //     },
-  //   ],
-  // });
-
-  // console.log(`result:`, result);
 })();
 ```
