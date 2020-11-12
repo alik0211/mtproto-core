@@ -12,7 +12,6 @@
 /build
 /dist
 /package
-/scheme/index.js
 /dual-publish-tmp
 /src/tl/builder
 /src/tl/parser
@@ -27,7 +26,5 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-.env
 
 package-lock.json

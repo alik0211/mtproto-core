@@ -1,6 +1,4 @@
 webpack.config.js
 src/__tests__/**/*
-src/__playground/**/*
 scheme/*.json
 scripts/*
-.env
