@@ -34,21 +34,21 @@ class Socket extends Obfuscated {
     this.socket.addEventListener('message', this.handleMessage.bind(this));
   }
 
-  async handleError(event) {
+  async handleError() {
     this.emit('error', {
       type: 'socket',
     });
   }
 
-  async handleOpen(event) {
+  async handleOpen() {
     const initialMessage = await this.generateObfuscationKeys();
     this.socket.send(initialMessage);
 
-    this.emit('open', event);
+    this.emit('open');
   }
 
-  async handleClose(event) {
-    if (this.socket.readyState === 1) {
+  async handleClose() {
+    if (this.isAvailable) {
       this.socket.close();
     }
 
