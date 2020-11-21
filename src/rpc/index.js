@@ -455,6 +455,12 @@ class RPC {
       return;
     }
 
+    if (this.pendingAcks.includes(messageId)) {
+      this.sendAcks();
+
+      return;
+    }
+
     if (message._ === 'mt_msg_container') {
       message.messages.forEach(message => {
         this.handleDecryptedMessage(message.body, {
