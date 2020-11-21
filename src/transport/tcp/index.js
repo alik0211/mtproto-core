@@ -1,4 +1,4 @@
-const { Socket } = require('net');
+const net = require('net');
 const { Obfuscated } = require('../obfuscated');
 
 class TCP extends Obfuscated {
@@ -17,17 +17,15 @@ class TCP extends Obfuscated {
   connect() {
     this.stream = new Uint8Array();
 
-    this.socket = new Socket();
-
-    this.socket.on('data', this.handleData.bind(this));
-    this.socket.on('error', this.handleError.bind(this));
-    this.socket.on('close', this.handleClose.bind(this));
-
-    this.socket.connect(
+    this.socket = net.connect(
       this.dc.port,
       this.dc.ip,
       this.handleConnect.bind(this)
     );
+
+    this.socket.on('data', this.handleData.bind(this));
+    this.socket.on('error', this.handleError.bind(this));
+    this.socket.on('close', this.handleClose.bind(this));
   }
 
   async handleData(data) {
@@ -79,6 +77,7 @@ class TCP extends Obfuscated {
 
   async handleConnect() {
     const initialMessage = await this.generateObfuscationKeys();
+
     this.socket.write(initialMessage);
 
     this.emit('open');
