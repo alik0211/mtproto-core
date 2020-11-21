@@ -10,6 +10,10 @@ class TCP extends Obfuscated {
     this.connect();
   }
 
+  get isAvailable() {
+    return this.socket.writable;
+  }
+
   connect() {
     this.stream = new Uint8Array();
 

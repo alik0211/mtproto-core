@@ -20,6 +20,10 @@ class Socket extends Obfuscated {
     this.connect();
   }
 
+  get isAvailable() {
+    return this.socket.readyState === WebSocket.OPEN;
+  }
+
   connect() {
     this.socket = new WebSocket(this.url, 'binary');
     this.socket.binaryType = 'arraybuffer';

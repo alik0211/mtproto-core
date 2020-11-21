@@ -41,7 +41,7 @@ class RPC {
     this.messagesWaitResponse = new Map();
     this.messagesWaitAuth = [];
     this.pendingAcks = [];
-    this.isReady = false;
+    this.isAuth = false;
 
     this.storage = storage;
 
@@ -73,6 +73,10 @@ class RPC {
     }, 500);
   }
 
+  get isReady() {
+    return this.isAuth && this.transport.isAvailable;
+  }
+
   async handleTransportError(payload) {
     const { type } = payload;
 
@@ -93,13 +97,13 @@ class RPC {
     }
   }
 
-  async handleTransportOpen(event) {
+  async handleTransportOpen() {
     const authKey = await this.storage.pGet('authKey');
     const serverSalt = await this.storage.pGet('serverSalt');
 
     if (authKey && serverSalt) {
       this.handleMessage = this.handleEncryptedMessage;
-      this.isReady = true;
+      this.isAuth = true;
       this.sendWaitMessages();
 
       // This request is necessary to ensure that you start interacting with the server. If we have not made any request, the server will not send us updates.
@@ -340,7 +344,7 @@ class RPC {
       }
 
       this.handleMessage = this.handleEncryptedMessage;
-      this.isReady = true;
+      this.isAuth = true;
       this.sendWaitMessages();
 
       return;
