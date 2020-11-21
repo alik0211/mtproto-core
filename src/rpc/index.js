@@ -50,7 +50,6 @@ class RPC {
     this.transport = new Transport(this.dc);
 
     this.transport.on('open', this.handleTransportOpen.bind(this));
-    this.transport.on('close', this.handleTransportClose.bind(this));
     this.transport.on('error', this.handleTransportError.bind(this));
     this.transport.on('message', this.handleTransportMessage.bind(this));
 
@@ -119,10 +118,6 @@ class RPC {
       this.handleMessage = this.handlePQResponse;
       this.sendPlainMessage(builderMap.mt_req_pq_multi, { nonce: this.nonce });
     }
-  }
-
-  async handleTransportClose(event) {
-    this.isReady = false;
   }
 
   async handleTransportMessage(buffer) {

@@ -52,8 +52,6 @@ class Socket extends Obfuscated {
       this.socket.close();
     }
 
-    this.emit('close', event);
-
     this.connect();
   }
 

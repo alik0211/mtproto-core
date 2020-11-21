@@ -74,8 +74,6 @@ class TCP extends Obfuscated {
       this.socket.destroy();
     }
 
-    this.emit('close');
-
     this.connect();
   }
 
