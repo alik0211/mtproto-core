@@ -375,6 +375,15 @@ class RPC {
   }
 
   async sendWaitMessages() {
+    // Resend unacknowledged messages
+    for (let message of this.messagesWaitResponse.values()) {
+      if (message.isAck) {
+        continue;
+      }
+      const { method, params, resolve, reject } = message;
+      this.call(method, params).then(resolve).catch(reject);
+    }
+
     this.messagesWaitAuth.forEach(message => {
       const { method, params, resolve, reject } = message;
       this.call(method, params).then(resolve).catch(reject);
@@ -512,6 +521,17 @@ class RPC {
     }
 
     if (message._ === 'mt_msgs_ack') {
+      message.msg_ids.forEach(msgId => {
+        const waitMessage = this.messagesWaitResponse.get(msgId);
+
+        const nextWaitMessage = {
+          ...waitMessage,
+          isAck: true,
+        };
+
+        this.messagesWaitResponse.set(msgId, nextWaitMessage);
+      });
+
       return;
     }
 
@@ -535,7 +555,7 @@ class RPC {
     this.updates.emit(message._, message);
   }
 
-  async ackMessage(messageId) {
+  ackMessage(messageId) {
     this.pendingAcks.push(messageId);
 
     this.sendAcks();
@@ -593,6 +613,7 @@ class RPC {
         params,
         resolve,
         reject,
+        isAck: false,
       });
     });
   }
