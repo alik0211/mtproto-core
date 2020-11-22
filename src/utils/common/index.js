@@ -114,6 +114,8 @@ function getRandomInt(maxValue) {
   return Math.floor(Math.random() * maxValue);
 }
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 module.exports = {
   getRandomBytes,
   bytesIsEqual,
@@ -130,4 +132,5 @@ module.exports = {
   intToUint,
   uintToInt,
   getRandomInt,
+  sleep,
 };

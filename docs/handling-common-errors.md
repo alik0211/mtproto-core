@@ -2,6 +2,7 @@
 
 ```js
 const { MTProto } = require('@mtproto/core');
+const { sleep } = require('@mtproto/core/src/utils/common');
 
 const mtproto = new MTProto({
   api_id: process.env.API_ID,
@@ -14,6 +15,15 @@ const api = {
       console.log(`${method} error:`, error);
 
       const { error_code, error_message } = error;
+
+      if (error_code === 420) {
+        const seconds = +error_message.split('FLOOD_WAIT_')[1];
+        const ms = seconds * 1000;
+
+        await sleep(ms);
+
+        return this.call(method, params, options);
+      }
 
       if (error_code === 303) {
         const [type, dcId] = error_message.split('_MIGRATE_');
