@@ -54,7 +54,7 @@ class RPC {
     this.transport.on('message', this.handleTransportMessage.bind(this));
 
     this.sendAcks = debounce(() => {
-      if (!this.pendingAcks.length) {
+      if (!this.pendingAcks.length || !this.isReady) {
         return;
       }
 
