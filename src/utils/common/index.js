@@ -97,19 +97,6 @@ function intsToLong(low, high) {
   return bigInt(low).shiftLeft(32).add(bigInt(high)).toString(10);
 }
 
-function intToUint(value) {
-  value = +value;
-
-  return value < 0 ? value + 4294967296 : value;
-}
-
-function uintToInt(val) {
-  if (val > 2147483647) {
-    val = val - 4294967296;
-  }
-  return val;
-}
-
 function getRandomInt(maxValue) {
   return Math.floor(Math.random() * maxValue);
 }
@@ -129,8 +116,6 @@ module.exports = {
   bytesToBytesRaw,
   longToBytesRaw,
   intsToLong,
-  intToUint,
-  uintToInt,
   getRandomInt,
   sleep,
 };

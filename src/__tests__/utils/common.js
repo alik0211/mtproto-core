@@ -7,8 +7,6 @@ const {
   xorBytes,
   concatBytes,
   bytesToHex,
-  intToUint,
-  uintToInt,
   getRandomInt,
 } = require('../../utils/common');
 
@@ -137,26 +135,6 @@ describe('bytesToHex', function () {
 
   it('return correct result', function () {
     expect(result).toBe(expectedResult);
-  });
-});
-
-describe('intToUint', function () {
-  it('return correct result for negative number', function () {
-    expect(intToUint(-1)).toBe(0xffffffff);
-  });
-
-  it('return correct result for positive number', function () {
-    expect(intToUint(1)).toBe(1);
-  });
-});
-
-describe('uintToInt', function () {
-  it('return correct result for a number greater than 0x7fffffff', function () {
-    expect(uintToInt(0x80000000)).toBe(-0x80000000);
-  });
-
-  it('return correct result for a number less or equal 0x7fffffff', function () {
-    expect(uintToInt(0x7fffffff)).toBe(0x7fffffff);
   });
 });
 
