@@ -58,7 +58,7 @@
     "leemon": "6.2.0",
     "lodash.debounce": "4.0.8",
     "node-localstorage": "2.1.6",
-    "pako": "1.0.11"
+    "pako": "2.0.2"
   },
   "devDependencies": {
     "dual-publish": "0.11.0",

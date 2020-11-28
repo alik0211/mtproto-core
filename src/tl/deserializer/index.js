@@ -1,4 +1,4 @@
-const { inflate } = require('pako/lib/inflate');
+const { inflate } = require('pako');
 const parserMap = require('../parser');
 const { intsToLong } = require('../../utils/common');
 
