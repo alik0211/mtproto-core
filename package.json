@@ -1,6 +1,6 @@
 {
   "name": "@mtproto/core",
-  "version": "5.2.0",
+  "version": "5.3.0",
   "description": "Telegram API JS (MTProto) client library for browser and nodejs",
   "keywords": [
     "telegram",
