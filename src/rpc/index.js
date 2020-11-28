@@ -579,7 +579,7 @@ class RPC {
     };
 
     const serializer = new Serializer(builderMap.invokeWithLayer, {
-      layer: 113,
+      layer: 121,
       query: {
         _: 'initConnection',
         ...initConnectionParams,

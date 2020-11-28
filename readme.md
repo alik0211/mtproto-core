@@ -7,7 +7,7 @@
 
 Telegram API JS (MTProto) client library for browser and nodejs
 
-* **Actual.** 113 layer in the API scheme
+* **Actual.** 121 layer in the API scheme
 * **Fast.** Uses WebSocket for browser and TCP for nodejs
 * **Easy.** Cryptography and bytes is hidden. [Just make requests](#mtprotocallmethod-params-options--promise) to the API
 * **Smart.** Automatically [sync authorization](#optionssyncauth-boolean) on all DC's
