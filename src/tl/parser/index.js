@@ -1,4 +1,4 @@
-const parserMap = new Map([
+module.exports = new Map([
   [481674261, function() {
 return this.vector(this.predicate, true);
   }],
@@ -6108,4 +6108,3 @@ result.bytes = this.bytes();
 return result;
   }],
 ]);
-export default parserMap;

@@ -1,4 +1,4 @@
-const builderMap = {
+module.exports = {
   'mt_vector': function(params) {
     this.int32(481674261);
   },
@@ -7076,4 +7076,3 @@ const builderMap = {
     this.predicate(params.peer);
   },
 };
-export default builderMap;
