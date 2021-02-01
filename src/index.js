@@ -31,7 +31,7 @@ const PRODUCTION_DC_LIST = [
   },
   {
     id: 2,
-    ip: '149.154.167.51',
+    ip: '149.154.167.50',
     port: 443,
   },
   {
