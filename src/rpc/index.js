@@ -19,31 +19,19 @@ const {
 const { pqPrimeFactorization } = require('../utils/pq');
 const { AES, RSA, SHA1, SHA256 } = require('../utils/crypto');
 const { getRsaKeyByFingerprints } = require('../utils/rsa');
-const { createLogger } = require('../utils/common/logger');
+const baseDebug = require('../utils/common/base-debug');
 
-const logger = createLogger('RPC');
+const debug = baseDebug.extend('RPC');
 
 class RPC {
-  constructor({
-    api_id,
-    api_hash,
-    dc,
-    updates,
-    storage,
-    getInitConnectionParams,
-  }) {
-    this.api_id = api_id;
-    this.api_hash = api_hash;
+  constructor(dc, context) {
     this.dc = dc;
-    this.updates = updates;
-    this.getInitConnectionParams = getInitConnectionParams;
+    this.context = context;
 
-    this.messagesWaitResponse = new Map();
-    this.messagesWaitAuth = [];
-    this.pendingAcks = [];
     this.isAuth = false;
-
-    this.storage = storage;
+    this.pendingAcks = [];
+    this.messagesWaitAuth = [];
+    this.messagesWaitResponse = new Map();
 
     this.updateSession();
 
@@ -224,7 +212,7 @@ class RPC {
       throw new Error('Invalid hash in DH params decrypted data');
     }
 
-    await this.storage.set(
+    await this.context.storage.set(
       'timeOffset',
       Math.floor(Date.now() / 1000) - serverDHInnerData.server_time
     );
@@ -440,17 +428,7 @@ class RPC {
       return;
     }
 
-    logger.bytes({
-      name: 'handleEncryptedMessage plainDeserializer.byteView',
-      bytes: plainDeserializer.byteView,
-    });
-
     const result = plainDeserializer.predicate();
-
-    logger.log({
-      name: 'handleEncryptedMessage result',
-      result,
-    });
 
     this.handleDecryptedMessage(result, { messageId, seqNo });
   }
@@ -458,8 +436,10 @@ class RPC {
   async handleDecryptedMessage(message, params = {}) {
     const { messageId } = params;
 
+    debug('handleDecryptedMessage', messageId);
+
     if (bigInt(messageId).isEven()) {
-      console.warn(`Message id from server is even:`, message);
+      debug('message id from server is even', message);
 
       return;
     }
@@ -492,7 +472,7 @@ class RPC {
         const serverTime = bigInt(messageId).shiftRight(32).toJSNumber();
         const timeOffset = Math.floor(Date.now() / 1000) - serverTime;
 
-        await this.storage.set('timeOffset', timeOffset);
+        await this.context.storage.set('timeOffset', timeOffset);
         this.lastMessageId = [0, 0];
       }
 
@@ -552,7 +532,7 @@ class RPC {
     }
 
     this.ackMessage(messageId);
-    this.updates.emit(message._, message);
+    this.context.updates.emit(message._, message);
   }
 
   ackMessage(messageId) {
@@ -568,14 +548,16 @@ class RPC {
       });
     }
 
+    const { api_id, api_hash } = this.context;
+
     const initConnectionParams = {
-      api_id: this.api_id,
+      api_id,
       device_model: '@mtproto/core',
       system_version: '5.3.0',
       app_version: '1.0.0',
       system_lang_code: 'en',
       lang_code: 'en',
-      ...this.getInitConnectionParams(),
+      ...this.context.initConnectionParams,
     };
 
     const serializer = new Serializer(builderMap.invokeWithLayer, {
@@ -585,24 +567,14 @@ class RPC {
         ...initConnectionParams,
         query: {
           _: method,
-          api_id: this.api_id,
-          api_hash: this.api_hash,
+          api_id,
+          api_hash,
           ...params,
         },
       },
     });
 
-    logger.log({
-      name: 'call params',
-      params,
-    });
-
     const bytes = serializer.getBytes();
-
-    logger.bytes({
-      name: 'call bytes',
-      bytes,
-    });
 
     return new Promise(async (resolve, reject) => {
       const messageId = await this.sendEncryptedMessage(bytes);
@@ -704,7 +676,7 @@ class RPC {
 
   async getMessageId() {
     // @TODO: Check timeOffset
-    const timeOffset = await this.storage.get('timeOffset');
+    const timeOffset = await this.context.storage.get('timeOffset');
 
     const timeTicks = Date.now();
     const timeSec = Math.floor(timeTicks / 1000) + timeOffset;
@@ -769,11 +741,11 @@ class RPC {
   }
 
   async setStorageItem(key, value) {
-    return this.storage.set(`${this.dc.id}${key}`, value);
+    return this.context.storage.set(`${this.dc.id}${key}`, value);
   }
 
   async getStorageItem(key) {
-    return this.storage.get(`${this.dc.id}${key}`);
+    return this.context.storage.get(`${this.dc.id}${key}`);
   }
 }
 

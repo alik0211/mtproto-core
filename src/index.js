@@ -56,25 +56,18 @@ const PRODUCTION_DC_LIST = [
 
 class MTProto {
   constructor(options) {
-    const {
-      api_id,
-      api_hash,
-      test = false,
-      storageOptions,
-      customLocalStorage,
-    } = options;
+    const { api_id, api_hash, storageOptions, customLocalStorage } = options;
 
     this.api_id = api_id;
     this.api_hash = api_hash;
 
     this.initConnectionParams = {};
 
-    this.dcList = test ? TEST_DC_LIST : PRODUCTION_DC_LIST;
-
-    this.customLocalStorage = customLocalStorage;
+    this.dcList = !!options.test ? TEST_DC_LIST : PRODUCTION_DC_LIST;
 
     this.updates = new EventEmitter();
 
+    // @TODO: Use map
     this.rpcs = {};
 
     this.storage = new Storage(customLocalStorage, storageOptions);
@@ -150,16 +143,9 @@ class MTProto {
       return;
     }
 
-    const { api_id, api_hash, updates, storage, customLocalStorage } = this;
+    this.rpcs[dcId] = new RPC(dc, this);
 
-    this.rpcs[dcId] = new RPC({
-      api_id,
-      api_hash,
-      dc,
-      updates,
-      storage,
-      getInitConnectionParams: () => this.initConnectionParams,
-    });
+    debug(`create DC ${dcId}`);
   }
 
   updateInitConnectionParams(params) {
