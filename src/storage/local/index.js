@@ -1,20 +1,17 @@
-const envPaths = require('env-paths');
-const { LocalStorage } = require('node-localstorage');
+const Configstore = require('configstore');
 
-let localStorage = null;
+function getLocalStorage(options) {
+  // @TODO: Add check options.path
 
-function getLocalStorage() {
-  if (localStorage) {
-    return localStorage;
-  }
+  const localStorage = new Configstore(
+    '@mtproto/core',
+    {},
+    {
+      configPath: options.path,
+    }
+  );
 
-  const paths = envPaths('@mtproto/core', {
-    suffix: '',
-  });
-
-  localStorage = new LocalStorage(paths.data);
-
-  console.log(`Auth data is located in ${paths.data}`);
+  console.log(`Session located in ${localStorage.path}`);
 
   return localStorage;
 }

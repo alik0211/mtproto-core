@@ -85,8 +85,8 @@ class RPC {
     if (type === 'transport') {
       // Auth key not found
       if (payload.code === 404) {
-        await this.storage.pSet('authKey', null);
-        await this.storage.pSet('serverSalt', null);
+        await this.setStorageItem('authKey', null);
+        await this.setStorageItem('serverSalt', null);
       }
 
       // transport flood
@@ -97,8 +97,8 @@ class RPC {
   }
 
   async handleTransportOpen() {
-    const authKey = await this.storage.pGet('authKey');
-    const serverSalt = await this.storage.pGet('serverSalt');
+    const authKey = await this.getStorageItem('authKey');
+    const serverSalt = await this.getStorageItem('serverSalt');
 
     if (authKey && serverSalt) {
       this.handleMessage = this.handleEncryptedMessage;
@@ -107,10 +107,10 @@ class RPC {
 
       // This request is necessary to ensure that you start interacting with the server. If we have not made any request, the server will not send us updates.
       this.call('help.getConfig')
-        .then(result => {
+        .then((result) => {
           // TODO: Handle config
         })
-        .catch(error => {
+        .catch((error) => {
           console.log(`Error when calling the method help.getConfig:`, error);
         });
     } else {
@@ -281,8 +281,8 @@ class RPC {
       this.serverNonce.slice(0, 8)
     );
 
-    await this.storage.pSet('authKey', bytesToBytesRaw(authKey));
-    await this.storage.pSet('serverSalt', bytesToBytesRaw(serverSalt));
+    await this.setStorageItem('authKey', bytesToBytesRaw(authKey));
+    await this.setStorageItem('serverSalt', bytesToBytesRaw(serverSalt));
 
     this.authKeyAuxHash = bytesToBytesRaw((await SHA1(authKey)).slice(0, 8));
 
@@ -384,7 +384,7 @@ class RPC {
       this.call(method, params).then(resolve).catch(reject);
     }
 
-    this.messagesWaitAuth.forEach(message => {
+    this.messagesWaitAuth.forEach((message) => {
       const { method, params, resolve, reject } = message;
       this.call(method, params).then(resolve).catch(reject);
     });
@@ -393,7 +393,7 @@ class RPC {
   }
 
   async handleEncryptedMessage(buffer) {
-    const authKey = await this.storage.pGetBytes('authKey');
+    const authKey = new Uint8Array(await this.getStorageItem('authKey'));
 
     const deserializer = new Deserializer(buffer);
     const authKeyId = deserializer.long();
@@ -471,7 +471,7 @@ class RPC {
     }
 
     if (message._ === 'mt_msg_container') {
-      message.messages.forEach(message => {
+      message.messages.forEach((message) => {
         this.handleDecryptedMessage(message.body, {
           messageId: message.msg_id,
         });
@@ -482,7 +482,7 @@ class RPC {
 
     if (['mt_bad_server_salt', 'mt_bad_msg_notification'].includes(message._)) {
       if (message.error_code === 48) {
-        await this.storage.pSet(
+        await this.setStorageItem(
           'serverSalt',
           longToBytesRaw(message.new_server_salt)
         );
@@ -512,7 +512,7 @@ class RPC {
 
     if (message._ === 'mt_new_session_created') {
       this.ackMessage(messageId);
-      await this.storage.pSet(
+      await this.setStorageItem(
         'serverSalt',
         longToBytesRaw(message.server_salt)
       );
@@ -521,7 +521,7 @@ class RPC {
     }
 
     if (message._ === 'mt_msgs_ack') {
-      message.msg_ids.forEach(msgId => {
+      message.msg_ids.forEach((msgId) => {
         const waitMessage = this.messagesWaitResponse.get(msgId);
 
         const nextWaitMessage = {
@@ -634,8 +634,8 @@ class RPC {
   async sendEncryptedMessage(data, options = {}) {
     const { isContentRelated = true } = options;
 
-    const authKey = await this.storage.pGetBytes('authKey');
-    const serverSalt = await this.storage.pGetBytes('serverSalt');
+    const authKey = new Uint8Array(await this.getStorageItem('authKey'));
+    const serverSalt = new Uint8Array(await this.getStorageItem('serverSalt'));
     const messageId = await this.getMessageId();
     const seqNo = this.getSeqNo(isContentRelated);
     const minPadding = 12;
@@ -703,6 +703,7 @@ class RPC {
   }
 
   async getMessageId() {
+    // @TODO: Check timeOffset
     const timeOffset = await this.storage.get('timeOffset');
 
     const timeTicks = Date.now();
@@ -765,6 +766,14 @@ class RPC {
       sha256b.slice(24, 32)
     );
     return new AES.IGE(aesKey, aesIV);
+  }
+
+  async setStorageItem(key, value) {
+    return this.storage.set(`${this.dc.id}${key}`, value);
+  }
+
+  async getStorageItem(key) {
+    return this.storage.get(`${this.dc.id}${key}`);
   }
 }
 

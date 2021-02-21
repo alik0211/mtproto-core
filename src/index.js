@@ -1,6 +1,9 @@
 const EventEmitter = require('events');
 const { RPC } = require('./rpc');
+const baseDebug = require('./utils/common/base-debug');
 const { Storage } = require('./storage');
+
+const debug = baseDebug.extend('main');
 
 const TEST_DC_LIST = [
   {
@@ -53,7 +56,13 @@ const PRODUCTION_DC_LIST = [
 
 class MTProto {
   constructor(options) {
-    const { api_id, api_hash, test = false, customLocalStorage } = options;
+    const {
+      api_id,
+      api_hash,
+      test = false,
+      storageOptions,
+      customLocalStorage,
+    } = options;
 
     this.api_id = api_id;
     this.api_hash = api_hash;
@@ -68,7 +77,7 @@ class MTProto {
 
     this.rpcs = {};
 
-    this.storage = new Storage('', { customLocalStorage });
+    this.storage = new Storage(customLocalStorage, storageOptions);
   }
 
   async call(method, params = {}, options = {}) {
@@ -78,7 +87,7 @@ class MTProto {
 
     this.createRPC(dcId);
 
-    return this.rpcs[dcId].call(method, params).then(result => {
+    return this.rpcs[dcId].call(method, params).then((result) => {
       if (syncAuth && result._ === 'auth.authorization') {
         return this.syncAuth(dcId).then(() => result);
       }
@@ -90,7 +99,7 @@ class MTProto {
   syncAuth(dcId) {
     const promises = [];
 
-    this.dcList.forEach(dc => {
+    this.dcList.forEach((dc) => {
       if (dcId === dc.id) {
         return;
       }
@@ -102,7 +111,7 @@ class MTProto {
         },
         { dcId }
       )
-        .then(result => {
+        .then((result) => {
           return this.call(
             'auth.importAuthorization',
             {
@@ -112,8 +121,8 @@ class MTProto {
             { dcId: dc.id, syncAuth: false }
           );
         })
-        .catch(error => {
-          console.warn(`Error when copy auth to DC ${dc.id}:`, error);
+        .catch((error) => {
+          debug(`error when copy auth to DC ${dc.id}`, error);
 
           return Promise.resolve();
         });
@@ -136,19 +145,19 @@ class MTProto {
     const dc = this.dcList.find(({ id }) => id === dcId);
 
     if (!dc) {
-      console.warn(`Don't find DC ${dcId}`);
+      debug(`don't find DC ${dcId}`);
 
       return;
     }
 
-    const { api_id, api_hash, updates, customLocalStorage } = this;
+    const { api_id, api_hash, updates, storage, customLocalStorage } = this;
 
     this.rpcs[dcId] = new RPC({
       api_id,
       api_hash,
       dc,
       updates,
-      storage: new Storage(dc.id, { customLocalStorage }),
+      storage,
       getInitConnectionParams: () => this.initConnectionParams,
     });
   }

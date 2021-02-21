@@ -2,41 +2,18 @@ const { getLocalStorage } = require('./local');
 
 const cache = {};
 
+// @TODO: Rename to store
 class Storage {
-  constructor(prefix, options = {}) {
-    this._prefix = prefix;
+  constructor(customLocalStorage, options) {
+    const localStorage = customLocalStorage || getLocalStorage(options);
 
-    const { customLocalStorage = getLocalStorage() } = options;
-
-    this.localStorage = customLocalStorage;
-  }
-
-  setPrefix(prefix) {
-    this._prefix = prefix;
-  }
-
-  pSet(name, value) {
-    const key = `${this._prefix}${name}`;
-
-    return this.set(key, value);
-  }
-
-  async pGetBytes(name) {
-    const result = await this.pGet(name);
-
-    return new Uint8Array(result);
-  }
-
-  pGet(name) {
-    const key = `${this._prefix}${name}`;
-
-    return this.get(key);
+    this.localStorage = localStorage;
   }
 
   async set(key, value) {
     cache[key] = value;
 
-    const result = await this.localStorage.setItem(key, JSON.stringify(value));
+    const result = await this.localStorage.set(key, JSON.stringify(value));
 
     return result;
   }
@@ -46,7 +23,7 @@ class Storage {
       return cache[key];
     }
 
-    const fromLocalStorage = await this.localStorage.getItem(key);
+    const fromLocalStorage = await this.localStorage.get(key);
 
     if (fromLocalStorage) {
       cache[key] = JSON.parse(fromLocalStorage);
