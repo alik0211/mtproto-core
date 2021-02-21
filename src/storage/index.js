@@ -1,17 +1,15 @@
 const { getLocalStorage } = require('./local');
 
-const cache = {};
-
 // @TODO: Rename to store
 class Storage {
   constructor(customLocalStorage, options) {
-    const localStorage = customLocalStorage || getLocalStorage(options);
+    this.cache = {};
 
-    this.localStorage = localStorage;
+    this.localStorage = customLocalStorage || getLocalStorage(options);
   }
 
   async set(key, value) {
-    cache[key] = value;
+    this.cache[key] = value;
 
     const result = await this.localStorage.set(key, JSON.stringify(value));
 
@@ -19,16 +17,16 @@ class Storage {
   }
 
   async get(key) {
-    if (key in cache) {
-      return cache[key];
+    if (key in this.cache) {
+      return this.cache[key];
     }
 
     const fromLocalStorage = await this.localStorage.get(key);
 
     if (fromLocalStorage) {
-      cache[key] = JSON.parse(fromLocalStorage);
+      this.cache[key] = JSON.parse(fromLocalStorage);
 
-      return cache[key];
+      return this.cache[key];
     }
 
     return null;
