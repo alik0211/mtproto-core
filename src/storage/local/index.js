@@ -1,4 +1,7 @@
 const Configstore = require('configstore');
+const baseDebug = require('../../utils/common/base-debug');
+
+const debug = baseDebug.extend('storage');
 
 function getLocalStorage(options) {
   // @TODO: Add check options.path
@@ -11,7 +14,7 @@ function getLocalStorage(options) {
     }
   );
 
-  console.log(`Session located in ${localStorage.path}`);
+  debug(`session located in ${localStorage.path}`);
 
   return localStorage;
 }
