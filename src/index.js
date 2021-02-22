@@ -65,12 +65,9 @@ class MTProto {
 
     this.dcList = !!options.test ? TEST_DC_LIST : PRODUCTION_DC_LIST;
 
-    this.updates = new EventEmitter();
-
-    // @TODO: Use map
-    this.rpcs = {};
-
+    this.rpcs = new Map();
     this.storage = new Storage(customLocalStorage, storageOptions);
+    this.updates = new EventEmitter();
   }
 
   async call(method, params = {}, options = {}) {
@@ -78,15 +75,15 @@ class MTProto {
 
     const dcId = options.dcId || (await this.storage.get('defaultDcId')) || 2;
 
-    this.createRPC(dcId);
+    const rpc = this.getRPC(dcId);
 
-    return this.rpcs[dcId].call(method, params).then((result) => {
-      if (syncAuth && result._ === 'auth.authorization') {
-        return this.syncAuth(dcId).then(() => result);
-      }
+    const result = await rpc.call(method, params);
 
-      return result;
-    });
+    if (syncAuth && result._ === 'auth.authorization') {
+      await this.syncAuth(dcId);
+    }
+
+    return result;
   }
 
   syncAuth(dcId) {
@@ -130,9 +127,9 @@ class MTProto {
     return this.storage.set('defaultDcId', dcId);
   }
 
-  createRPC(dcId) {
-    if (dcId in this.rpcs) {
-      return;
+  getRPC(dcId) {
+    if (this.rpcs.has(dcId)) {
+      return this.rpcs.get(dcId);
     }
 
     const dc = this.dcList.find(({ id }) => id === dcId);
@@ -143,9 +140,11 @@ class MTProto {
       return;
     }
 
-    this.rpcs[dcId] = new RPC(dc, this);
+    const rpc = new RPC(dc, this);
 
-    debug(`create DC ${dcId}`);
+    this.rpcs.set(dcId, rpc);
+
+    return rpc;
   }
 
   updateInitConnectionParams(params) {
