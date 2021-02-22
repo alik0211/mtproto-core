@@ -21,12 +21,13 @@ const { AES, RSA, SHA1, SHA256 } = require('../utils/crypto');
 const { getRsaKeyByFingerprints } = require('../utils/rsa');
 const baseDebug = require('../utils/common/base-debug');
 
-const debug = baseDebug.extend('RPC');
-
 class RPC {
   constructor(dc, context) {
     this.dc = dc;
     this.context = context;
+
+    this.debug = baseDebug.extend(`RPC-${this.dc.id}`);
+    this.debug('init');
 
     this.isAuth = false;
     this.pendingAcks = [];
@@ -436,10 +437,10 @@ class RPC {
   async handleDecryptedMessage(message, params = {}) {
     const { messageId } = params;
 
-    debug('handleDecryptedMessage', messageId);
+    this.debug('handleDecryptedMessage', messageId, message._);
 
     if (bigInt(messageId).isEven()) {
-      debug('message id from server is even', message);
+      this.debug('message id from server is even', message);
 
       return;
     }
