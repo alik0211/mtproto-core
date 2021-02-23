@@ -3,11 +3,11 @@ class TempLocalStorage {
     this.storage = new Map();
   }
 
-  setItem(key, value) {
+  set(key, value) {
     return this.storage.set(key, value);
   }
 
-  getItem(key) {
+  get(key) {
     return this.storage.get(key);
   }
 }

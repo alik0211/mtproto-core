@@ -2,10 +2,10 @@ const { getLocalStorage } = require('./local');
 
 // @TODO: Rename to store
 class Storage {
-  constructor(customLocalStorage, options) {
+  constructor(options = {}) {
     this.cache = {};
 
-    this.localStorage = customLocalStorage || getLocalStorage(options);
+    this.localStorage = options.instance || getLocalStorage(options);
   }
 
   async set(key, value) {
