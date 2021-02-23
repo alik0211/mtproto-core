@@ -1,11 +1,13 @@
 const net = require('net');
 const { Obfuscated } = require('../obfuscated');
+const baseDebug = require('../../utils/common/base-debug');
 
 class TCP extends Obfuscated {
   constructor(dc) {
     super();
 
     this.dc = dc;
+    this.debug = baseDebug.extend(`transport-${this.dc.id}`);
 
     this.connect();
   }
@@ -26,6 +28,8 @@ class TCP extends Obfuscated {
     this.socket.on('data', this.handleData.bind(this));
     this.socket.on('error', this.handleError.bind(this));
     this.socket.on('close', this.handleClose.bind(this));
+
+    this.debug('connect');
   }
 
   async handleData(data) {

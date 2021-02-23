@@ -26,7 +26,7 @@ class RPC {
     this.dc = dc;
     this.context = context;
 
-    this.debug = baseDebug.extend(`RPC-${this.dc.id}`);
+    this.debug = baseDebug.extend(`rpc-${this.dc.id}`);
     this.debug('init');
 
     this.isAuth = false;
