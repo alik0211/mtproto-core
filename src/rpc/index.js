@@ -437,8 +437,6 @@ class RPC {
   async handleDecryptedMessage(message, params = {}) {
     const { messageId } = params;
 
-    this.debug('handleDecryptedMessage', messageId, message._);
-
     if (bigInt(messageId).isEven()) {
       this.debug('message id from server is even', message);
 
@@ -452,6 +450,8 @@ class RPC {
     }
 
     if (message._ === 'mt_msg_container') {
+      this.debug('handling container');
+
       message.messages.forEach((message) => {
         this.handleDecryptedMessage(message.body, {
           messageId: message.msg_id,
@@ -462,6 +462,8 @@ class RPC {
     }
 
     if (['mt_bad_server_salt', 'mt_bad_msg_notification'].includes(message._)) {
+      this.debug(`handling ${message._} for message ${message.bad_msg_id}`);
+
       if (message.error_code === 48) {
         await this.setStorageItem(
           'serverSalt',
@@ -485,13 +487,15 @@ class RPC {
           .catch(waitMessage.reject);
         this.messagesWaitResponse.delete(message.bad_msg_id);
       } else {
-        console.warn(`${message._} for a non-existent message:`, message);
+        this.debug(`${message._} for a non-existent message`, message);
       }
 
       return;
     }
 
     if (message._ === 'mt_new_session_created') {
+      this.debug(`handling new session created`);
+
       this.ackMessage(messageId);
       await this.setStorageItem(
         'serverSalt',
@@ -502,6 +506,8 @@ class RPC {
     }
 
     if (message._ === 'mt_msgs_ack') {
+      this.debug('handling acknowledge for', message.msg_ids);
+
       message.msg_ids.forEach((msgId) => {
         const waitMessage = this.messagesWaitResponse.get(msgId);
 
@@ -519,6 +525,8 @@ class RPC {
     if (message._ === 'mt_rpc_result') {
       this.ackMessage(messageId);
 
+      this.debug('handling RPC result for message', message.req_msg_id);
+
       const waitMessage = this.messagesWaitResponse.get(message.req_msg_id);
 
       if (message.result._ === 'mt_rpc_error') {
@@ -531,6 +539,8 @@ class RPC {
 
       return;
     }
+
+    this.debug('handling update', message._);
 
     this.ackMessage(messageId);
     this.context.updates.emit(message._, message);
