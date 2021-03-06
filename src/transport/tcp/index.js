@@ -96,4 +96,4 @@ class TCP extends Obfuscated {
   }
 }
 
-module.exports = { TCP };
+module.exports = TCP;

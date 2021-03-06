@@ -1,20 +1,19 @@
 const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
-const { Transport } = require('../transport');
 const builderMap = require('../tl/builder');
 const Serializer = require('../tl/serializer');
 const Deserializer = require('../tl/deserializer');
 const {
-  bytesIsEqual,
-  getRandomBytes,
-  concatBytes,
-  bytesToBigInt,
-  bigIntToBytes,
-  longToBytesRaw,
-  intsToLong,
-  getRandomInt,
-  bytesToBytesRaw,
   xorBytes,
+  intsToLong,
+  concatBytes,
+  getRandomInt,
+  bytesIsEqual,
+  bigIntToBytes,
+  bytesToBigInt,
+  getRandomBytes,
+  longToBytesRaw,
+  bytesToBytesRaw,
 } = require('../utils/common');
 const { pqPrimeFactorization } = require('../utils/pq');
 const { AES, RSA, SHA1, SHA256 } = require('../utils/crypto');
@@ -22,9 +21,10 @@ const { getRsaKeyByFingerprints } = require('../utils/rsa');
 const baseDebug = require('../utils/common/base-debug');
 
 class RPC {
-  constructor(dc, context) {
+  constructor({ dc, context, transport }) {
     this.dc = dc;
     this.context = context;
+    this.transport = transport;
 
     this.debug = baseDebug.extend(`rpc-${this.dc.id}`);
     this.debug('init');
@@ -35,8 +35,6 @@ class RPC {
     this.messagesWaitResponse = new Map();
 
     this.updateSession();
-
-    this.transport = new Transport(this.dc);
 
     this.transport.on('open', this.handleTransportOpen.bind(this));
     this.transport.on('error', this.handleTransportError.bind(this));

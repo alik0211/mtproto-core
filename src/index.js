@@ -1,7 +1,8 @@
 const EventEmitter = require('events');
 const { RPC } = require('./rpc');
-const baseDebug = require('./utils/common/base-debug');
 const { Storage } = require('./storage');
+const baseDebug = require('./utils/common/base-debug');
+const Transport = require('./transport/tcp');
 
 const debug = baseDebug.extend('main');
 
@@ -140,7 +141,13 @@ class MTProto {
       return;
     }
 
-    const rpc = new RPC(dc, this);
+    const transport = new Transport(dc);
+
+    const rpc = new RPC({
+      dc,
+      context: this,
+      transport,
+    });
 
     this.rpcs.set(dcId, rpc);
 
