@@ -4,7 +4,9 @@ const baseDebug = require('../../utils/common/base-debug');
 const debug = baseDebug.extend('storage');
 
 function getLocalStorage(options) {
-  // @TODO: Add check options.path
+  if (!options.path) {
+    throw new Error('Specify the storageOptions.path for storing session');
+  }
 
   const localStorage = new Configstore(
     '@mtproto/core',
