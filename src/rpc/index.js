@@ -66,7 +66,7 @@ class RPC {
   async handleTransportError(payload) {
     const { type } = payload;
 
-    console.warn('Transport error:', payload);
+    this.debug('transport error', payload);
 
     // https://core.telegram.org/mtproto/mtproto-transports#transport-errors
     if (type === 'transport') {
@@ -78,7 +78,7 @@ class RPC {
 
       // transport flood
       if (payload.code === 429) {
-        console.warn('Transport flood');
+        this.debug('transport flood');
       }
     }
   }
@@ -98,7 +98,7 @@ class RPC {
           // TODO: Handle config
         })
         .catch((error) => {
-          console.log(`Error when calling the method help.getConfig:`, error);
+          this.debug(`error when calling the method help.getConfig:`, error);
         });
     } else {
       this.nonce = getRandomBytes(16);
