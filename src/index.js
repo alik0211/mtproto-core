@@ -1,8 +1,6 @@
 const EventEmitter = require('events');
 const { RPC } = require('./rpc');
-const { Storage } = require('./storage');
 const baseDebug = require('./utils/common/base-debug');
-const Transport = require('./transport/tcp');
 
 const debug = baseDebug.extend('main');
 
@@ -55,108 +53,128 @@ const PRODUCTION_DC_LIST = [
   },
 ];
 
-class MTProto {
-  constructor(options) {
-    const { api_id, api_hash, storageOptions } = options;
+function makeMTProto(envMethods) {
+  const requiredEnvMethods = [
+    'createCrypto',
+    'createStorage',
+    'createTransport',
+  ];
 
-    this.api_id = api_id;
-    this.api_hash = api_hash;
+  const envMethodsIsValid = requiredEnvMethods.every(
+    (methodName) => methodName in envMethods
+  );
 
-    this.initConnectionParams = {};
-
-    this.dcList = !!options.test ? TEST_DC_LIST : PRODUCTION_DC_LIST;
-
-    this.rpcs = new Map();
-    this.storage = new Storage(storageOptions);
-    this.updates = new EventEmitter();
+  if (!envMethodsIsValid) {
+    throw new Error('Specify all envMethods');
   }
 
-  async call(method, params = {}, options = {}) {
-    const { syncAuth = true } = options;
+  return class {
+    constructor(options) {
+      const { api_id, api_hash, storageOptions } = options;
 
-    const dcId = options.dcId || (await this.storage.get('defaultDcId')) || 2;
+      this.api_id = api_id;
+      this.api_hash = api_hash;
 
-    const rpc = this.getRPC(dcId);
+      this.initConnectionParams = {};
 
-    const result = await rpc.call(method, params);
+      this.dcList = !!options.test ? TEST_DC_LIST : PRODUCTION_DC_LIST;
 
-    if (syncAuth && result._ === 'auth.authorization') {
-      await this.syncAuth(dcId);
+      this.envMethods = envMethods;
+
+      this.rpcs = new Map();
+      this.crypto = this.envMethods.createCrypto();
+      this.storage = this.envMethods.createStorage(storageOptions);
+      this.updates = new EventEmitter();
     }
 
-    return result;
-  }
+    async call(method, params = {}, options = {}) {
+      const { syncAuth = true } = options;
 
-  syncAuth(dcId) {
-    const promises = [];
+      // @TODO: defaultDcId may be a string
+      const dcId = options.dcId || (await this.storage.get('defaultDcId')) || 2;
 
-    this.dcList.forEach((dc) => {
-      if (dcId === dc.id) {
+      const rpc = this.getRPC(dcId);
+
+      const result = await rpc.call(method, params);
+
+      if (syncAuth && result._ === 'auth.authorization') {
+        await this.syncAuth(dcId);
+      }
+
+      return result;
+    }
+
+    syncAuth(dcId) {
+      const promises = [];
+
+      this.dcList.forEach((dc) => {
+        if (dcId === dc.id) {
+          return;
+        }
+
+        const promise = this.call(
+          'auth.exportAuthorization',
+          {
+            dc_id: dc.id,
+          },
+          { dcId }
+        )
+          .then((result) => {
+            return this.call(
+              'auth.importAuthorization',
+              {
+                id: result.id,
+                bytes: result.bytes,
+              },
+              { dcId: dc.id, syncAuth: false }
+            );
+          })
+          .catch((error) => {
+            debug(`error when copy auth to DC ${dc.id}`, error);
+
+            return Promise.resolve();
+          });
+
+        promises.push(promise);
+      });
+
+      return Promise.all(promises);
+    }
+
+    setDefaultDc(dcId) {
+      return this.storage.set('defaultDcId', dcId);
+    }
+
+    getRPC(dcId) {
+      if (this.rpcs.has(dcId)) {
+        return this.rpcs.get(dcId);
+      }
+
+      const dc = this.dcList.find(({ id }) => id === dcId);
+
+      if (!dc) {
+        debug(`don't find DC ${dcId}`);
+
         return;
       }
 
-      const promise = this.call(
-        'auth.exportAuthorization',
-        {
-          dc_id: dc.id,
-        },
-        { dcId }
-      )
-        .then((result) => {
-          return this.call(
-            'auth.importAuthorization',
-            {
-              id: result.id,
-              bytes: result.bytes,
-            },
-            { dcId: dc.id, syncAuth: false }
-          );
-        })
-        .catch((error) => {
-          debug(`error when copy auth to DC ${dc.id}`, error);
+      const transport = this.envMethods.createTransport(dc, this.crypto);
 
-          return Promise.resolve();
-        });
+      const rpc = new RPC({
+        dc,
+        context: this,
+        transport,
+      });
 
-      promises.push(promise);
-    });
+      this.rpcs.set(dcId, rpc);
 
-    return Promise.all(promises);
-  }
-
-  setDefaultDc(dcId) {
-    return this.storage.set('defaultDcId', dcId);
-  }
-
-  getRPC(dcId) {
-    if (this.rpcs.has(dcId)) {
-      return this.rpcs.get(dcId);
+      return rpc;
     }
 
-    const dc = this.dcList.find(({ id }) => id === dcId);
-
-    if (!dc) {
-      debug(`don't find DC ${dcId}`);
-
-      return;
+    updateInitConnectionParams(params) {
+      this.initConnectionParams = params;
     }
-
-    const transport = new Transport(dc);
-
-    const rpc = new RPC({
-      dc,
-      context: this,
-      transport,
-    });
-
-    this.rpcs.set(dcId, rpc);
-
-    return rpc;
-  }
-
-  updateInitConnectionParams(params) {
-    this.initConnectionParams = params;
-  }
+  };
 }
 
-module.exports = { MTProto };
+module.exports = makeMTProto;

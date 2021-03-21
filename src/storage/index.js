@@ -1,8 +1,6 @@
-const { getLocalStorage } = require('./local');
-
 // @TODO: Rename to store
 class Storage {
-  constructor(options = {}) {
+  constructor(options = {}, getLocalStorage) {
     this.cache = {};
 
     this.localStorage = options.instance || getLocalStorage(options);

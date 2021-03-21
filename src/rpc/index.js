@@ -11,18 +11,17 @@ const {
   bytesIsEqual,
   bigIntToBytes,
   bytesToBigInt,
-  getRandomBytes,
   longToBytesRaw,
   bytesToBytesRaw,
 } = require('../utils/common');
 const { pqPrimeFactorization } = require('../utils/pq');
-const { AES, RSA, SHA1, SHA256 } = require('../utils/crypto');
-const { getRsaKeyByFingerprints } = require('../utils/rsa');
+const { AES } = require('../utils/crypto');
 const baseDebug = require('../utils/common/base-debug');
 
 class RPC {
   constructor({ dc, context, transport }) {
     this.dc = dc;
+    this.crypto = context.crypto;
     this.context = context;
     this.transport = transport;
 
@@ -101,7 +100,7 @@ class RPC {
           this.debug(`error when calling the method help.getConfig:`, error);
         });
     } else {
-      this.nonce = getRandomBytes(16);
+      this.nonce = this.crypto.getRandomBytes(16);
       this.handleMessage = this.handlePQResponse;
       this.sendPlainMessage(builderMap.mt_req_pq_multi, { nonce: this.nonce });
     }
@@ -129,13 +128,13 @@ class RPC {
       throw new Error('The nonce are not equal');
     }
 
-    const publicKey = await getRsaKeyByFingerprints(
+    const publicKey = await this.crypto.rsa.getRsaKeyByFingerprints(
       server_public_key_fingerprints
     );
 
     const [p, q] = pqPrimeFactorization(pq);
 
-    this.newNonce = getRandomBytes(32);
+    this.newNonce = this.crypto.getRandomBytes(32);
     this.serverNonce = server_nonce;
 
     const serializer = new Serializer(builderMap.mt_p_q_inner_data, {
@@ -148,13 +147,13 @@ class RPC {
     });
 
     const data = serializer.getBytes();
-    const dataHash = await SHA1(data);
+    const dataHash = await this.crypto.SHA1(data);
 
-    const innerData = getRandomBytes(255);
+    const innerData = this.crypto.getRandomBytes(255);
     innerData.set(dataHash);
     innerData.set(data, dataHash.length);
 
-    const encryptedData = new RSA(publicKey).encrypt(innerData);
+    const encryptedData = this.crypto.rsa.encrypt(publicKey, innerData);
 
     this.sendPlainMessage(builderMap.mt_req_DH_params, {
       nonce: this.nonce,
@@ -186,12 +185,16 @@ class RPC {
     }
 
     this.tmpAesKey = concatBytes(
-      await SHA1(concatBytes(this.newNonce, this.serverNonce)),
-      (await SHA1(concatBytes(this.serverNonce, this.newNonce))).slice(0, 12)
+      await this.crypto.SHA1(concatBytes(this.newNonce, this.serverNonce)),
+      (
+        await this.crypto.SHA1(concatBytes(this.serverNonce, this.newNonce))
+      ).slice(0, 12)
     );
     this.tmpAesIV = concatBytes(
-      (await SHA1(concatBytes(this.serverNonce, this.newNonce))).slice(12, 20),
-      await SHA1(concatBytes(this.newNonce, this.newNonce)),
+      (
+        await this.crypto.SHA1(concatBytes(this.serverNonce, this.newNonce))
+      ).slice(12, 20),
+      await this.crypto.SHA1(concatBytes(this.newNonce, this.newNonce)),
       this.newNonce.slice(0, 4)
     );
 
@@ -205,7 +208,9 @@ class RPC {
     if (
       !bytesIsEqual(
         innerDataHash,
-        await SHA1(decryptedData.slice(20, 20 + innerDeserializer.offset))
+        await this.crypto.SHA1(
+          decryptedData.slice(20, 20 + innerDeserializer.offset)
+        )
       )
     ) {
       throw new Error('Invalid hash in DH params decrypted data');
@@ -261,7 +266,7 @@ class RPC {
   }
 
   async generateDH(retryId = 0) {
-    const b = bytesToBigInt(getRandomBytes(256));
+    const b = bytesToBigInt(this.crypto.getRandomBytes(256));
     const authKey = bigIntToBytes(this.gA.modPow(b, this.dhPrime));
     const serverSalt = xorBytes(
       this.newNonce.slice(0, 8),
@@ -271,7 +276,9 @@ class RPC {
     await this.setStorageItem('authKey', bytesToBytesRaw(authKey));
     await this.setStorageItem('serverSalt', bytesToBytesRaw(serverSalt));
 
-    this.authKeyAuxHash = bytesToBytesRaw((await SHA1(authKey)).slice(0, 8));
+    this.authKeyAuxHash = bytesToBytesRaw(
+      (await this.crypto.SHA1(authKey)).slice(0, 8)
+    );
 
     const serializer = new Serializer(builderMap.mt_client_DH_inner_data, {
       nonce: this.nonce,
@@ -282,11 +289,15 @@ class RPC {
 
     const innerData = serializer.getBytes();
 
-    const innerDataHash = await SHA1(innerData);
+    const innerDataHash = await this.crypto.SHA1(innerData);
     const paddingLength = 16 - ((innerDataHash.length + innerData.length) % 16);
 
     const encryptedData = new AES.IGE(this.tmpAesKey, this.tmpAesIV).encrypt(
-      concatBytes(innerDataHash, innerData, getRandomBytes(paddingLength))
+      concatBytes(
+        innerDataHash,
+        innerData,
+        this.crypto.getRandomBytes(paddingLength)
+      )
     );
 
     this.sendPlainMessage(builderMap.mt_set_client_DH_params, {
@@ -318,7 +329,9 @@ class RPC {
 
     if (serverDHAnswer._ === 'mt_dh_gen_ok') {
       const hash = (
-        await SHA1(concatBytes(this.newNonce, [1], this.authKeyAuxHash))
+        await this.crypto.SHA1(
+          concatBytes(this.newNonce, [1], this.authKeyAuxHash)
+        )
       ).slice(4, 20);
 
       if (!bytesIsEqual(hash, serverDHAnswer.new_nonce_hash1)) {
@@ -334,7 +347,9 @@ class RPC {
 
     if (serverDHAnswer._ === 'mt_dh_gen_retry') {
       const hash = (
-        await SHA1(concatBytes(this.newNonce, [2], this.authKeyAuxHash))
+        await this.crypto.SHA1(
+          concatBytes(this.newNonce, [2], this.authKeyAuxHash)
+        )
       ).slice(4, 20);
 
       if (!bytesIsEqual(hash, serverDHAnswer.new_nonce_hash2)) {
@@ -348,7 +363,9 @@ class RPC {
 
     if (serverDHAnswer._ === 'mt_dh_gen_fail') {
       const hash = (
-        await SHA1(concatBytes(this.newNonce, [3], this.authKeyAuxHash))
+        await this.crypto.SHA1(
+          concatBytes(this.newNonce, [3], this.authKeyAuxHash)
+        )
       ).slice(4, 20);
 
       if (!bytesIsEqual(hash, serverDHAnswer.new_nonce_hash3)) {
@@ -393,7 +410,9 @@ class RPC {
     ).decrypt(encryptedData);
 
     const computedMessageKey = (
-      await SHA256(concatBytes(authKey.slice(96, 128), plaintextData))
+      await this.crypto.SHA256(
+        concatBytes(authKey.slice(96, 128), plaintextData)
+      )
     ).slice(8, 24);
 
     if (!bytesIsEqual(messageKey, computedMessageKey)) {
@@ -623,7 +642,7 @@ class RPC {
     const unpadded = (32 + data.length + minPadding) % 16;
     const padding = minPadding + (unpadded ? 16 - unpadded : 0);
 
-    const { sessionId } = this;
+    const { crypto, sessionId } = this;
 
     const plainDataSerializer = new Serializer(function () {
       this.bytesRaw(serverSalt);
@@ -632,12 +651,12 @@ class RPC {
       this.int32(seqNo);
       this.uint32(data.length);
       this.bytesRaw(data);
-      this.bytesRaw(getRandomBytes(padding));
+      this.bytesRaw(crypto.getRandomBytes(padding));
     });
 
     const plainData = plainDataSerializer.getBytes();
 
-    const messageKeyLarge = await SHA256(
+    const messageKeyLarge = await crypto.SHA256(
       concatBytes(authKey.slice(88, 120), plainData)
     );
     const messageKey = messageKeyLarge.slice(8, 24);
@@ -645,7 +664,7 @@ class RPC {
       await this.getAESInstance(authKey, messageKey, false)
     ).encrypt(plainData);
 
-    const authKeyId = (await SHA1(authKey)).slice(-8);
+    const authKeyId = (await crypto.SHA1(authKey)).slice(-8);
     const serializer = new Serializer(function () {
       this.bytesRaw(authKeyId);
       this.bytesRaw(messageKey);
@@ -721,7 +740,7 @@ class RPC {
 
   updateSession() {
     this.seqNo = 0;
-    this.sessionId = getRandomBytes(8);
+    this.sessionId = this.crypto.getRandomBytes(8);
     this.lastMessageId = [
       0, // low
       0, // high
@@ -730,10 +749,10 @@ class RPC {
 
   async getAESInstance(authKey, messageKey, isServer) {
     const x = isServer ? 8 : 0;
-    const sha256a = await SHA256(
+    const sha256a = await this.crypto.SHA256(
       concatBytes(messageKey, authKey.slice(x, 36 + x))
     );
-    const sha256b = await SHA256(
+    const sha256b = await this.crypto.SHA256(
       concatBytes(authKey.slice(40 + x, 76 + x), messageKey)
     );
     const aesKey = concatBytes(

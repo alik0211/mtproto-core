@@ -1,6 +1,5 @@
 const EventEmitter = require('events');
 const { AES } = require('../../utils/crypto');
-const { getRandomBytes } = require('../../utils/common');
 
 class Obfuscated extends EventEmitter {
   // https://core.telegram.org/mtproto/mtproto-transports#transport-obfuscation
@@ -8,7 +7,7 @@ class Obfuscated extends EventEmitter {
     let initBytes = null;
 
     while (true) {
-      initBytes = getRandomBytes(64);
+      initBytes = this.crypto.getRandomBytes(64);
       const initDataView = new DataView(initBytes.buffer);
       initDataView.setUint32(56, 0xeeeeeeee, true);
 

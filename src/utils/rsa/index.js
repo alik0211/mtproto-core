@@ -1,7 +1,11 @@
 const bigInt = require('big-integer');
-const { SHA1 } = require('../../utils/crypto');
 const Serializer = require('../../tl/serializer');
-const { bytesToHex, hexToBytes } = require('../../utils/common');
+const {
+  bytesToHex,
+  hexToBytes,
+  bigIntToBytes,
+  bytesToBigInt,
+} = require('../../utils/common');
 
 const publisKeys = [
   {
@@ -31,51 +35,66 @@ const publisKeys = [
   },
 ];
 
-async function getPublisKeysByHex() {
-  const publisKeysByHex = {};
-
-  for (const publisKey of publisKeys) {
-    const RSAPublicKey = new Serializer(function () {
-      this.bytes(hexToBytes(publisKey.modulus));
-      this.bytes(hexToBytes(publisKey.exponent));
-    });
-
-    const buffer = RSAPublicKey.getBuffer();
-
-    const fingerprintBytes = (await SHA1(buffer)).slice(-8);
-    fingerprintBytes.reverse();
-
-    publisKeysByHex[bytesToHex(fingerprintBytes)] = {
-      modulus: publisKey.modulus,
-      exponent: publisKey.exponent,
-    };
+class RSA {
+  constructor({ SHA1 }) {
+    this.SHA1 = SHA1;
   }
 
-  return publisKeysByHex;
-}
+  async getPublisKeysByHex() {
+    const publisKeysByHex = {};
 
-async function getRsaKeyByFingerprints(fingerprints) {
-  let resultKey = null;
-  const publisKeysByHex = await getPublisKeysByHex();
+    for (const publisKey of publisKeys) {
+      const RSAPublicKey = new Serializer(function () {
+        this.bytes(hexToBytes(publisKey.modulus));
+        this.bytes(hexToBytes(publisKey.exponent));
+      });
 
-  fingerprints.forEach(fingerprint => {
-    if (!!resultKey) {
-      return;
-    }
+      const buffer = RSAPublicKey.getBuffer();
 
-    const fingerprintHex = bigInt(fingerprint).toString(16);
+      const fingerprintBytes = (await this.SHA1(buffer)).slice(-8);
+      fingerprintBytes.reverse();
 
-    const foundKey = publisKeysByHex[fingerprintHex];
-
-    if (foundKey) {
-      resultKey = {
-        fingerprint,
-        ...foundKey,
+      publisKeysByHex[bytesToHex(fingerprintBytes)] = {
+        modulus: publisKey.modulus,
+        exponent: publisKey.exponent,
       };
     }
-  });
 
-  return resultKey;
+    return publisKeysByHex;
+  }
+
+  async getRsaKeyByFingerprints(fingerprints) {
+    let resultKey = null;
+    const publisKeysByHex = await this.getPublisKeysByHex();
+
+    fingerprints.forEach((fingerprint) => {
+      if (!!resultKey) {
+        return;
+      }
+
+      const fingerprintHex = bigInt(fingerprint).toString(16);
+
+      const foundKey = publisKeysByHex[fingerprintHex];
+
+      if (foundKey) {
+        resultKey = {
+          fingerprint,
+          ...foundKey,
+        };
+      }
+    });
+
+    return resultKey;
+  }
+
+  encrypt(publicKey, bytes) {
+    const encryptedBigInt = bytesToBigInt(bytes).modPow(
+      bigInt(publicKey.exponent, 16),
+      bigInt(publicKey.modulus, 16)
+    );
+
+    return bigIntToBytes(encryptedBigInt, 256);
+  }
 }
 
-module.exports = { getRsaKeyByFingerprints };
+module.exports = { RSA };

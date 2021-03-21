@@ -3,11 +3,12 @@ const { Obfuscated } = require('../obfuscated');
 const baseDebug = require('../../utils/common/base-debug');
 
 class TCP extends Obfuscated {
-  constructor(dc) {
+  constructor(dc, crypto) {
     super();
 
     this.dc = dc;
     this.debug = baseDebug.extend(`transport-${this.dc.id}`);
+    this.crypto = crypto;
 
     this.connect();
   }
