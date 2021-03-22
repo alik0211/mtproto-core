@@ -1,5 +1,5 @@
 const Configstore = require('configstore');
-const baseDebug = require('../../utils/common/base-debug');
+const baseDebug = require('../../src/utils/common/base-debug');
 
 const debug = baseDebug.extend('storage');
 

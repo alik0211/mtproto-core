@@ -1,8 +1,8 @@
 const net = require('net');
-const { Obfuscated } = require('../obfuscated');
-const baseDebug = require('../../utils/common/base-debug');
+const Obfuscated = require('../../src/transport/obfuscated');
+const baseDebug = require('../../src/utils/common/base-debug');
 
-class TCP extends Obfuscated {
+class Transport extends Obfuscated {
   constructor(dc, crypto) {
     super();
 
@@ -97,4 +97,4 @@ class TCP extends Obfuscated {
   }
 }
 
-module.exports = TCP;
+module.exports = Transport;

@@ -94,6 +94,4 @@ class Obfuscated extends EventEmitter {
   }
 }
 
-module.exports = {
-  Obfuscated,
-};
+module.exports = Obfuscated;
