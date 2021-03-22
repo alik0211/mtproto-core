@@ -33,14 +33,6 @@
     "node": ">=12"
   },
   "types": "./index.d.ts",
-  "browser": {
-    "./src/transport/index.js": "./src/transport/index.browser.js",
-    "./src/storage/local/index.js": "./src/storage/local/index.browser.js",
-    "./src/utils/crypto/sha1/index.js": "./src/utils/crypto/sha1/index.browser.js",
-    "./src/utils/crypto/sha256/index.js": "./src/utils/crypto/sha256/index.browser.js",
-    "./src/utils/crypto/pbkdf2/index.js": "./src/utils/crypto/pbkdf2/index.browser.js",
-    "./src/utils/common/random/index.js": "./src/utils/common/random/index.browser.js"
-  },
   "scripts": {
     "start": "jest --watch",
     "test": "jest",

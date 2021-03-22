@@ -4,4 +4,4 @@ function getRandomBytes(length) {
   return bytes;
 }
 
-module.exports = { getRandomBytes };
+module.exports = getRandomBytes;

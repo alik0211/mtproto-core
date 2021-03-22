@@ -19,4 +19,4 @@ async function PBKDF2(password, salt, iterations) {
   );
 }
 
-module.exports = { PBKDF2 };
+module.exports = PBKDF2;
