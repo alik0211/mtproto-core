@@ -21,4 +21,4 @@ function getLocalStorage(options) {
   return localStorage;
 }
 
-module.exports = { getLocalStorage };
+module.exports = getLocalStorage;

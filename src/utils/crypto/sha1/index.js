@@ -10,4 +10,4 @@ async function SHA1(data) {
   return new Uint8Array(hash.digest());
 }
 
-module.exports = { SHA1 };
+module.exports = SHA1;

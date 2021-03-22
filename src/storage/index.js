@@ -31,4 +31,4 @@ class Storage {
   }
 }
 
-module.exports = { Storage };
+module.exports = Storage;

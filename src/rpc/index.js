@@ -15,7 +15,7 @@ const {
   bytesToBytesRaw,
 } = require('../utils/common');
 const { pqPrimeFactorization } = require('../utils/pq');
-const { AES } = require('../utils/crypto');
+const AES = require('../utils/crypto/aes');
 const baseDebug = require('../utils/common/base-debug');
 
 class RPC {

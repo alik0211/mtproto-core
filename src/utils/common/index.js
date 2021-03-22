@@ -1,5 +1,4 @@
 const bigInt = require('big-integer');
-const { getRandomBytes } = require('./random');
 
 function bytesIsEqual(bytes1, bytes2) {
   if (bytes1.length !== bytes2.length) {
@@ -101,10 +100,9 @@ function getRandomInt(maxValue) {
   return Math.floor(Math.random() * maxValue);
 }
 
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 module.exports = {
-  getRandomBytes,
   bytesIsEqual,
   bigIntToBytes,
   hexToBytesRaw,
