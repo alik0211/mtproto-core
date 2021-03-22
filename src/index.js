@@ -1,5 +1,7 @@
 const EventEmitter = require('events');
 const { RPC } = require('./rpc');
+const Crypto = require('./utils/crypto');
+const Storage = require('./storage');
 const baseDebug = require('./utils/common/base-debug');
 
 const debug = baseDebug.extend('main');
@@ -55,8 +57,11 @@ const PRODUCTION_DC_LIST = [
 
 function makeMTProto(envMethods) {
   const requiredEnvMethods = [
-    'createCrypto',
-    'createStorage',
+    'SHA1',
+    'SHA256',
+    'PBKDF2',
+    'getRandomBytes',
+    'getLocalStorage',
     'createTransport',
   ];
 
@@ -82,8 +87,11 @@ function makeMTProto(envMethods) {
       this.envMethods = envMethods;
 
       this.rpcs = new Map();
-      this.crypto = this.envMethods.createCrypto();
-      this.storage = this.envMethods.createStorage(storageOptions);
+      this.crypto = new Crypto(this.envMethods);
+      this.storage = new Storage(
+        storageOptions,
+        this.envMethods.getLocalStorage
+      );
       this.updates = new EventEmitter();
     }
 
