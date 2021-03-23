@@ -1,4 +1,4 @@
-const { inflate } = require('pako');
+const { inflate } = require('pako/lib/inflate.js');
 const parserMap = require('../parser');
 const { intsToLong } = require('../../utils/common');
 
@@ -93,7 +93,9 @@ class Deserializer {
   }
 
   gzip() {
-    const deserializer = new Deserializer(inflate(this.bytes()).buffer);
+    const gzippedBytes = this.bytes();
+
+    const deserializer = new Deserializer(inflate(gzippedBytes).buffer);
 
     return deserializer.predicate();
   }

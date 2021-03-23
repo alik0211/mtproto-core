@@ -49,7 +49,7 @@
     "events": "3.2.0",
     "leemon": "6.2.0",
     "lodash.debounce": "4.0.8",
-    "pako": "2.0.2"
+    "pako": "2.0.3"
   },
   "devDependencies": {
     "dual-publish": "0.11.0",
