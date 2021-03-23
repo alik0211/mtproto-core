@@ -1,5 +1,5 @@
 const aesjs = require('aes-js');
-const { xorBytes } = require('../../common');
+const { xorBytes } = require('../../utils/common');
 
 const AES = aesjs.AES;
 AES.Counter = aesjs.Counter;

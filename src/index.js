@@ -1,6 +1,6 @@
 const EventEmitter = require('events');
-const { RPC } = require('./rpc');
-const Crypto = require('./utils/crypto');
+const RPC = require('./rpc');
+const Crypto = require('./crypto');
 const Storage = require('./storage');
 const baseDebug = require('./utils/common/base-debug');
 

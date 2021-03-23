@@ -97,4 +97,4 @@ class RSA {
   }
 }
 
-module.exports = { RSA };
+module.exports = RSA;

@@ -4,8 +4,8 @@ const {
   concatBytes,
   bigIntToBytes,
   bytesToBigInt,
-} = require('../common');
-const { RSA } = require('../rsa');
+} = require('../utils/common');
+const RSA = require('../utils/rsa');
 
 class Crypto {
   constructor({ SHA1, SHA256, PBKDF2, getRandomBytes }) {

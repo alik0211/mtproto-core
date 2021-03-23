@@ -1,5 +1,6 @@
 const bigInt = require('big-integer');
 const debounce = require('lodash.debounce');
+const AES = require('../crypto/aes');
 const builderMap = require('../tl/builder');
 const Serializer = require('../tl/serializer');
 const Deserializer = require('../tl/deserializer');
@@ -14,9 +15,8 @@ const {
   longToBytesRaw,
   bytesToBytesRaw,
 } = require('../utils/common');
-const { pqPrimeFactorization } = require('../utils/pq');
-const AES = require('../utils/crypto/aes');
 const baseDebug = require('../utils/common/base-debug');
+const pqPrimeFactorization = require('../crypto/pq');
 
 class RPC {
   constructor({ dc, context, transport }) {
@@ -777,4 +777,4 @@ class RPC {
   }
 }
 
-module.exports = { RPC };
+module.exports = RPC;

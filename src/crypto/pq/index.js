@@ -14,29 +14,19 @@ const {
   one,
   bpe,
 } = require('leemon');
-const { hexToBytes, bytesToBigInt, getRandomInt } = require('../common');
+const {
+  hexToBytes,
+  bytesToBigInt,
+  getRandomInt,
+} = require('../../utils/common');
 
-function bytesFromLeemonBigInt(bigInt, len) {
-  var str = bigInt2str(bigInt, 16);
+function leemonBigIntToBytes(bigInt) {
+  const str = bigInt2str(bigInt, 16);
+
   return hexToBytes(str);
 }
 
-function pqPrimeFactorization(pqBytes) {
-  const pq = bytesToBigInt(pqBytes);
-  let result = null;
-
-  try {
-    result = pqPrimeLeemon(
-      str2bigInt(pq.toString(16), 16, Math.ceil(64 / bpe) + 1)
-    );
-  } catch (error) {
-    console.error(`PQ leemon factorization: ${error}`);
-  }
-
-  return result;
-}
-
-function pqPrimeLeemon(what) {
+function pqLeemon(what) {
   var minBits = 64;
   var minLen = Math.ceil(minBits / bpe) + 1;
   var it = 0;
@@ -109,11 +99,20 @@ function pqPrimeLeemon(what) {
     Q = x;
   }
 
-  // console.log(dT(), 'done', bigInt2str(what, 10), bigInt2str(P, 10), bigInt2str(Q, 10))
-
-  return [bytesFromLeemonBigInt(P), bytesFromLeemonBigInt(Q), it];
+  return [leemonBigIntToBytes(P), leemonBigIntToBytes(Q), it];
 }
 
-module.exports = {
-  pqPrimeFactorization,
-};
+function pqPrimeFactorization(pqBytes) {
+  const pq = bytesToBigInt(pqBytes);
+  let result = null;
+
+  try {
+    result = pqLeemon(str2bigInt(pq.toString(16), 16, Math.ceil(64 / bpe) + 1));
+  } catch (error) {
+    console.error(`PQ leemon factorization: ${error}`);
+  }
+
+  return result;
+}
+
+module.exports = pqPrimeFactorization;

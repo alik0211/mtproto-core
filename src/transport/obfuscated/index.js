@@ -1,5 +1,5 @@
 const EventEmitter = require('events');
-const AES = require('../../utils/crypto/aes');
+const AES = require('../../crypto/aes');
 
 class Obfuscated extends EventEmitter {
   // https://core.telegram.org/mtproto/mtproto-transports#transport-obfuscation
