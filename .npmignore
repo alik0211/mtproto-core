@@ -1,4 +1,1 @@
-webpack.config.js
-src/__tests__/**/*
-scheme/*.json
-scripts/*
+src/__tests__
