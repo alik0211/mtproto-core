@@ -32,7 +32,6 @@
   "engines": {
     "node": ">=12"
   },
-  "types": "./index.d.ts",
   "scripts": {
     "start": "jest --watch",
     "test": "jest",
