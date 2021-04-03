@@ -1,6 +1,5 @@
 const bigInt = require('big-integer');
 const {
-  getRandomBytes,
   bytesIsEqual,
   bigIntToBytes,
   hexToBytesRaw,
@@ -9,19 +8,6 @@ const {
   bytesToHex,
   getRandomInt,
 } = require('../../utils/common');
-
-describe('getRandomBytes', function () {
-  const length = 16;
-  const result = getRandomBytes(length);
-
-  it('return Uint8Array', function () {
-    expect(result).toBeInstanceOf(Uint8Array);
-  });
-
-  it('return correct length', function () {
-    expect(result.length).toBe(length);
-  });
-});
 
 describe('bytesIsEqual', function () {
   it('return false if the length is different', function () {
