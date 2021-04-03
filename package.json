@@ -28,7 +28,7 @@
     "/envs",
     "/src"
   ],
-  "main": "./evns/node/index.js",
+  "main": "./envs/node/index.js",
   "engines": {
     "node": ">=12"
   },
