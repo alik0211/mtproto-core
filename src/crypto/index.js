@@ -17,6 +17,33 @@ class Crypto {
     this.rsa = new RSA({ SHA1 });
   }
 
+  async getVParams({ g, p, salt1, salt2, password }) {
+    const SH = (data, salt) => {
+      return this.SHA256(concatBytes(salt, data, salt));
+    };
+    const PH1 = async (password, salt1, salt2) => {
+      return await SH(await SH(password, salt1), salt2);
+    };
+    const PH2 = async (password, salt1, salt2) => {
+      return await SH(
+        await this.PBKDF2(await PH1(password, salt1, salt2), salt1, 100000),
+        salt2
+      );
+    };
+
+    const encoder = new TextEncoder();
+
+    const gBigInt = bigInt(g);
+    const pBigInt = bytesToBigInt(p);
+    
+    const x = await PH2(encoder.encode(password), salt1, salt2);
+    const xBigInt = bytesToBigInt(x);
+    const vBigInt = gBigInt.modPow(xBigInt, pBigInt);
+
+
+    return bigIntToBytes(vBigInt);
+  }
+
   async getSRPParams({ g, p, salt1, salt2, gB, password }) {
     const H = this.SHA256;
     const SH = (data, salt) => {
