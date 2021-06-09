@@ -1,5 +1,5 @@
 const { polyfillGlobal } = require("react-native/Libraries/Utilities/PolyfillFunctions");
-const { TextEncoder, TextDecoder } = require("web-encoding");
+const { TextEncoder, TextDecoder } = require("text-encoding");
 const makeMTProto = require('../../src');
 const SHA1 = require('./sha1');
 const SHA256 = require('./sha256');
