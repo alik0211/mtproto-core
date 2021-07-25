@@ -103,7 +103,7 @@ class RPC {
 
       const newListenerHandler = async (event) => {
         if (updatesEvents.includes(event)) {
-          this.context.off('newListener', newListenerHandler);
+          this.context.updates.off('newListener', newListenerHandler);
           try {
             // This request will subscribe the connection to updates from telegram's server.
             const state = await this.call('updates.getState');
