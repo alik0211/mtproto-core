@@ -38,6 +38,7 @@
     "generate-builder": "node scripts/generate-builder.js",
     "generate-parser": "node scripts/generate-parser.js",
     "generate-tl": "run-p generate-builder generate-parser",
+    "postinstall": "run-s generate-tl",
     "prepublishOnly": "run-s generate-tl"
   },
   "license": "GPL-3.0",
