@@ -43,7 +43,7 @@
   "license": "GPL-3.0",
   "dependencies": {
     "aes-js": "3.1.2",
-    "big-integer": "1.6.48",
+    "big-integer": "1.6.51",
     "configstore": "5.0.1",
     "debug": "4.3.3",
     "events": "3.3.0",
