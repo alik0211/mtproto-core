@@ -49,7 +49,8 @@
     "events": "3.3.0",
     "leemon": "6.2.0",
     "lodash.debounce": "4.0.8",
-    "pako": "2.0.4"
+    "pako": "2.0.4",
+    "socks": "^2.6.1"
   },
   "devDependencies": {
     "jest": "27.4.5",

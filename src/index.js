@@ -75,10 +75,11 @@ function makeMTProto(envMethods) {
 
   return class {
     constructor(options) {
-      const { api_id, api_hash, storageOptions } = options;
+      const { api_id, api_hash, storageOptions, proxy } = options;
 
       this.api_id = api_id;
       this.api_hash = api_hash;
+      this.proxy = proxy;
 
       this.initConnectionParams = {};
 
@@ -166,7 +167,7 @@ function makeMTProto(envMethods) {
         return;
       }
 
-      const transport = this.envMethods.createTransport(dc, this.crypto);
+      const transport = this.envMethods.createTransport(dc, this.crypto, this.proxy);
 
       const rpc = new RPC({
         dc,
