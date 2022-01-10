@@ -21,9 +21,8 @@ class Transport extends Obfuscated {
 
   async connect() {
     this.stream = new Uint8Array();
-    
     if (this.proxy && this.proxy.host && this.proxy.port && this.proxy.type) {
-      let socketProxy = await SocksClient.createConnection({
+      let options = {
         proxy: {
           host: this.proxy.host, // ipv4 or ipv6 or hostname
           port: this.proxy.port,
@@ -34,8 +33,10 @@ class Transport extends Obfuscated {
           host: this.dc.ip,
           port: this.dc.port
         }
-      });
-      this.socket = socketProxy.socket;
+      };
+      const proxyClient = await SocksClient.createConnection(options)
+      this.socket = proxyClient.socket;
+      this.handleConnect()
     } else {
       this.socket = net.connect(
         this.dc.port,
