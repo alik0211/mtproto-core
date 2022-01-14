@@ -28,7 +28,6 @@ class RPC {
     this.debug = baseDebug.extend(`rpc-${this.dc.id}`);
     this.debug('init');
 
-    this.destroyed = false;
     this.isAuth = false;
     this.pendingAcks = [];
     this.messagesWaitAuth = [];
@@ -64,7 +63,6 @@ class RPC {
 
   destroy() {
     this.debug('destroy rpc instance');
-    this.destroyed = true
     this.sendAcks.cancel()
     this.transport.destroy()
     this.transport.off('open', this.handleTransportOpen);
