@@ -95,6 +95,14 @@ function makeMTProto(envMethods) {
       this.updates = new EventEmitter();
     }
 
+    destroy() {
+      for (const rpc of this.rpcs.values()) {
+        rpc.destroy()
+      }
+
+      this.rpcs.clear()
+    }
+
     async call(method, params = {}, options = {}) {
       const { syncAuth = true } = options;
 

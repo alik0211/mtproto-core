@@ -28,16 +28,20 @@ class RPC {
     this.debug = baseDebug.extend(`rpc-${this.dc.id}`);
     this.debug('init');
 
+    this.destroyed = false;
     this.isAuth = false;
     this.pendingAcks = [];
     this.messagesWaitAuth = [];
     this.messagesWaitResponse = new Map();
+    this.handleTransportOpen = this.handleTransportOpen.bind(this)
+    this.handleTransportError = this.handleTransportError.bind(this)
+    this.handleTransportMessage = this.handleTransportMessage.bind(this)
 
     this.updateSession();
 
-    this.transport.on('open', this.handleTransportOpen.bind(this));
-    this.transport.on('error', this.handleTransportError.bind(this));
-    this.transport.on('message', this.handleTransportMessage.bind(this));
+    this.transport.on('open', this.handleTransportOpen);
+    this.transport.on('error', this.handleTransportError);
+    this.transport.on('message', this.handleTransportMessage);
 
     this.sendAcks = debounce(() => {
       if (!this.pendingAcks.length || !this.isReady) {
@@ -56,6 +60,17 @@ class RPC {
         isContentRelated: false,
       });
     }, 500);
+  }
+
+  destroy() {
+    this.debug('destroy rpc instance');
+    this.destroyed = true
+    this.sendAcks.cancel()
+    this.transport.destroy()
+    this.transport.off('open', this.handleTransportOpen);
+    this.transport.off('error', this.handleTransportError);
+    this.transport.off('message', this.handleTransportMessage);
+    this.clearWaitMessages()
   }
 
   get isReady() {
@@ -376,6 +391,23 @@ class RPC {
     }
 
     throw new Error(`Invalid Set_client_DH_params_answer: ${serverDHAnswer}`);
+  }
+
+  clearWaitMessages() {
+    for (let message of this.messagesWaitResponse.values()) {
+      if (message.isAck) {
+        continue;
+      }
+
+      message.reject(new Error("RPC was destroyed"));
+    }
+
+    this.messagesWaitAuth.forEach(function (message) {
+      message.reject(new Error("RPC was destroyed"));
+    });
+
+    this.messagesWaitAuth = [];
+    this.messagesWaitResponse.clear();
   }
 
   async sendWaitMessages() {
