@@ -13,8 +13,9 @@ class Transport extends Obfuscated {
     super();
 
     this.dc = dc;
-    this.url = `wss://${subdomainsMap[this.dc.id]}.web.telegram.org${this.dc.test ? '/apiws_test' : '/apiws'
-      }`;
+    this.url = `wss://${subdomainsMap[this.dc.id]}.web.telegram.org${
+      this.dc.test ? '/apiws_test' : '/apiws'
+    }`;
     this.crypto = crypto;
     this.destroyed = false
     this.handleError = this.handleError.bind(this)
