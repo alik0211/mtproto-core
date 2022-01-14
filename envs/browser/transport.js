@@ -62,13 +62,12 @@ class Transport extends Obfuscated {
       this.socket.close();
     }
 
-    if (this.destroyed) {
-      this.socket.removeEventListener('error', this.handleError);
-      this.socket.removeEventListener('open', this.handleOpen);
-      this.socket.removeEventListener('close', this.handleClose);
-      this.socket.removeEventListener('message', this.handleMessage);
-    }
-    else {
+    this.socket.removeEventListener('error', this.handleError);
+    this.socket.removeEventListener('open', this.handleOpen);
+    this.socket.removeEventListener('close', this.handleClose);
+    this.socket.removeEventListener('message', this.handleMessage);
+
+    if (!this.destroyed) {
       this.connect();
     }
   }
