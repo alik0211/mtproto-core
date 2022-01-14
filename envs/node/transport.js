@@ -19,13 +19,12 @@ class Transport extends Obfuscated {
   }
 
   destroy() {
-    this.destroyed = true
-
-    if (!this.socket.destroyed) {
-      this.socket.destroy()
-    }
-
+    this.destroyed = true;
     this.debug('destroy');
+
+    if (this.socket && !this.socket.destroyed) {
+      this.socket.destroy();
+    }
   }
 
   get isAvailable() {
@@ -92,12 +91,11 @@ class Transport extends Obfuscated {
       this.socket.destroy();
     }
 
-    if (this.destroyed) {
-      this.socket.off('data', this.handleData);
-      this.socket.off('error', this.handleError);
-      this.socket.off('close', this.handleClose);
-    }
-    else {
+    this.socket.off('data', this.handleData);
+    this.socket.off('error', this.handleError);
+    this.socket.off('close', this.handleClose);
+    
+    if (!this.destroyed) {
       this.connect();
     }
   }
