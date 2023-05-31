@@ -9,11 +9,11 @@ class Transport extends Obfuscated {
     this.dc = dc;
     this.debug = baseDebug.extend(`transport-${this.dc.id}`);
     this.crypto = crypto;
-    this.destroyed = false
-    this.handleConnect = this.handleConnect.bind(this)
-    this.handleData = this.handleData.bind(this)
-    this.handleError = this.handleError.bind(this)
-    this.handleClose = this.handleClose.bind(this)
+    this.destroyed = false;
+    this.handleConnect = this.handleConnect.bind(this);
+    this.handleData = this.handleData.bind(this);
+    this.handleError = this.handleError.bind(this);
+    this.handleClose = this.handleClose.bind(this);
 
     this.connect();
   }

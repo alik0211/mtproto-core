@@ -97,10 +97,10 @@ function makeMTProto(envMethods) {
 
     destroy() {
       for (const rpc of this.rpcs.values()) {
-        rpc.destroy()
+        rpc.destroy();
       }
 
-      this.rpcs.clear()
+      this.rpcs.clear();
     }
 
     async call(method, params = {}, options = {}) {

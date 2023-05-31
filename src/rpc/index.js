@@ -32,9 +32,9 @@ class RPC {
     this.pendingAcks = [];
     this.messagesWaitAuth = [];
     this.messagesWaitResponse = new Map();
-    this.handleTransportOpen = this.handleTransportOpen.bind(this)
-    this.handleTransportError = this.handleTransportError.bind(this)
-    this.handleTransportMessage = this.handleTransportMessage.bind(this)
+    this.handleTransportOpen = this.handleTransportOpen.bind(this);
+    this.handleTransportError = this.handleTransportError.bind(this);
+    this.handleTransportMessage = this.handleTransportMessage.bind(this);
 
     this.updateSession();
 
@@ -63,12 +63,12 @@ class RPC {
 
   destroy() {
     this.debug('destroy rpc instance');
-    this.sendAcks.cancel()
-    this.transport.destroy()
+    this.sendAcks.cancel();
+    this.transport.destroy();
     this.transport.off('open', this.handleTransportOpen);
     this.transport.off('error', this.handleTransportError);
     this.transport.off('message', this.handleTransportMessage);
-    this.clearWaitMessages()
+    this.clearWaitMessages();
   }
 
   get isReady() {

@@ -17,18 +17,18 @@ class Transport extends Obfuscated {
       this.dc.test ? '/apiws_test' : '/apiws'
     }`;
     this.crypto = crypto;
-    this.destroyed = false
-    this.handleError = this.handleError.bind(this)
-    this.handleOpen = this.handleOpen.bind(this)
-    this.handleClose = this.handleClose.bind(this)
-    this.handleMessage = this.handleMessage.bind(this)
+    this.destroyed = false;
+    this.handleError = this.handleError.bind(this);
+    this.handleOpen = this.handleOpen.bind(this);
+    this.handleClose = this.handleClose.bind(this);
+    this.handleMessage = this.handleMessage.bind(this);
 
     this.connect();
   }
 
   destroy() {
-    this.destroyed = true
-    this.ws.close()
+    this.destroyed = true;
+    this.ws.close();
   }
 
   get isAvailable() {
@@ -38,6 +38,7 @@ class Transport extends Obfuscated {
   connect() {
     this.socket = new WebSocket(this.url, 'binary');
     this.socket.binaryType = 'arraybuffer';
+
     this.socket.addEventListener('error', this.handleError);
     this.socket.addEventListener('open', this.handleOpen);
     this.socket.addEventListener('close', this.handleClose);
