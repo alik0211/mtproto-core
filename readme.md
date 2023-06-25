@@ -1,7 +1,7 @@
 # @mtproto/core
 
 [![NPM](https://img.shields.io/npm/v/@mtproto/core.svg?style=flat-square)](https://www.npmjs.com/package/@mtproto/core)
-[![GitHub Actions](https://img.shields.io/github/workflow/status/alik0211/mtproto-core/Unit%20tests/master?style=flat-square)](https://github.com/alik0211/mtproto-core/actions?query=branch%3Amaster)
+[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/alik0211/mtproto-core/test.yml?branch=master?style=flat-square)](https://github.com/alik0211/mtproto-core/actions?query=branch%3Amaster)
 [![Downloads](https://img.shields.io/npm/dm/@mtproto/core?style=flat-square)](https://www.npmjs.com/package/@mtproto/core)
 [![Telegram channel](https://img.shields.io/badge/Telegram-channel-blue?style=flat-square&logo=telegram)](https://t.me/mtproto_core)
 
