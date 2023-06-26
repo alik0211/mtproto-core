@@ -1,14 +1,16 @@
 const net = require('net');
+const SocksClient = require('socks').SocksClient;
 const Obfuscated = require('../../src/transport/obfuscated');
 const baseDebug = require('../../src/utils/common/base-debug');
 
 class Transport extends Obfuscated {
-  constructor(dc, crypto) {
+  constructor(dc, crypto, proxy) {
     super();
 
     this.dc = dc;
     this.debug = baseDebug.extend(`transport-${this.dc.id}`);
     this.crypto = crypto;
+    this.proxy = proxy;
 
     this.connect();
   }
@@ -17,14 +19,32 @@ class Transport extends Obfuscated {
     return this.socket.writable;
   }
 
-  connect() {
+  async connect() {
     this.stream = new Uint8Array();
-
-    this.socket = net.connect(
-      this.dc.port,
-      this.dc.ip,
-      this.handleConnect.bind(this)
-    );
+    if (this.proxy && this.proxy.host && this.proxy.port && this.proxy.type) {
+      let options = {
+        proxy: {
+          host: this.proxy.host, // ipv4 or ipv6 or hostname
+          port: this.proxy.port,
+          type: this.proxy.type // Proxy version (4 or 5)
+        },
+        command: 'connect', // SOCKS command (createConnection factory function only supports the connect command
+        destination: {
+          host: this.dc.ip,
+          port: this.dc.port
+        }
+      };
+      const proxyClient = await SocksClient.createConnection(options)
+      this.socket = proxyClient.socket;
+      this.handleConnect()
+    } else {
+      this.socket = net.connect(
+        this.dc.port,
+        this.dc.ip,
+        this.handleConnect.bind(this)
+      );
+    }
+    
 
     this.socket.on('data', this.handleData.bind(this));
     this.socket.on('error', this.handleError.bind(this));

@@ -6,8 +6,8 @@ const Transport = require('./transport');
 const getRandomBytes = require('./get-random-bytes');
 const getLocalStorage = require('./get-local-storage');
 
-function createTransport(dc, crypto) {
-  return new Transport(dc, crypto);
+function createTransport(dc, crypto, proxy) {
+  return new Transport(dc, crypto, proxy);
 }
 
 const MTProto = makeMTProto({
