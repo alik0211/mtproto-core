@@ -30,7 +30,7 @@
   ],
   "main": "./envs/node/index.js",
   "engines": {
-    "node": ">=12"
+    "node": ">=18"
   },
   "scripts": {
     "start": "jest --watch",
