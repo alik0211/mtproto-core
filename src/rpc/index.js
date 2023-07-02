@@ -117,12 +117,8 @@ class RPC {
     deserializer.int32(); // msg_len
 
     const responsePQ = deserializer.predicate();
-    const {
-      pq,
-      nonce,
-      server_nonce,
-      server_public_key_fingerprints,
-    } = responsePQ;
+    const { pq, nonce, server_nonce, server_public_key_fingerprints } =
+      responsePQ;
 
     if (!bytesIsEqual(this.nonce, nonce)) {
       throw new Error('The nonce are not equal');
@@ -589,7 +585,7 @@ class RPC {
     };
 
     const serializer = new Serializer(builderMap.invokeWithLayer, {
-      layer: 139,
+      layer: 158,
       query: {
         _: 'initConnection',
         ...initConnectionParams,
