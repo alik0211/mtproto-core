@@ -27,14 +27,14 @@ const bodyById = new Map([
   [812830625, 'return this.gzip();'],
 ]);
 
-const typeIsVector = type =>
+const typeIsVector = (type) =>
   type.substring(0, 6).toLocaleLowerCase() === 'vector';
 
 const calcFlag = (name, type) => {
   const [left, flagType] = type.split('?');
-  const flagBit = +left.split('.')[1];
+  const [flagsName, flagBit] = left.split('.');
 
-  const condition = `result.flags & ${2 ** flagBit}`;
+  const condition = `result.${flagsName} & ${2 ** Number(flagBit)}`;
 
   let fnName = flagType;
   let args = [];
@@ -61,11 +61,10 @@ const calcFlag = (name, type) => {
 
 const parserMapLines = [];
 
-const paramsToLines = params => {
+const paramsToLines = (params) => {
   const paramsLines = [];
-  // https://core.telegram.org/constructor/config
-  params.forEach(param => {
-    // console.log(`param:`, param);
+
+  params.forEach((param) => {
     let fnName = param.type;
     let args = [];
 
@@ -104,7 +103,7 @@ const paramsToLines = params => {
   return paramsLines;
 };
 
-mtprotoSchema.constructors.forEach(constructor => {
+mtprotoSchema.constructors.forEach((constructor) => {
   const { predicate, params } = constructor;
 
   const id = constructor.id >>> 0;
@@ -120,7 +119,7 @@ mtprotoSchema.constructors.forEach(constructor => {
   parserMapLines.push(`  [${id}, function() {\n${body}\n  }],`);
 });
 
-apiSchema.constructors.forEach(constructor => {
+apiSchema.constructors.forEach((constructor) => {
   const { predicate, params } = constructor;
 
   const id = constructor.id >>> 0;

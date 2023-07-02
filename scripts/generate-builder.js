@@ -18,40 +18,49 @@ const aviableTypes = [
   'Bool',
 ];
 
-const typeIsVector = type =>
+const typeIsVector = (type) =>
   type.substring(0, 6).toLocaleLowerCase() === 'vector';
 
-const calcFlags = params => {
+const calcFlags = (name, params) => {
   const bitMap = [];
 
-  params.forEach(param => {
+  params.forEach((param) => {
     if (param.type.includes('?')) {
-      const count = param.type.split('?')[0].split('.')[1];
+      const [left] = param.type.split('?');
+      const [flagsName, count] = left.split('.');
+
+      if (flagsName !== name) {
+        return;
+      }
 
       bitMap.push(`(this.has(params.${param.name}) << ${count})`);
     }
   });
 
-  const flagsLine = `    const flags = ${bitMap.join(' | ')};`;
+  if (!bitMap.length) {
+    bitMap.push(0);
+  }
+
+  const flagsLine = `    const ${name} = ${bitMap.join(' | ')};`;
 
   return flagsLine;
 };
 
-const paramsToLines = params => {
+const paramsToLines = (params) => {
   const paramsLines = [];
 
-  params.forEach(param => {
+  params.forEach((param) => {
     let fnName = param.type;
     let args = [`params.${param.name}`];
 
     // Flags
     if (param.type === '#') {
-      const flagsLine = calcFlags(params);
+      const flagsLine = calcFlags(param.name, params);
 
       paramsLines.push(flagsLine);
 
       fnName = 'int32';
-      args = ['flags'];
+      args = [param.name];
     } else if (param.type.includes('?')) {
       let flagType = param.type.split('?')[1];
 
@@ -103,7 +112,7 @@ const paramsToLines = params => {
 
 const builderMapLines = [];
 
-mtprotoSchema.constructors.forEach(constructor => {
+mtprotoSchema.constructors.forEach((constructor) => {
   const { id, predicate, params } = constructor;
 
   const body = [`    this.int32(${id});`, ...paramsToLines(params)].join('\n');
@@ -113,7 +122,7 @@ mtprotoSchema.constructors.forEach(constructor => {
   );
 });
 
-mtprotoSchema.methods.forEach(method => {
+mtprotoSchema.methods.forEach((method) => {
   const { id, method: name, params } = method;
 
   const body = [`    this.int32(${id});`, ...paramsToLines(params)].join('\n');
@@ -121,7 +130,7 @@ mtprotoSchema.methods.forEach(method => {
   builderMapLines.push(`  'mt_${name}': function(params) {\n${body}\n  },`);
 });
 
-apiSchema.constructors.forEach(constructor => {
+apiSchema.constructors.forEach((constructor) => {
   const { id, predicate, params } = constructor;
 
   const body = [`    this.int32(${id});`, ...paramsToLines(params)].join('\n');
@@ -129,7 +138,7 @@ apiSchema.constructors.forEach(constructor => {
   builderMapLines.push(`  '${predicate}': function(params) {\n${body}\n  },`);
 });
 
-apiSchema.methods.forEach(method => {
+apiSchema.methods.forEach((method) => {
   const { id, method: name, params } = method;
 
   const body = [`    this.int32(${id});`, ...paramsToLines(params)].join('\n');
