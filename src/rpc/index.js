@@ -91,14 +91,32 @@ class RPC {
       this.isAuth = true;
       this.sendWaitMessages();
 
-      // This request is necessary to ensure that you start interacting with the server. If we have not made any request, the server will not send us updates.
-      this.call('help.getConfig')
-        .then((result) => {
-          // TODO: Handle config
-        })
-        .catch((error) => {
-          this.debug(`error when calling the method help.getConfig:`, error);
-        });
+      const updatesEvents = [
+        'updatesTooLong',
+        'updateShortMessage',
+        'updateShortChatMessage',
+        'updateShort',
+        'updatesCombined',
+        'updates',
+        'updateShortSentMessage'
+      ];
+
+      const newListenerHandler = async (event) => {
+        if (updatesEvents.includes(event)) {
+          this.context.updates.off('newListener', newListenerHandler);
+          try {
+            // This request will subscribe the connection to updates from telegram's server.
+            const state = await this.call('updates.getState');
+            this.context.updates.emit('updateState', state);
+          } catch (error) {
+            this.debug(`error when calling the method updates.getState:`, error);
+            // There was a problem getting state and subscribing to updates, so reattach the handler
+            this.context.updates.on('newListener', newListenerHandler);
+          }
+        }
+      }
+      this.context.updates.on('newListener', newListenerHandler);
+
     } else {
       this.nonce = this.crypto.getRandomBytes(16);
       this.handleMessage = this.handlePQResponse;
