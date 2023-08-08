@@ -1,11 +1,11 @@
 import RPC from './rpc';
 import { Error, Methods } from './tl/types/schema';
 
-type ReturnTypeMap<T extends Methods> = {
+type MethodReturnMap<T extends Methods> = {
   [K in keyof T]: T[K] extends { return: infer R } ? R : never;
 };
 
-type MTProtoCallOptions = {
+type MethodOptions = {
   syncAuth?: boolean;
   dcId?: number;
 };
@@ -31,12 +31,12 @@ declare class MTProto {
   call<T extends keyof Methods>(
     method: T,
     params: Methods[T]['params'],
-    options?: MTProtoCallOptions,
-  ): Promise<ReturnTypeMap<Methods>[T]>;
+    options?: MethodOptions,
+  ): Promise<MethodReturnMap<Methods>[T]>;
 
   syncAuth(
     dcId: number,
-  ): Promise<(ReturnTypeMap<Methods>['auth.importAuthorization'] | undefined)[]>;
+  ): Promise<(MethodReturnMap<Methods>['auth.importAuthorization'] | undefined)[]>;
 
   setDefaultDc(dcId: number): ReturnType<InstanceType<typeof CustomStorage>['set']>;
 
@@ -45,5 +45,5 @@ declare class MTProto {
   updateInitConnectionParams(params: Record<string, string>): void;
 }
 
-export { CustomStorage, Methods, Error as MTProtoError };
+export { CustomStorage, Methods, MethodReturnMap, MethodOptions, Error };
 export default MTProto;
