@@ -1,5 +1,5 @@
 import RPC from './rpc';
-import { Error, Methods } from './tl/types/schema';
+import { Methods } from './tl/types/schema';
 
 type MethodReturnMap<T extends Methods> = {
   [K in keyof T]: T[K] extends { return: infer R } ? R : never;
@@ -8,6 +8,12 @@ type MethodReturnMap<T extends Methods> = {
 type MethodOptions = {
   syncAuth?: boolean;
   dcId?: number;
+};
+
+type Error = {
+  _: string;
+  error_code: number;
+  error_message: string;
 };
 
 declare class CustomStorage {
@@ -26,11 +32,11 @@ declare class MTProto {
   });
 
   /**
-   * @throws {MTProtoError}
+   * @throws {Error}
    */
   call<T extends keyof Methods>(
     method: T,
-    params: Methods[T]['params'],
+    params?: Methods[T]['params'],
     options?: MethodOptions,
   ): Promise<MethodReturnMap<Methods>[T]>;
 
